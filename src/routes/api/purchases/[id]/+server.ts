@@ -6,12 +6,12 @@ export const GET: RequestHandler = async ({ params }) => {
 	try {
 		const service = purchaseService();
 		const purchase = await service.getById(params.id);
-		if (!purchase) throw error(404, { message: 'Purchase order not found' });
+		if (!purchase) throw error(404, { message: 'Purchasing request not found' });
 		return json(purchase);
 	} catch (e) {
 		if (e instanceof Error && 'status' in e) throw e;
 		console.error(e);
-		throw error(500, { message: 'Failed to load purchase order' });
+		throw error(500, { message: 'Failed to load purchasing request' });
 	}
 };
 
@@ -22,7 +22,7 @@ export const DELETE: RequestHandler = async ({ params }) => {
 
 		if (!result.success) {
 			return json(
-				{ message: 'Failed to delete purchase order', errors: result.errors },
+				{ message: 'Failed to delete purchasing request', errors: result.errors },
 				{ status: 400 }
 			);
 		}
@@ -31,6 +31,6 @@ export const DELETE: RequestHandler = async ({ params }) => {
 	} catch (e) {
 		if (e instanceof Error && 'status' in e) throw e;
 		console.error(e);
-		throw error(500, { message: 'Failed to delete purchase order' });
+		throw error(500, { message: 'Failed to delete purchasing request' });
 	}
 };

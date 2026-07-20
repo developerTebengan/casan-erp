@@ -11,5 +11,6 @@ export { default as Modal } from './Modal.svelte';
 export { default as Pagination } from './Pagination.svelte';
 export { default as Select } from './Select.svelte';
 export { default as Spinner } from './Spinner.svelte';
+export { default as Textarea } from './Textarea.svelte';
 export { default as Toast } from './Toast.svelte';
 export { default as ToastContainer } from './ToastContainer.svelte';

@@ -10,13 +10,29 @@ datasource db {
   provider = "postgresql"
 }
 
+enum UserRole {
+  ADMIN
+  USER
+  DEPARTMENT_HEAD
+  FINANCE
+  MANAGER
+  DIRECTOR
+
+  @@map("user_role")
+}
+
 model User {
   id        String   @id @default(uuid())
   name      String
   email     String   @unique
   password  String
-  role      String   @default("USER")
+  role      UserRole @default(USER)
   createdAt DateTime @default(now())
+
+  requests         Purchase[] @relation("Requester")
+  departmentHeadOf Purchase[] @relation("DepartmentHead")
+  financeApproverOf Purchase[] @relation("FinanceApprover")
+  finalApproverOf  Purchase[] @relation("FinalApprover")
 
   @@map("users")
 }
@@ -109,28 +125,54 @@ model StockTransaction {
 }
 
 model Purchase {
-  id           String         @id @default(uuid())
-  poNumber     String         @unique
-  supplierId   String
-  purchaseDate DateTime       @default(now())
-  status       PurchaseStatus @default(DRAFT)
-  total        Decimal        @default(0)
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  id                 String           @id @default(uuid())
+  prNumber           String           @unique
+  supplierId         String?
+  dateOfRequest      DateTime         @default(now())
+  priority           PurchasePriority @default(MEDIUM)
+  requesterId        String
+  dateRequired       DateTime
+  department         String
+  purpose            String
+  comments           String?
+  total              Decimal          @default(0)
+  departmentHeadStatus ApprovalStatus @default(PENDING)
+  financeStatus      ApprovalStatus   @default(PENDING)
+  finalStatus        ApprovalStatus   @default(PENDING)
+  approvalStatus     ApprovalStatus   @default(PENDING)
+  rejectionReason    String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
 
-  supplier      Supplier       @relation(fields: [supplierId], references: [id])
-  items         PurchaseItem[]
+  supplier         Supplier? @relation(fields: [supplierId], references: [id])
+  requester        User      @relation("Requester", fields: [requesterId], references: [id])
+  departmentHead   User?     @relation("DepartmentHead", fields: [departmentHeadId], references: [id])
+  financeApprover  User?     @relation("FinanceApprover", fields: [financeApproverId], references: [id])
+  finalApprover    User?     @relation("FinalApprover", fields: [finalApproverId], references: [id])
+  items            PurchaseItem[]
+
+  departmentHeadId String?
+  financeApproverId String?
+  finalApproverId  String?
 
   @@map("purchases")
 }
 
-enum PurchaseStatus {
-  DRAFT
-  ORDERED
-  RECEIVED
-  CANCELLED
+enum PurchasePriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
 
-  @@map("purchase_status")
+  @@map("purchase_priority")
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+
+  @@map("approval_status")
 }
 
 model PurchaseItem {
@@ -140,9 +182,10 @@ model PurchaseItem {
   qty        Int
   price      Decimal
   subtotal   Decimal
+  notes      String?
 
-  purchase   Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
-  product    Product  @relation(fields: [productId], references: [id])
+  purchase Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  product  Product  @relation(fields: [productId], references: [id])
 
   @@map("purchase_items")
 }

@@ -46,13 +46,17 @@ export async function getCurrentUser(cookies: Cookies): Promise<User | null> {
 	const [userId, signature] = cookie.split(':');
 	if (!userId || !signature || !verify(userId, signature)) return null;
 
-	const user = await db.user.findUnique({
-		where: { id: userId },
-		select: { id: true, name: true, email: true, role: true }
-	});
+	try {
+		const user = await db.user.findUnique({
+			where: { id: userId },
+			select: { id: true, name: true, email: true, role: true }
+		});
 
-	if (!user) return null;
-	return user;
+		return user;
+	} catch (error) {
+		console.error('getCurrentUser error:', error);
+		return null;
+	}
 }
 
 export async function requireAuth(cookies: Cookies): Promise<User> {

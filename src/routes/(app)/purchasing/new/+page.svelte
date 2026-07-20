@@ -20,7 +20,7 @@
 			});
 
 			if (res.ok) {
-				toastStore.success('Purchase order created successfully');
+				toastStore.success('Purchasing request created successfully');
 				goto('/purchasing');
 			} else {
 				const errorData = await res.json().catch(() => ({}));
@@ -30,7 +30,7 @@
 						Array.isArray(v) ? v[0] : String(v)
 					])
 				);
-				toastStore.error(errorData.message || 'Failed to create purchase order');
+				toastStore.error(errorData.message || 'Failed to create purchasing request');
 			}
 		} finally {
 			loading = false;
@@ -40,22 +40,23 @@
 
 <div class="space-y-6">
 	<Breadcrumb
-		items={[{ label: 'Purchasing', href: '/purchasing' }, { label: 'Create Purchase Order' }]}
+		items={[{ label: 'Purchasing Request', href: '/purchasing' }, { label: 'Create Purchasing Request' }]}
 	/>
 
 	<div>
-		<h1 class="text-main text-2xl font-bold sm:text-3xl">Create Purchase Order</h1>
-		<p class="text-muted">Create a new purchase order for your supplier</p>
+		<h1 class="text-main text-2xl font-bold sm:text-3xl">Create Purchasing Request</h1>
+		<p class="text-muted">Create a new purchasing request for your supplier</p>
 	</div>
 
 	<Card padding="lg">
 		<PurchaseForm
 			suppliers={data.suppliers}
 			products={data.products}
+				users={data.users}
 			onsubmit={handleSubmit}
 			{loading}
 			{errors}
-			submitLabel="Create PO"
+			submitLabel="Create PR"
 		/>
 	</Card>
 </div>

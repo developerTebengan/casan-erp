@@ -35,7 +35,7 @@
 			color: 'bg-primary-100 text-primary-700 dark:bg-primary-900/30'
 		},
 		{
-			label: 'Purchase Orders',
+			label: 'Purchasing Requests',
 			value: data?.stats.totalPurchaseOrders ?? 0,
 			icon: ShoppingCart,
 			color: 'bg-accent-100 text-accent-700 dark:bg-accent-900/30'

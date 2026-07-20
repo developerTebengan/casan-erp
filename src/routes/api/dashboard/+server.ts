@@ -22,11 +22,11 @@ export const GET: RequestHandler = async () => {
 
 		const monthlyMap = new Map<string, number>();
 		const allPurchases = await db.purchase.findMany({
-			select: { purchaseDate: true, total: true }
+			select: { dateOfRequest: true, total: true }
 		});
 
 		for (const p of allPurchases) {
-			const key = new Date(p.purchaseDate).toLocaleString('en-US', {
+			const key = new Date(p.dateOfRequest).toLocaleString('en-US', {
 				month: 'short',
 				year: 'numeric'
 			});
@@ -40,7 +40,7 @@ export const GET: RequestHandler = async () => {
 
 		const recentActivities: RecentActivity[] = purchases.map((p) => ({
 			id: p.id,
-			description: `Purchase order ${p.poNumber} created with ${p.supplier.name}`,
+			description: `Purchasing request ${p.prNumber} created with ${p.supplier?.name ?? 'no supplier'}`,
 			date: p.createdAt.toISOString(),
 			type: 'PURCHASE' as const
 		}));

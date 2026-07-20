@@ -24,12 +24,22 @@ export const actions: Actions = {
 			return fail(400, { errors, email });
 		}
 
-		const user = await db.user.findUnique({ where: { email } });
-		if (!user || !(await verifyPassword(password, user.password))) {
-			return fail(401, { errors: { form: 'Invalid email or password' }, email });
-		}
+		try {
+			const user = await db.user.findUnique({ where: { email } });
+			if (!user || !(await verifyPassword(password, user.password))) {
+				return fail(401, { errors: { form: 'Invalid email or password' }, email });
+			}
 
-		createSessionCookie(cookies, user.id);
-		throw redirect(303, '/dashboard');
+			createSessionCookie(cookies, user.id);
+			throw redirect(303, '/dashboard');
+		} catch (error) {
+			if (error && typeof error === 'object' && 'code' in error && error.code === 'ECONNREFUSED') {
+				return fail(503, {
+					errors: { form: 'Database connection failed. Please make sure PostgreSQL is running.' },
+					email
+				});
+			}
+			throw error;
+		}
 	}
 };

@@ -1,8 +1,10 @@
+export type UserRole = 'ADMIN' | 'USER' | 'DEPARTMENT_HEAD' | 'FINANCE' | 'MANAGER' | 'DIRECTOR';
+
 export interface User {
 	id: string;
 	name: string;
 	email: string;
-	role: string;
+	role: UserRole;
 }
 
 export interface Category {
@@ -35,7 +37,8 @@ export interface Product {
 	updatedAt: string;
 }
 
-export type PurchaseStatus = 'DRAFT' | 'ORDERED' | 'RECEIVED' | 'CANCELLED';
+export type PurchasePriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
 
 export interface PurchaseItem {
 	id: string;
@@ -45,15 +48,33 @@ export interface PurchaseItem {
 	qty: number;
 	price: number;
 	subtotal: number;
+	notes?: string | null;
 }
 
 export interface Purchase {
 	id: string;
-	poNumber: string;
-	supplierId: string;
-	supplier?: Supplier;
-	purchaseDate: string;
-	status: PurchaseStatus;
+	prNumber: string;
+	supplierId?: string | null;
+	supplier?: Supplier | null;
+	dateOfRequest: string;
+	priority: PurchasePriority;
+	requesterId: string;
+	requester?: User;
+	dateRequired: string;
+	department: string;
+	purpose: string;
+	comments?: string | null;
+	departmentHeadId?: string | null;
+	departmentHead?: User | null;
+	financeApproverId?: string | null;
+	financeApprover?: User | null;
+	finalApproverId?: string | null;
+	finalApprover?: User | null;
+	departmentHeadStatus: ApprovalStatus;
+	financeStatus: ApprovalStatus;
+	finalStatus: ApprovalStatus;
+	approvalStatus: ApprovalStatus;
+	rejectionReason?: string | null;
 	total: number;
 	items?: PurchaseItem[];
 	createdAt: string;

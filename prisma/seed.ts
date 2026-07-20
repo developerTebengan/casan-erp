@@ -1,5 +1,11 @@
+import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient, ProductStatus, PurchaseStatus } from '../generated/prisma/client';
+import {
+	PrismaClient,
+	ProductStatus,
+	PurchasePriority,
+	UserRole
+} from '../generated/prisma/client';
 import { Pool } from 'pg';
 import bcrypt from 'bcryptjs';
 
@@ -30,23 +36,56 @@ async function main() {
 
 	const password = await bcrypt.hash('password', 10);
 
-	await prisma.user.create({
-		data: {
-			name: 'Admin User',
-			email: 'admin@casanerp.com',
-			password,
-			role: 'ADMIN'
-		}
-	});
-
-	await prisma.user.create({
-		data: {
-			name: 'John Doe',
-			email: 'user@casanerp.com',
-			password,
-			role: 'USER'
-		}
-	});
+	const users = await Promise.all([
+		prisma.user.create({
+			data: {
+				name: 'Admin User',
+				email: 'admin@casanerp.com',
+				password,
+				role: UserRole.ADMIN
+			}
+		}),
+		prisma.user.create({
+			data: {
+				name: 'John Doe',
+				email: 'user@casanerp.com',
+				password,
+				role: UserRole.USER
+			}
+		}),
+		prisma.user.create({
+			data: {
+				name: 'Budi Santoso',
+				email: 'dept.head@casanerp.com',
+				password,
+				role: UserRole.DEPARTMENT_HEAD
+			}
+		}),
+		prisma.user.create({
+			data: {
+				name: 'Siti Aminah',
+				email: 'finance@casanerp.com',
+				password,
+				role: UserRole.FINANCE
+			}
+		}),
+		prisma.user.create({
+			data: {
+				name: 'Ahmad Wijaya',
+				email: 'manager@casanerp.com',
+				password,
+				role: UserRole.MANAGER
+			}
+		}),
+		prisma.user.create({
+			data: {
+				name: 'Dewi Kusuma',
+				email: 'director@casanerp.com',
+				password,
+				role: UserRole.DIRECTOR
+			}
+		})
+	]);
 
 	const suppliers = await Promise.all(
 		[
@@ -199,17 +238,24 @@ async function main() {
 		)
 	);
 
-	const statuses = [
-		PurchaseStatus.DRAFT,
-		PurchaseStatus.ORDERED,
-		PurchaseStatus.RECEIVED,
-		PurchaseStatus.CANCELLED
+	const priorities = [
+		PurchasePriority.LOW,
+		PurchasePriority.MEDIUM,
+		PurchasePriority.HIGH,
+		PurchasePriority.URGENT
 	];
+	const departments = ['Operations', 'IT', 'Finance', 'HR', 'Sales'];
 
 	for (let i = 1; i <= 20; i++) {
 		const supplier = suppliers[i % suppliers.length];
 		const itemCount = 1 + (i % 3);
-		const items: { productId: string; qty: number; price: number; subtotal: number }[] = [];
+		const items: {
+			productId: string;
+			qty: number;
+			price: number;
+			subtotal: number;
+			notes?: string;
+		}[] = [];
 		let total = 0;
 
 		for (let j = 0; j < itemCount; j++) {
@@ -218,15 +264,40 @@ async function main() {
 			const price = Number(product.purchasePrice);
 			const subtotal = qty * price;
 			total += subtotal;
-			items.push({ productId: product.id, qty, price, subtotal });
+			items.push({
+				productId: product.id,
+				qty,
+				price,
+				subtotal,
+				notes: j === 0 ? 'Main item for this request' : undefined
+			});
 		}
+
+		const requestDate = new Date(2026, i % 12, (i % 28) + 1);
+		const requiredDate = new Date(requestDate);
+		requiredDate.setDate(requiredDate.getDate() + 7);
+
+		const requester = users[i % users.length];
+		const departmentHead = users.find((u) => u.role === UserRole.DEPARTMENT_HEAD)!;
+		const financeApprover = users.find((u) => u.role === UserRole.FINANCE)!;
+		const finalApprover = users.find(
+			(u) => u.role === UserRole.MANAGER || u.role === UserRole.DIRECTOR
+		)!;
 
 		await prisma.purchase.create({
 			data: {
-				poNumber: `PO-2026-${String(i).padStart(3, '0')}`,
-				supplierId: supplier.id,
-				purchaseDate: new Date(2026, i % 12, (i % 28) + 1),
-				status: statuses[i % statuses.length],
+				prNumber: `PR-2026-${String(i).padStart(3, '0')}`,
+				supplierId: i % 3 === 0 ? null : supplier.id,
+				dateOfRequest: requestDate,
+				priority: priorities[i % priorities.length],
+				requesterId: requester.id,
+				dateRequired: requiredDate,
+				department: departments[i % departments.length],
+				purpose: `Procurement request for ${supplier.name}`,
+				comments: i % 4 === 0 ? 'Please process this request urgently' : undefined,
+				departmentHeadId: i % 5 === 0 ? null : departmentHead.id,
+				financeApproverId: i % 5 === 1 ? null : financeApprover.id,
+				finalApproverId: i % 5 === 2 ? null : finalApprover.id,
 				total,
 				items: {
 					create: items

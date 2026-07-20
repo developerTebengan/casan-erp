@@ -1,10 +1,11 @@
 import { db } from '$lib/server/db';
-import type { Purchase, PurchaseItem, PurchaseStatus } from '$lib/types';
+import type { Purchase, PurchasePriority, ApprovalStatus, UserRole } from '$lib/types';
 
 export interface PurchaseFilters {
 	search?: string;
 	supplierId?: string;
-	status?: PurchaseStatus;
+	priority?: PurchasePriority;
+	approvalStatus?: ApprovalStatus;
 	page?: number;
 	limit?: number;
 }
@@ -13,24 +14,34 @@ export interface PurchaseItemInput {
 	productId: string;
 	qty: number;
 	price: number;
+	notes?: string;
 }
 
 export interface PurchaseCreateInput {
-	poNumber: string;
-	supplierId: string;
-	purchaseDate: Date;
-	status: PurchaseStatus;
+	prNumber: string;
+	supplierId?: string | null;
+	dateOfRequest: Date;
+	priority: PurchasePriority;
+	requesterId: string;
+	dateRequired: Date;
+	department: string;
+	purpose: string;
+	comments?: string | null;
+	departmentHeadId?: string | null;
+	financeApproverId?: string | null;
+	finalApproverId?: string | null;
 	items: PurchaseItemInput[];
 }
 
 export function purchaseRepository() {
 	async function findAll(filters: PurchaseFilters = {}) {
-		const { search, supplierId, status, page = 1, limit = 10 } = filters;
+		const { search, supplierId, priority, approvalStatus, page = 1, limit = 10 } = filters;
 
 		const where: Record<string, unknown> = {};
-		if (search) where.poNumber = { contains: search, mode: 'insensitive' };
+		if (search) where.prNumber = { contains: search, mode: 'insensitive' };
 		if (supplierId) where.supplierId = supplierId;
-		if (status) where.status = status;
+		if (priority) where.priority = priority;
+		if (approvalStatus) where.approvalStatus = approvalStatus;
 
 		const skip = (page - 1) * limit;
 
@@ -40,7 +51,10 @@ export function purchaseRepository() {
 				skip,
 				take: limit,
 				orderBy: { createdAt: 'desc' },
-				include: { supplier: { select: { id: true, name: true } } }
+				include: {
+					supplier: { select: { id: true, name: true } },
+					requester: { select: { id: true, name: true, email: true, role: true } }
+				}
 			}),
 			db.purchase.count({ where })
 		]);
@@ -56,6 +70,10 @@ export function purchaseRepository() {
 			where: { id },
 			include: {
 				supplier: { select: { id: true, name: true, phone: true, address: true } },
+				requester: { select: { id: true, name: true, email: true, role: true } },
+				departmentHead: { select: { id: true, name: true, email: true, role: true } },
+				financeApprover: { select: { id: true, name: true, email: true, role: true } },
+				finalApprover: { select: { id: true, name: true, email: true, role: true } },
 				items: {
 					include: { product: { include: { category: { select: { name: true } } } } }
 				}
@@ -64,8 +82,8 @@ export function purchaseRepository() {
 		return purchase ? mapPurchase(purchase) : null;
 	}
 
-	async function findByPoNumber(poNumber: string) {
-		return db.purchase.findUnique({ where: { poNumber } });
+	async function findByPrNumber(prNumber: string) {
+		return db.purchase.findUnique({ where: { prNumber } });
 	}
 
 	async function create(input: PurchaseCreateInput) {
@@ -73,22 +91,35 @@ export function purchaseRepository() {
 
 		const purchase = await db.purchase.create({
 			data: {
-				poNumber: input.poNumber,
+				prNumber: input.prNumber,
 				supplierId: input.supplierId,
-				purchaseDate: input.purchaseDate,
-				status: input.status,
+				dateOfRequest: input.dateOfRequest,
+				priority: input.priority,
+				requesterId: input.requesterId,
+				dateRequired: input.dateRequired,
+				department: input.department,
+				purpose: input.purpose,
+				comments: input.comments,
+				departmentHeadId: input.departmentHeadId,
+				financeApproverId: input.financeApproverId,
+				finalApproverId: input.finalApproverId,
 				total,
 				items: {
 					create: input.items.map((item) => ({
 						productId: item.productId,
 						qty: item.qty,
 						price: item.price,
-						subtotal: item.qty * item.price
+						subtotal: item.qty * item.price,
+						notes: item.notes
 					}))
 				}
 			},
 			include: {
 				supplier: { select: { id: true, name: true } },
+				requester: { select: { id: true, name: true, email: true, role: true } },
+				departmentHead: { select: { id: true, name: true, email: true, role: true } },
+				financeApprover: { select: { id: true, name: true, email: true, role: true } },
+				finalApprover: { select: { id: true, name: true, email: true, role: true } },
 				items: {
 					include: { product: { include: { category: { select: { name: true } } } } }
 				}
@@ -98,48 +129,76 @@ export function purchaseRepository() {
 		return mapPurchase(purchase);
 	}
 
-	async function updateStockForPurchase(items: PurchaseItemInput[], action: 'add' | 'subtract') {
-		for (const item of items) {
-			const product = await db.product.findUnique({ where: { id: item.productId } });
-			if (product) {
-				const newStock = action === 'add' ? product.stock + item.qty : product.stock - item.qty;
-				await db.product.update({
-					where: { id: item.productId },
-					data: { stock: Math.max(0, newStock) }
-				});
-			}
-		}
-	}
-
 	async function remove(id: string) {
-		const purchase = await db.purchase.findUnique({
-			where: { id },
-			include: { items: true }
-		});
-		if (purchase && purchase.status === 'RECEIVED') {
-			await updateStockForPurchase(
-				purchase.items.map((i) => ({ productId: i.productId, qty: i.qty, price: Number(i.price) })),
-				'subtract'
-			);
-		}
 		await db.purchase.delete({ where: { id } });
 	}
 
-	return { findAll, findById, findByPoNumber, create, remove };
+	async function update(
+		id: string,
+		data: Partial<{
+			departmentHeadStatus: ApprovalStatus;
+			financeStatus: ApprovalStatus;
+			finalStatus: ApprovalStatus;
+			approvalStatus: ApprovalStatus;
+			rejectionReason: string | null;
+		}>
+	) {
+		const purchase = await db.purchase.update({
+			where: { id },
+			data,
+			include: {
+				supplier: { select: { id: true, name: true, phone: true, address: true } },
+				requester: { select: { id: true, name: true, email: true, role: true } },
+				departmentHead: { select: { id: true, name: true, email: true, role: true } },
+				financeApprover: { select: { id: true, name: true, email: true, role: true } },
+				finalApprover: { select: { id: true, name: true, email: true, role: true } },
+				items: {
+					include: { product: { include: { category: { select: { name: true } } } } }
+				}
+			}
+		});
+		return mapPurchase(purchase);
+	}
+
+	return { findAll, findById, findByPrNumber, create, remove, update };
+}
+
+function mapUser(
+	u: { id: string; name: string; email: string; role: string | UserRole } | null | undefined
+): { id: string; name: string; email: string; role: UserRole } | undefined {
+	if (!u) return undefined;
+	return { ...u, role: u.role as UserRole };
 }
 
 function mapPurchase(p: {
 	id: string;
-	poNumber: string;
-	supplierId: string;
+	prNumber: string;
+	supplierId: string | null;
 	supplier?: {
 		id: string;
 		name: string;
 		phone?: string | null | undefined;
 		address?: string | null | undefined;
 	} | null;
-	purchaseDate: Date;
-	status: string;
+	dateOfRequest: Date;
+	priority: string;
+	requesterId: string;
+	requester?: { id: string; name: string; email: string; role: string | UserRole } | null;
+	dateRequired: Date;
+	department: string;
+	purpose: string;
+	comments: string | null;
+	departmentHeadId: string | null;
+	departmentHead?: { id: string; name: string; email: string; role: string | UserRole } | null;
+	departmentHeadStatus?: string | ApprovalStatus;
+	financeApproverId: string | null;
+	financeApprover?: { id: string; name: string; email: string; role: string | UserRole } | null;
+	financeStatus?: string | ApprovalStatus;
+	finalApproverId: string | null;
+	finalApprover?: { id: string; name: string; email: string; role: string | UserRole } | null;
+	finalStatus?: string | ApprovalStatus;
+	approvalStatus?: string | ApprovalStatus;
+	rejectionReason?: string | null;
 	total: unknown;
 	createdAt: Date;
 	updatedAt: Date;
@@ -150,6 +209,7 @@ function mapPurchase(p: {
 		qty: number;
 		price: unknown;
 		subtotal: unknown;
+		notes: string | null;
 		product?: {
 			id: string;
 			code: string;
@@ -161,11 +221,28 @@ function mapPurchase(p: {
 }): Purchase {
 	return {
 		id: p.id,
-		poNumber: p.poNumber,
+		prNumber: p.prNumber,
 		supplierId: p.supplierId,
 		supplier: p.supplier ?? undefined,
-		purchaseDate: p.purchaseDate.toISOString(),
-		status: p.status as PurchaseStatus,
+		dateOfRequest: p.dateOfRequest.toISOString(),
+		priority: p.priority as PurchasePriority,
+		requesterId: p.requesterId,
+		requester: mapUser(p.requester),
+		dateRequired: p.dateRequired.toISOString(),
+		department: p.department,
+		purpose: p.purpose,
+		comments: p.comments,
+		departmentHeadId: p.departmentHeadId,
+		departmentHead: mapUser(p.departmentHead),
+		departmentHeadStatus: (p.departmentHeadStatus as ApprovalStatus) ?? 'PENDING',
+		financeApproverId: p.financeApproverId,
+		financeApprover: mapUser(p.financeApprover),
+		financeStatus: (p.financeStatus as ApprovalStatus) ?? 'PENDING',
+		finalApproverId: p.finalApproverId,
+		finalApprover: mapUser(p.finalApprover),
+		finalStatus: (p.finalStatus as ApprovalStatus) ?? 'PENDING',
+		approvalStatus: (p.approvalStatus as ApprovalStatus) ?? 'PENDING',
+		rejectionReason: p.rejectionReason,
 		total: Number(p.total),
 		createdAt: p.createdAt.toISOString(),
 		updatedAt: p.updatedAt.toISOString(),
@@ -194,7 +271,8 @@ function mapPurchase(p: {
 				: undefined,
 			qty: item.qty,
 			price: Number(item.price),
-			subtotal: Number(item.subtotal)
+			subtotal: Number(item.subtotal),
+			notes: item.notes
 		}))
 	};
 }

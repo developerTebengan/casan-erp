@@ -1,4 +1,7 @@
 -- CreateEnum
+CREATE TYPE "user_role" AS ENUM ('ADMIN', 'USER', 'DEPARTMENT_HEAD', 'FINANCE', 'MANAGER', 'DIRECTOR');
+
+-- CreateEnum
 CREATE TYPE "product_status" AS ENUM ('ACTIVE', 'INACTIVE');
 
 -- CreateEnum
@@ -8,7 +11,10 @@ CREATE TYPE "stock_transaction_type" AS ENUM ('IN', 'OUT', 'ADJUSTMENT');
 CREATE TYPE "stock_transaction_source" AS ENUM ('MANUAL', 'PURCHASE', 'SALES', 'ADJUSTMENT');
 
 -- CreateEnum
-CREATE TYPE "purchase_status" AS ENUM ('DRAFT', 'ORDERED', 'RECEIVED', 'CANCELLED');
+CREATE TYPE "purchase_priority" AS ENUM ('LOW', 'MEDIUM', 'HIGH', 'URGENT');
+
+-- CreateEnum
+CREATE TYPE "approval_status" AS ENUM ('PENDING', 'APPROVED', 'REJECTED');
 
 -- CreateTable
 CREATE TABLE "users" (
@@ -16,7 +22,7 @@ CREATE TABLE "users" (
     "name" TEXT NOT NULL,
     "email" TEXT NOT NULL,
     "password" TEXT NOT NULL,
-    "role" TEXT NOT NULL DEFAULT 'USER',
+    "role" "user_role" NOT NULL DEFAULT 'USER',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "users_pkey" PRIMARY KEY ("id")
@@ -82,13 +88,26 @@ CREATE TABLE "stock_transactions" (
 -- CreateTable
 CREATE TABLE "purchases" (
     "id" TEXT NOT NULL,
-    "poNumber" TEXT NOT NULL,
-    "supplierId" TEXT NOT NULL,
-    "purchaseDate" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "status" "purchase_status" NOT NULL DEFAULT 'DRAFT',
+    "prNumber" TEXT NOT NULL,
+    "supplierId" TEXT,
+    "dateOfRequest" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "priority" "purchase_priority" NOT NULL DEFAULT 'MEDIUM',
+    "requesterId" TEXT NOT NULL,
+    "dateRequired" TIMESTAMP(3) NOT NULL,
+    "department" TEXT NOT NULL,
+    "purpose" TEXT NOT NULL,
+    "comments" TEXT,
     "total" DECIMAL(65,30) NOT NULL DEFAULT 0,
+    "departmentHeadStatus" "approval_status" NOT NULL DEFAULT 'PENDING',
+    "financeStatus" "approval_status" NOT NULL DEFAULT 'PENDING',
+    "finalStatus" "approval_status" NOT NULL DEFAULT 'PENDING',
+    "approvalStatus" "approval_status" NOT NULL DEFAULT 'PENDING',
+    "rejectionReason" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "departmentHeadId" TEXT,
+    "financeApproverId" TEXT,
+    "finalApproverId" TEXT,
 
     CONSTRAINT "purchases_pkey" PRIMARY KEY ("id")
 );
@@ -101,6 +120,7 @@ CREATE TABLE "purchase_items" (
     "qty" INTEGER NOT NULL,
     "price" DECIMAL(65,30) NOT NULL,
     "subtotal" DECIMAL(65,30) NOT NULL,
+    "notes" TEXT,
 
     CONSTRAINT "purchase_items_pkey" PRIMARY KEY ("id")
 );
@@ -121,7 +141,7 @@ CREATE INDEX "stock_transactions_productId_idx" ON "stock_transactions"("product
 CREATE INDEX "stock_transactions_createdAt_idx" ON "stock_transactions"("createdAt");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "purchases_poNumber_key" ON "purchases"("poNumber");
+CREATE UNIQUE INDEX "purchases_prNumber_key" ON "purchases"("prNumber");
 
 -- AddForeignKey
 ALTER TABLE "products" ADD CONSTRAINT "products_categoryId_fkey" FOREIGN KEY ("categoryId") REFERENCES "categories"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -130,7 +150,19 @@ ALTER TABLE "products" ADD CONSTRAINT "products_categoryId_fkey" FOREIGN KEY ("c
 ALTER TABLE "stock_transactions" ADD CONSTRAINT "stock_transactions_productId_fkey" FOREIGN KEY ("productId") REFERENCES "products"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "purchases" ADD CONSTRAINT "purchases_supplierId_fkey" FOREIGN KEY ("supplierId") REFERENCES "suppliers"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "purchases" ADD CONSTRAINT "purchases_supplierId_fkey" FOREIGN KEY ("supplierId") REFERENCES "suppliers"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "purchases" ADD CONSTRAINT "purchases_requesterId_fkey" FOREIGN KEY ("requesterId") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "purchases" ADD CONSTRAINT "purchases_departmentHeadId_fkey" FOREIGN KEY ("departmentHeadId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "purchases" ADD CONSTRAINT "purchases_financeApproverId_fkey" FOREIGN KEY ("financeApproverId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "purchases" ADD CONSTRAINT "purchases_finalApproverId_fkey" FOREIGN KEY ("finalApproverId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "purchase_items" ADD CONSTRAINT "purchase_items_purchaseId_fkey" FOREIGN KEY ("purchaseId") REFERENCES "purchases"("id") ON DELETE CASCADE ON UPDATE CASCADE;

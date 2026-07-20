@@ -102,32 +102,5 @@ export function stockTransactionService() {
 		return { success: true, data: tx };
 	}
 
-	async function createFromPurchase(
-		productId: string,
-		qty: number,
-		referenceId: string,
-		note?: string,
-		createdBy?: string | null
-	) {
-		const product = await db.product.findUnique({ where: { id: productId } });
-		if (!product) return;
-
-		const stockAfter = product.stock + qty;
-
-		await repo.create({
-			productId: product.id,
-			type: 'IN',
-			source: 'PURCHASE',
-			referenceId,
-			qty,
-			stockBefore: product.stock,
-			stockAfter,
-			note: note || `Stock in from purchase order ${referenceId}`,
-			createdBy
-		});
-
-		await db.product.update({ where: { id: product.id }, data: { stock: stockAfter } });
-	}
-
-	return { list, getById, create, createFromPurchase, validate };
+	return { list, getById, create, validate };
 }

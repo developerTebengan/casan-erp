@@ -2,8 +2,10 @@
 	import {
 		LayoutDashboard,
 		Package,
+		Truck,
 		ShoppingCart,
 		Settings,
+		Users,
 		LogOut,
 		ArrowLeftRight
 	} from '@lucide/svelte';
@@ -22,7 +24,9 @@
 		{ label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
 		{ label: 'Inventory', href: '/inventory', icon: Package },
 		{ label: 'Stock Movement', href: '/stock', icon: ArrowLeftRight },
-		{ label: 'Purchasing', href: '/purchasing', icon: ShoppingCart },
+		{ label: 'Suppliers', href: '/suppliers', icon: Truck },
+		{ label: 'Purchasing Request', href: '/purchasing', icon: ShoppingCart },
+		{ label: 'Users', href: '/users', icon: Users },
 		{ label: 'Settings', href: '/settings', icon: Settings }
 	];
 

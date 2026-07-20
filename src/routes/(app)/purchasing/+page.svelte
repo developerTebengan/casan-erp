@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { Plus, Trash2, FileText } from '@lucide/svelte';
+	import { Plus, Trash2 } from '@lucide/svelte';
 	import {
 		Card,
 		Button,
@@ -27,17 +27,17 @@
 	let suppliers = $state<Supplier[]>(untrack(() => data.suppliers));
 	let search = $state('');
 	let supplierId = $state('');
-	let status = $state('');
+	let priority = $state('');
 	let loading = $state(false);
 	let deleteId = $state<string | null>(null);
 	let deleting = $state(false);
 
-	const statusOptions = [
-		{ value: '', label: 'All Status' },
-		{ value: 'DRAFT', label: 'Draft' },
-		{ value: 'ORDERED', label: 'Ordered' },
-		{ value: 'RECEIVED', label: 'Received' },
-		{ value: 'CANCELLED', label: 'Cancelled' }
+	const priorityOptions = [
+		{ value: '', label: 'All Priorities' },
+		{ value: 'LOW', label: 'Low' },
+		{ value: 'MEDIUM', label: 'Medium' },
+		{ value: 'HIGH', label: 'High' },
+		{ value: 'URGENT', label: 'Urgent' }
 	];
 
 	const supplierOptions = $derived([
@@ -51,7 +51,7 @@
 			const params = new URLSearchParams();
 			if (search) params.set('search', search);
 			if (supplierId) params.set('supplierId', supplierId);
-			if (status) params.set('status', status);
+			if (priority) params.set('priority', priority);
 			params.set('page', String(page));
 			params.set('limit', '10');
 
@@ -76,10 +76,10 @@
 		try {
 			const res = await fetch(`/api/purchases/${deleteId}`, { method: 'DELETE' });
 			if (res.ok) {
-				toastStore.success('Purchase order deleted successfully');
+				toastStore.success('Purchasing request deleted successfully');
 				await loadPurchases(pagination.page);
 			} else {
-				toastStore.error('Failed to delete purchase order');
+				toastStore.error('Failed to delete purchasing request');
 			}
 		} finally {
 			deleting = false;
@@ -87,14 +87,14 @@
 		}
 	}
 
-	function statusBadge(p: Purchase) {
+	function priorityBadge(p: Purchase) {
 		const variants: Record<string, string> = {
-			DRAFT: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300',
-			ORDERED: 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300',
-			RECEIVED: 'bg-success-100 text-success-700 dark:bg-success-900/30 dark:text-success-300',
-			CANCELLED: 'bg-danger-100 text-danger-700 dark:bg-danger-900/30 dark:text-danger-300'
+			LOW: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300',
+			MEDIUM: 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300',
+			HIGH: 'bg-warning-100 text-warning-700 dark:bg-warning-900/30 dark:text-warning-300',
+			URGENT: 'bg-danger-100 text-danger-700 dark:bg-danger-900/30 dark:text-danger-300'
 		};
-		return `<span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${variants[p.status]}">${p.status}</span>`;
+		return `<span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${variants[p.priority]}">${p.priority}</span>`;
 	}
 
 	function actionsCell(p: Purchase) {
@@ -111,10 +111,10 @@
 	}
 
 	const columns = [
-		{ key: 'poNumber', header: 'PO Number' },
+		{ key: 'prNumber', header: 'PR Number' },
 		{ key: 'supplier', header: 'Supplier', cell: (p: Purchase) => p.supplier?.name ?? '-' },
-		{ key: 'purchaseDate', header: 'Date', cell: (p: Purchase) => formatDate(p.purchaseDate) },
-		{ key: 'status', header: 'Status', cell: statusBadge },
+		{ key: 'dateOfRequest', header: 'Date of Request', cell: (p: Purchase) => formatDate(p.dateOfRequest) },
+		{ key: 'priority', header: 'Priority', cell: priorityBadge },
 		{ key: 'total', header: 'Total', cell: (p: Purchase) => formatCurrency(p.total) },
 		{ key: 'actions', header: '', cell: actionsCell }
 	];
@@ -135,16 +135,16 @@
 </script>
 
 <div class="space-y-6">
-	<Breadcrumb items={[{ label: 'Purchasing' }]} />
+	<Breadcrumb items={[{ label: 'Purchasing Request' }]} />
 
 	<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 		<div>
-			<h1 class="text-main text-2xl font-bold sm:text-3xl">Purchase Orders</h1>
-			<p class="text-muted">Manage your purchase orders and supplier transactions</p>
+			<h1 class="text-main text-2xl font-bold sm:text-3xl">Purchasing Requests</h1>
+			<p class="text-muted">Manage your purchasing requests and supplier transactions</p>
 		</div>
 		<Button href="/purchasing/new" variant="primary">
 			<Plus class="h-4 w-4" />
-			Create PO
+			Create PR
 		</Button>
 	</div>
 
@@ -153,7 +153,7 @@
 			<div class="flex-1">
 				<Input
 					label="Search"
-					placeholder="Search by PO number..."
+					placeholder="Search by PR number..."
 					bind:value={search}
 					oninput={handleSearch}
 				/>
@@ -166,9 +166,9 @@
 					onchange={handleSearch}
 				/>
 				<Select
-					label="Status"
-					options={statusOptions}
-					bind:value={status}
+					label="Priority"
+					options={priorityOptions}
+					bind:value={priority}
 					onchange={handleSearch}
 				/>
 			</div>
@@ -181,12 +181,12 @@
 		</div>
 	{:else if purchases.length === 0}
 		<EmptyState
-			title="No purchase orders found"
-			description="Start by creating a new purchase order."
+			title="No purchasing requests found"
+			description="Start by creating a new purchasing request."
 		>
 			<Button href="/purchasing/new" variant="primary">
 				<Plus class="h-4 w-4" />
-				Create PO
+				Create PR
 			</Button>
 		</EmptyState>
 	{:else}
@@ -196,8 +196,8 @@
 
 	<ConfirmDialog
 		open={!!deleteId}
-		title="Delete Purchase Order"
-		message="Are you sure you want to delete this purchase order? This action cannot be undone."
+		title="Delete Purchasing Request"
+		message="Are you sure you want to delete this purchasing request? This action cannot be undone."
 		confirmText="Delete"
 		loading={deleting}
 		onconfirm={handleDelete}
