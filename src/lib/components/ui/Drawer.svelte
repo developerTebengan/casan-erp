@@ -47,7 +47,7 @@
 					<h2 class="text-main text-lg font-semibold">{title ?? ''}</h2>
 					<button
 						type="button"
-						class="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
+						class="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-slate-100"
 						onclick={onclose}
 						aria-label="Close drawer"
 					>

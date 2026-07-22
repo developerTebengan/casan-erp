@@ -23,12 +23,12 @@
 	class={classNames('border-theme bg-card overflow-hidden rounded-xl border shadow-sm', className)}
 >
 	<div class="overflow-x-auto">
-		<table class="w-full min-w-[640px]">
-			<thead class="bg-slate-50 dark:bg-slate-800/50">
+		<table class="w-full min-w-160">
+			<thead class="bg-slate-50 dark:bg-slate-400/50">
 				<tr>
 					{#each columns as column}
 						<th
-							class="px-6 py-3 text-left text-xs font-semibold tracking-wider text-slate-500 uppercase dark:text-slate-400"
+							class="text-muted px-6 py-3 text-left text-xs font-semibold tracking-wider uppercase"
 						>
 							{column.header}
 						</th>
@@ -51,7 +51,7 @@
 						<tr
 							class={classNames(
 								'transition-colors',
-								onrowclick ? 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50' : ''
+								onrowclick ? 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-200/50' : ''
 							)}
 							onclick={(e) => onrowclick?.(row, e)}
 						>

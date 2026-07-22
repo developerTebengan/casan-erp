@@ -88,16 +88,16 @@
 	function statusBadge(p: Product) {
 		const classes =
 			p.status === 'ACTIVE'
-				? 'bg-success-100 text-success-700 dark:bg-success-900/30 dark:text-success-300'
-				: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300';
+				? 'bg-success-100 text-success-700 dark:bg-success-900/30 dark:text-success-600'
+				: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-600';
 		return `<span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${classes}">${p.status}</span>`;
 	}
 
 	function stockBadge(p: Product) {
 		const isLow = p.stock <= p.minimumStock;
 		const classes = isLow
-			? 'bg-danger-100 text-danger-700 dark:bg-danger-900/30 dark:text-danger-300'
-			: 'bg-success-100 text-success-700 dark:bg-success-900/30 dark:text-success-300';
+			? 'bg-danger-100 text-danger-700 dark:bg-danger-900/30 dark:text-danger-600'
+			: 'bg-success-100 text-success-700 dark:bg-success-900/30 dark:text-success-600';
 		return `<span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${classes}">${formatNumber(p.stock)} ${p.unit}</span>`;
 	}
 

@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import Chart from 'chart.js/auto';
+	import { themeStore } from '$lib/stores/theme.svelte';
 
 	interface Props {
 		labels: string[];
@@ -13,7 +14,10 @@
 	let canvas: HTMLCanvasElement;
 	let chart: Chart;
 
-	onMount(() => {
+	const gridColor = $derived(themeStore.value === 'dark' ? 'rgba(148, 163, 184, 0.15)' : 'rgba(148, 163, 184, 0.2)');
+	const tickColor = $derived(themeStore.value === 'dark' ? '#94a3b8' : '#64748b');
+
+	function createChart() {
 		chart = new Chart(canvas, {
 			type: 'bar',
 			data: {
@@ -39,20 +43,40 @@
 				scales: {
 					y: {
 						beginAtZero: true,
-						grid: { color: 'rgba(148, 163, 184, 0.2)' },
-						ticks: { color: '#64748b' }
+						grid: { color: gridColor },
+						ticks: { color: tickColor }
 					},
 					x: {
 						grid: { display: false },
-						ticks: { color: '#64748b' }
+						ticks: { color: tickColor }
 					}
 				}
 			}
 		});
+	}
+
+	onMount(() => {
+		createChart();
 	});
 
 	onDestroy(() => {
 		chart?.destroy();
+	});
+
+	$effect(() => {
+		if (!chart) return;
+		chart.options.scales = {
+			y: {
+				beginAtZero: true,
+				grid: { color: gridColor },
+				ticks: { color: tickColor }
+			},
+			x: {
+				grid: { display: false },
+				ticks: { color: tickColor }
+			}
+		};
+		chart.update('none');
 	});
 </script>
 

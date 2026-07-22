@@ -75,7 +75,7 @@
 				</div>
 
 				{#if form?.errors?.form}
-					<p class="dark:bg-danger-900/20 rounded-lg bg-danger-50 p-3 text-sm text-danger-600">
+					<p class="rounded-lg bg-danger-50 p-3 text-sm text-danger-600 dark:bg-danger-900/20 dark:text-danger-400">
 						{form.errors.form}
 					</p>
 				{/if}

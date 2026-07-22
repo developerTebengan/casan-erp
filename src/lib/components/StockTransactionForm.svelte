@@ -85,7 +85,7 @@
 	</div>
 
 	{#if selectedProduct}
-		<div class="rounded-lg bg-slate-50 p-4 text-sm dark:bg-slate-800/50">
+		<div class="rounded-lg p-4 text-sm bg-card-secondary">
 			<p class="text-muted">Current stock for selected product</p>
 			<p class="text-main text-lg font-semibold">
 				{selectedProduct.stock.toLocaleString('id-ID')}

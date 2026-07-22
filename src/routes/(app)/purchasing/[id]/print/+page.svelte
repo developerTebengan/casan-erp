@@ -79,7 +79,9 @@
 		<h2 class="mb-2 text-sm font-bold tracking-wide text-slate-800 uppercase">
 			Request Information
 		</h2>
-		<div class="grid grid-cols-2 gap-0 border border-slate-800 text-sm md:grid-cols-3">
+		<div
+			class="grid grid-cols-2 gap-0 border border-slate-800 text-sm text-slate-800 md:grid-cols-3"
+		>
 			<div class="border-r border-b border-slate-300 bg-slate-50 p-2 font-semibold">PR Number</div>
 			<div class="border-b border-slate-300 p-2 md:col-span-2">{purchase.prNumber}</div>
 
@@ -120,7 +122,9 @@
 		<h2 class="mb-2 text-sm font-bold tracking-wide text-slate-800 uppercase">
 			Supplier Information
 		</h2>
-		<div class="grid grid-cols-2 gap-0 border border-slate-800 text-sm md:grid-cols-3">
+		<div
+			class="grid grid-cols-2 gap-0 border border-slate-800 text-sm text-slate-800 md:grid-cols-3"
+		>
 			<div class="border-r border-b border-slate-300 bg-slate-50 p-2 font-semibold">
 				Supplier Name
 			</div>
@@ -141,7 +145,7 @@
 	<!-- Items -->
 	<section class="mb-6">
 		<h2 class="mb-2 text-sm font-bold tracking-wide text-slate-800 uppercase">Items</h2>
-		<table class="w-full border-collapse border border-slate-800 text-sm">
+		<table class="w-full border-collapse border border-slate-800 text-sm text-slate-800">
 			<thead>
 				<tr class="bg-slate-50">
 					<th class="border border-slate-300 px-2 py-2 text-left">No</th>
@@ -190,7 +194,7 @@
 	</section>
 
 	<!-- Purpose / Reason -->
-	<section class="mb-6">
+	<section class="mb-6 text-slate-800">
 		<h2 class="mb-2 text-sm font-bold tracking-wide text-slate-800 uppercase">
 			Purpose / Reason for Request
 		</h2>
@@ -199,18 +203,8 @@
 		</div>
 	</section>
 
-	<!-- Comments / Special Instructions -->
-	<section class="mb-6">
-		<h2 class="mb-2 text-sm font-bold tracking-wide text-slate-800 uppercase">
-			Comments or Special Instructions
-		</h2>
-		<div class="min-h-[4rem] border border-slate-800 p-3 text-sm">
-			{purchase.comments || '-'}
-		</div>
-	</section>
-
 	<!-- Approvals -->
-	<section class="mb-6">
+	<section class="mb-6 text-slate-800">
 		<h2 class="mb-2 text-sm font-bold tracking-wide text-slate-800 uppercase">Approvals</h2>
 		<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
 			{#each approvals as approval (approval.label)}
@@ -242,6 +236,16 @@
 					</div>
 				</div>
 			{/each}
+		</div>
+	</section>
+
+	<!-- Comments / Special Instructions -->
+	<section class="mb-6 text-slate-800">
+		<h2 class="mb-2 text-sm font-bold tracking-wide text-slate-800 uppercase">
+			Comments or Special Instructions
+		</h2>
+		<div class="min-h-[4rem] border border-slate-800 p-3 text-sm">
+			{purchase.comments || '-'}
 		</div>
 	</section>
 </div>

@@ -25,4 +25,19 @@ const authHandle: Handle = async ({ event, resolve }) => {
 	return resolve(event);
 };
 
-export const handle = sequence(authHandle);
+const themeHandle: Handle = async ({ event, resolve }) => {
+	const theme = event.cookies.get('casan-theme');
+	event.locals.theme = theme === 'dark' ? 'dark' : 'light';
+
+	return resolve(event, {
+		transformPageChunk({ html, done }) {
+			if (!done) return html;
+			if (event.locals.theme === 'dark') {
+				return html.replace('<html', '<html class="dark"');
+			}
+			return html;
+		}
+	});
+};
+
+export const handle = sequence(authHandle, themeHandle);

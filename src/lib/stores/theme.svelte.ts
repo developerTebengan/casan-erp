@@ -1,16 +1,17 @@
 const THEME_KEY = 'casan-theme';
+const THEME_COOKIE = 'casan-theme';
 
 type Theme = 'light' | 'dark';
 
 function createThemeStore() {
 	let theme = $state<Theme>('light');
 
-	function init() {
-		if (typeof window === 'undefined') return;
-		const stored = localStorage.getItem(THEME_KEY) as Theme | null;
-		const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-		theme = stored ?? (prefersDark ? 'dark' : 'light');
-		apply(theme);
+	function setCookie(value: Theme) {
+		try {
+			document.cookie = `${THEME_COOKIE}=${value};path=/;max-age=${60 * 60 * 24 * 365};SameSite=Lax`;
+		} catch {
+			// noop
+		}
 	}
 
 	function apply(value: Theme) {
@@ -22,6 +23,16 @@ function createThemeStore() {
 			root.classList.remove('dark');
 		}
 		localStorage.setItem(THEME_KEY, value);
+		setCookie(value);
+	}
+
+	function init() {
+		if (typeof window === 'undefined') return;
+		const stored = localStorage.getItem(THEME_KEY) as Theme | null;
+		const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+		const value = stored ?? (prefersDark ? 'dark' : 'light');
+		theme = value;
+		apply(value);
 	}
 
 	function toggle() {
@@ -31,17 +42,19 @@ function createThemeStore() {
 
 	function set(value: Theme) {
 		theme = value;
-		apply(theme);
+		apply(value);
 	}
 
-	return {
+	const store = $state({
 		get value() {
 			return theme;
 		},
 		init,
 		toggle,
 		set
-	};
+	});
+
+	return store;
 }
 
 export const themeStore = createThemeStore();

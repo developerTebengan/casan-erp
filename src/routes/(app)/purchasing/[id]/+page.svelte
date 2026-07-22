@@ -91,7 +91,7 @@
 		<Card class="lg:col-span-2" padding="lg">
 			<div class="mb-6 flex items-start justify-between">
 				<div class="flex items-center gap-4">
-					<div class="rounded-2xl bg-primary-100 p-4 text-primary-700 dark:bg-primary-900/30">
+					<div class="rounded-2xl bg-primary-100 p-4 text-primary-700 dark:bg-primary-300/30 dark:text-primary-300">
 						<FileText class="h-8 w-8" />
 					</div>
 					<div>
@@ -105,8 +105,8 @@
 			</div>
 
 			<div class="mb-6 grid gap-4 sm:grid-cols-2">
-				<div class="flex items-center gap-3 rounded-lg bg-slate-50 p-4 dark:bg-slate-800/50">
-					<div class="text-accent-700 dark:bg-accent-900/30 rounded-lg bg-accent-100 p-2">
+				<div class="flex items-center gap-3 rounded-lg p-4 bg-card-secondary">
+					<div class="rounded-lg bg-accent-100 p-2 text-accent-700 dark:bg-accent-900/30 dark:text-accent-300">
 						<Truck class="h-5 w-5" />
 					</div>
 					<div>
@@ -114,8 +114,8 @@
 						<p class="text-main font-semibold">{purchase.supplier?.name ?? 'Not specified'}</p>
 					</div>
 				</div>
-				<div class="flex items-center gap-3 rounded-lg bg-slate-50 p-4 dark:bg-slate-800/50">
-					<div class="text-warning-700 dark:bg-warning-900/30 rounded-lg bg-warning-100 p-2">
+				<div class="flex items-center gap-3 rounded-lg p-4 bg-card-secondary">
+					<div class="rounded-lg bg-warning-100 p-2 text-warning-700 dark:bg-warning-900/30 dark:text-warning-500">
 						<Calendar class="h-5 w-5" />
 					</div>
 					<div>
@@ -123,8 +123,8 @@
 						<p class="text-main font-semibold">{formatDate(purchase.dateRequired)}</p>
 					</div>
 				</div>
-				<div class="flex items-center gap-3 rounded-lg bg-slate-50 p-4 dark:bg-slate-800/50">
-					<div class="text-success-700 dark:bg-success-900/30 rounded-lg bg-success-100 p-2">
+				<div class="flex items-center gap-3 rounded-lg p-4 bg-card-secondary">
+					<div class="rounded-lg bg-success-100 p-2 text-success-700 dark:bg-success-900/30 dark:text-success-600">
 						<Building class="h-5 w-5" />
 					</div>
 					<div>
@@ -132,8 +132,8 @@
 						<p class="text-main font-semibold">{purchase.department}</p>
 					</div>
 				</div>
-				<div class="flex items-center gap-3 rounded-lg bg-slate-50 p-4 dark:bg-slate-800/50">
-					<div class="rounded-lg bg-primary-100 p-2 text-primary-700 dark:bg-primary-900/30">
+				<div class="flex items-center gap-3 rounded-lg p-4 bg-card-secondary">
+					<div class="rounded-lg bg-red-100 p-2 text-primary-700 dark:bg-primary-300/30 dark:text-primary-300">
 						<User class="h-5 w-5" />
 					</div>
 					<div>
@@ -144,7 +144,7 @@
 			</div>
 
 			{#if purchase.purpose}
-				<div class="mb-6 flex items-start gap-3 rounded-lg bg-slate-50 p-4 dark:bg-slate-800/50">
+				<div class="mb-6 flex items-start gap-3 rounded-lg p-4 bg-card-secondary">
 					<div
 						class="rounded-lg bg-slate-200 p-2 text-slate-700 dark:bg-slate-700 dark:text-slate-300"
 					>
@@ -158,7 +158,7 @@
 			{/if}
 
 			{#if purchase.comments}
-				<div class="mb-6 flex items-start gap-3 rounded-lg bg-slate-50 p-4 dark:bg-slate-800/50">
+				<div class="mb-6 flex items-start gap-3 rounded-lg p-4 bg-card-secondary">
 					<div
 						class="rounded-lg bg-slate-200 p-2 text-slate-700 dark:bg-slate-700 dark:text-slate-300"
 					>

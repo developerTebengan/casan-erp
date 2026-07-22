@@ -49,8 +49,8 @@
 				class={classNames(
 					'flex items-center gap-3 rounded-lg px-4 py-3 text-sm font-medium transition-colors',
 					isActive
-						? 'bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-300'
-						: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white'
+						? 'bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-500'
+						: 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-white'
 				)}
 			>
 				<item.icon class="h-5 w-5" />

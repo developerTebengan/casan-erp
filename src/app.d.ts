@@ -10,6 +10,7 @@ declare global {
 		}
 		interface Locals {
 			user: User | null;
+			theme: 'light' | 'dark';
 		}
 		// interface PageData {}
 		// interface PageState {}

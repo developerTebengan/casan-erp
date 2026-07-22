@@ -10,11 +10,11 @@
 	let { variant = 'secondary', size = 'sm', children }: Props = $props();
 
 	const variants = {
-		primary: 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300',
-		success: 'bg-success-100 text-success-700 dark:bg-success-900/30 dark:text-success-300',
-		warning: 'bg-warning-100 text-warning-700 dark:bg-warning-900/30 dark:text-warning-300',
-		danger: 'bg-danger-100 text-danger-700 dark:bg-danger-900/30 dark:text-danger-300',
-		secondary: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
+		primary: 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-600',
+		success: 'bg-success-100 text-success-700 dark:bg-success-900/30 dark:text-success-600',
+		warning: 'bg-warning-100 text-warning-700 dark:bg-warning-900/30 dark:text-warning-600',
+		danger: 'bg-danger-100 text-danger-700 dark:bg-danger-900/30 dark:text-danger-600',
+		secondary: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-100'
 	};
 
 	const sizes = {
