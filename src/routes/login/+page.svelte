@@ -62,7 +62,7 @@
 					/>
 					<button
 						type="button"
-						class="absolute top-[31px] right-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+						class="absolute top-[38px] right-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
 						onclick={() => (showPassword = !showPassword)}
 						aria-label="Toggle password visibility"
 					>
@@ -75,7 +75,9 @@
 				</div>
 
 				{#if form?.errors?.form}
-					<p class="rounded-lg bg-danger-50 p-3 text-sm text-danger-600 dark:bg-danger-900/20 dark:text-danger-400">
+					<p
+						class="dark:bg-danger-900/20 dark:text-danger-400 rounded-lg bg-danger-50 p-3 text-sm text-danger-600"
+					>
 						{form.errors.form}
 					</p>
 				{/if}

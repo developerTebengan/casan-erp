@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { invalidateAll } from '$app/navigation';
 	import {
 		ArrowLeft,
 		FileText,
@@ -8,14 +9,24 @@
 		Building,
 		AlertCircle,
 		MessageSquare,
-		Printer
+		Printer,
+		Check,
+		X
 	} from '@lucide/svelte';
-	import { Card, Breadcrumb, Badge, Button, DataTable } from '$lib/components/ui';
+	import { Card, Breadcrumb, Badge, Button, DataTable, Modal, Textarea } from '$lib/components/ui';
+	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatCurrency, formatDate } from '$lib/utils/format';
-	import type { PurchaseItem, ApprovalStatus } from '$lib/types';
+	import type { PurchaseItem, ApprovalStatus, User as UserType } from '$lib/types';
 
 	let { data } = $props();
 	const purchase = $derived(data.purchase);
+	const currentUser = $derived(data.user);
+
+	let loading = $state(false);
+	let rejectModalOpen = $state(false);
+	let rejectLevel = $state<'departmentHead' | 'finance' | 'final' | null>(null);
+	let rejectReason = $state('');
+	let rejectError = $state('');
 
 	const itemColumns = [
 		{ key: 'product', header: 'Product', cell: (item: PurchaseItem) => item.product?.name ?? '-' },
@@ -47,6 +58,30 @@
 					: 'secondary'
 	);
 
+	const approvalLevels = $derived([
+		{
+			key: 'departmentHead' as const,
+			label: 'Department Head',
+			user: purchase.departmentHead,
+			status: purchase.departmentHeadStatus,
+			date: purchase.departmentHeadApprovedAt
+		},
+		{
+			key: 'finance' as const,
+			label: 'Finance Department',
+			user: purchase.financeApprover,
+			status: purchase.financeStatus,
+			date: purchase.financeApprovedAt
+		},
+		{
+			key: 'final' as const,
+			label: 'Final Approval',
+			user: purchase.finalApprover,
+			status: purchase.finalStatus,
+			date: purchase.finalApprovedAt
+		}
+	]);
+
 	function approverName(user: { name: string; role: string } | null | undefined) {
 		if (!user) return 'Not assigned';
 		return `${user.name} (${user.role})`;
@@ -62,6 +97,72 @@
 		if (status === 'APPROVED') return 'Approved';
 		if (status === 'REJECTED') return 'Rejected';
 		return 'Pending';
+	}
+
+	function canActOnLevel(user: UserType | null | undefined, status: ApprovalStatus) {
+		return status === 'PENDING' && user?.id === currentUser?.id;
+	}
+
+	async function handleApprove(level: 'departmentHead' | 'finance' | 'final') {
+		loading = true;
+		try {
+			const res = await fetch(`/api/purchases/${purchase.id}/approve`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ level })
+			});
+
+			if (res.ok) {
+				toastStore.success('Purchase request approved successfully');
+				await invalidateAll();
+			} else {
+				const errorData = await res.json().catch(() => ({}));
+				toastStore.error(errorData.message || 'Failed to approve purchase request');
+			}
+		} finally {
+			loading = false;
+		}
+	}
+
+	function openRejectModal(level: 'departmentHead' | 'finance' | 'final') {
+		rejectLevel = level;
+		rejectReason = '';
+		rejectError = '';
+		rejectModalOpen = true;
+	}
+
+	function closeRejectModal() {
+		rejectModalOpen = false;
+		rejectLevel = null;
+		rejectReason = '';
+		rejectError = '';
+	}
+
+	async function handleReject() {
+		if (!rejectLevel) return;
+		loading = true;
+		try {
+			const res = await fetch(`/api/purchases/${purchase.id}/reject`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ level: rejectLevel, reason: rejectReason })
+			});
+
+			if (res.ok) {
+				toastStore.success('Purchase request rejected');
+				closeRejectModal();
+				await invalidateAll();
+			} else {
+				const errorData = await res.json().catch(() => ({}));
+				rejectError =
+					errorData.errors?.reason?.[0] ||
+					errorData.errors?.form?.[0] ||
+					errorData.message ||
+					'Failed to reject purchase request';
+			}
+		} finally {
+			loading = false;
+		}
 	}
 </script>
 
@@ -91,7 +192,9 @@
 		<Card class="lg:col-span-2" padding="lg">
 			<div class="mb-6 flex items-start justify-between">
 				<div class="flex items-center gap-4">
-					<div class="rounded-2xl bg-primary-100 p-4 text-primary-700 dark:bg-primary-300/30 dark:text-primary-300">
+					<div
+						class="rounded-2xl bg-primary-100 p-4 text-primary-700 dark:bg-primary-300/30 dark:text-primary-300"
+					>
 						<FileText class="h-8 w-8" />
 					</div>
 					<div>
@@ -105,8 +208,10 @@
 			</div>
 
 			<div class="mb-6 grid gap-4 sm:grid-cols-2">
-				<div class="flex items-center gap-3 rounded-lg p-4 bg-card-secondary">
-					<div class="rounded-lg bg-accent-100 p-2 text-accent-700 dark:bg-accent-900/30 dark:text-accent-300">
+				<div class="bg-card-secondary flex items-center gap-3 rounded-lg p-4">
+					<div
+						class="text-accent-700 dark:bg-accent-900/30 rounded-lg bg-accent-100 p-2 dark:text-accent-300"
+					>
 						<Truck class="h-5 w-5" />
 					</div>
 					<div>
@@ -114,8 +219,10 @@
 						<p class="text-main font-semibold">{purchase.supplier?.name ?? 'Not specified'}</p>
 					</div>
 				</div>
-				<div class="flex items-center gap-3 rounded-lg p-4 bg-card-secondary">
-					<div class="rounded-lg bg-warning-100 p-2 text-warning-700 dark:bg-warning-900/30 dark:text-warning-500">
+				<div class="bg-card-secondary flex items-center gap-3 rounded-lg p-4">
+					<div
+						class="text-warning-700 dark:bg-warning-900/30 rounded-lg bg-warning-100 p-2 dark:text-warning-500"
+					>
 						<Calendar class="h-5 w-5" />
 					</div>
 					<div>
@@ -123,8 +230,10 @@
 						<p class="text-main font-semibold">{formatDate(purchase.dateRequired)}</p>
 					</div>
 				</div>
-				<div class="flex items-center gap-3 rounded-lg p-4 bg-card-secondary">
-					<div class="rounded-lg bg-success-100 p-2 text-success-700 dark:bg-success-900/30 dark:text-success-600">
+				<div class="bg-card-secondary flex items-center gap-3 rounded-lg p-4">
+					<div
+						class="text-success-700 dark:bg-success-900/30 rounded-lg bg-success-100 p-2 dark:text-success-600"
+					>
 						<Building class="h-5 w-5" />
 					</div>
 					<div>
@@ -132,8 +241,10 @@
 						<p class="text-main font-semibold">{purchase.department}</p>
 					</div>
 				</div>
-				<div class="flex items-center gap-3 rounded-lg p-4 bg-card-secondary">
-					<div class="rounded-lg bg-red-100 p-2 text-primary-700 dark:bg-primary-300/30 dark:text-primary-300">
+				<div class="bg-card-secondary flex items-center gap-3 rounded-lg p-4">
+					<div
+						class="rounded-lg bg-red-100 p-2 text-primary-700 dark:bg-primary-300/30 dark:text-primary-300"
+					>
 						<User class="h-5 w-5" />
 					</div>
 					<div>
@@ -144,7 +255,7 @@
 			</div>
 
 			{#if purchase.purpose}
-				<div class="mb-6 flex items-start gap-3 rounded-lg p-4 bg-card-secondary">
+				<div class="bg-card-secondary mb-6 flex items-start gap-3 rounded-lg p-4">
 					<div
 						class="rounded-lg bg-slate-200 p-2 text-slate-700 dark:bg-slate-700 dark:text-slate-300"
 					>
@@ -158,7 +269,7 @@
 			{/if}
 
 			{#if purchase.comments}
-				<div class="mb-6 flex items-start gap-3 rounded-lg p-4 bg-card-secondary">
+				<div class="bg-card-secondary mb-6 flex items-start gap-3 rounded-lg p-4">
 					<div
 						class="rounded-lg bg-slate-200 p-2 text-slate-700 dark:bg-slate-700 dark:text-slate-300"
 					>
@@ -236,47 +347,81 @@
 							{approvalStatusLabel(purchase.approvalStatus)}
 						</Badge>
 					</div>
+					{#if purchase.approvalStatus === 'REJECTED' && purchase.rejectionReason}
+						<div class="dark:bg-danger-900/20 rounded-lg bg-danger-50 p-3">
+							<p class="text-danger-700 dark:text-danger-300 text-sm font-medium">
+								Rejection Reason
+							</p>
+							<p class="dark:text-danger-200 text-sm text-danger-600">{purchase.rejectionReason}</p>
+						</div>
+					{/if}
 					<div class="border-theme border-t pt-4">
 						<div class="flex justify-between">
 							<span class="text-muted">Requested By</span>
 							<span class="text-main font-medium">{purchase.requester?.name ?? '-'}</span>
 						</div>
 					</div>
-					<div class="flex items-center justify-between">
-						<span class="text-muted">Department Head</span>
-						<div class="flex items-center gap-2">
-							<span class="text-main font-medium">{approverName(purchase.departmentHead)}</span>
-							{#if purchase.departmentHeadId}
-								<Badge variant={approvalStatusVariant(purchase.departmentHeadStatus)}>
-									{approvalStatusLabel(purchase.departmentHeadStatus)}
-								</Badge>
-							{/if}
+					{#each approvalLevels as level (level.key)}
+						<div class="flex items-start justify-between gap-3">
+							<div class="min-w-0 flex-1">
+								<p class="text-muted">{level.label}</p>
+								<p class="text-main truncate font-medium">{approverName(level.user)}</p>
+								{#if level.date}
+									<p class="text-muted text-xs">{formatDate(level.date)}</p>
+								{/if}
+							</div>
+							<div class="flex shrink-0 flex-col items-end gap-2">
+								{#if level.user}
+									<Badge variant={approvalStatusVariant(level.status)}>
+										{approvalStatusLabel(level.status)}
+									</Badge>
+								{/if}
+								{#if canActOnLevel(level.user, level.status)}
+									<div class="flex gap-2">
+										<Button size="sm" {loading} onclick={() => handleApprove(level.key)}>
+											<Check class="h-3.5 w-3.5" />
+											Approve
+										</Button>
+										<Button
+											variant="danger"
+											size="sm"
+											{loading}
+											onclick={() => openRejectModal(level.key)}
+										>
+											<X class="h-3.5 w-3.5" />
+											Reject
+										</Button>
+									</div>
+								{/if}
+							</div>
 						</div>
-					</div>
-					<div class="flex items-center justify-between">
-						<span class="text-muted">Finance Department</span>
-						<div class="flex items-center gap-2">
-							<span class="text-main font-medium">{approverName(purchase.financeApprover)}</span>
-							{#if purchase.financeApproverId}
-								<Badge variant={approvalStatusVariant(purchase.financeStatus)}>
-									{approvalStatusLabel(purchase.financeStatus)}
-								</Badge>
-							{/if}
-						</div>
-					</div>
-					<div class="flex items-center justify-between">
-						<span class="text-muted">Final Approval</span>
-						<div class="flex items-center gap-2">
-							<span class="text-main font-medium">{approverName(purchase.finalApprover)}</span>
-							{#if purchase.finalApproverId}
-								<Badge variant={approvalStatusVariant(purchase.finalStatus)}>
-									{approvalStatusLabel(purchase.finalStatus)}
-								</Badge>
-							{/if}
-						</div>
-					</div>
+					{/each}
 				</div>
 			</Card>
 		</div>
 	</div>
 </div>
+
+<Modal open={rejectModalOpen} title="Reject Purchase Request" onclose={closeRejectModal}>
+	<div class="space-y-4">
+		<p class="text-muted text-sm">
+			Please provide a reason for rejecting this purchase request. This reason will be visible to
+			the requester.
+		</p>
+		<Textarea
+			label="Rejection Reason"
+			placeholder="Enter rejection reason..."
+			bind:value={rejectReason}
+			error={rejectError}
+			required
+			disabled={loading}
+		/>
+		<div class="flex justify-end gap-3">
+			<Button variant="secondary" onclick={closeRejectModal} disabled={loading}>Cancel</Button>
+			<Button variant="danger" {loading} onclick={handleReject}>
+				<X class="h-4 w-4" />
+				Reject
+			</Button>
+		</div>
+	</div>
+</Modal>

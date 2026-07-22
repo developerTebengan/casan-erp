@@ -1,20 +1,20 @@
 <script lang="ts">
-	import { untrack } from 'svelte';
-	import { Plus, Edit, Trash2, Eye, Mail, Shield } from '@lucide/svelte';
 	import {
-		Card,
-		Button,
-		Input,
-		Select,
 		Breadcrumb,
-		DataTable,
-		Modal,
+		Button,
+		Card,
 		ConfirmDialog,
+		DataTable,
 		EmptyState,
+		Input,
+		Modal,
+		Select,
 		Spinner
 	} from '$lib/components/ui';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import type { User, UserRole } from '$lib/types';
+	import { Mail, Plus, Shield } from '@lucide/svelte';
+	import { untrack } from 'svelte';
 
 	let { data } = $props();
 
@@ -204,11 +204,7 @@
 	</div>
 
 	<Card padding="md">
-		<Input
-			label="Search"
-			placeholder="Search by name, email, or role..."
-			bind:value={search}
-		/>
+		<Input label="Search" placeholder="Search by name, email, or role..." bind:value={search} />
 	</Card>
 
 	{#if loading && users.length === 0}
@@ -252,6 +248,7 @@
 			label={modalMode === 'create' ? 'Password' : 'New Password (leave blank to keep current)'}
 			type="password"
 			bind:value={selectedUser.password}
+			required
 			error={modalErrors.password}
 		/>
 	</div>
@@ -264,7 +261,7 @@
 	{/snippet}
 </Modal>
 
-<Modal open={modalMode === 'detail'} title="User Details" onclose={closeModal}>
+<Modal open={modalMode === 'detail'} title="User Details1" onclose={closeModal}>
 	<div class="space-y-4">
 		<div class="flex items-center gap-3">
 			<div class="rounded-lg bg-primary-100 p-2 text-primary-700 dark:bg-primary-900/30">
@@ -295,8 +292,9 @@
 		<Button
 			variant="primary"
 			onclick={() => {
+				const userId = selectedUser?.id;
 				closeModal();
-				const user = users.find((u) => u.id === selectedUser.id);
+				const user = users.find((u) => u.id === userId);
 				if (user) openEdit(user);
 			}}
 		>
