@@ -66,13 +66,16 @@ export interface Purchase {
 	comments?: string | null;
 	departmentHeadId?: string | null;
 	departmentHead?: User | null;
+	departmentHeadStatus: ApprovalStatus;
+	departmentHeadApprovedAt?: string | null;
 	financeApproverId?: string | null;
 	financeApprover?: User | null;
+	financeStatus: ApprovalStatus;
+	financeApprovedAt?: string | null;
 	finalApproverId?: string | null;
 	finalApprover?: User | null;
-	departmentHeadStatus: ApprovalStatus;
-	financeStatus: ApprovalStatus;
 	finalStatus: ApprovalStatus;
+	finalApprovedAt?: string | null;
 	approvalStatus: ApprovalStatus;
 	rejectionReason?: string | null;
 	total: number;

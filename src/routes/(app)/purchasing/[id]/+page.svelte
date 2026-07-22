@@ -7,7 +7,8 @@
 		User,
 		Building,
 		AlertCircle,
-		MessageSquare
+		MessageSquare,
+		Printer
 	} from '@lucide/svelte';
 	import { Card, Breadcrumb, Badge, Button, DataTable } from '$lib/components/ui';
 	import { formatCurrency, formatDate } from '$lib/utils/format';
@@ -78,6 +79,10 @@
 			<Button variant="secondary" href="/purchasing">
 				<ArrowLeft class="h-4 w-4" />
 				Back
+			</Button>
+			<Button variant="secondary" href="/purchasing/{purchase.id}/print">
+				<Printer class="h-4 w-4" />
+				Print
 			</Button>
 		</div>
 	</div>

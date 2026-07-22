@@ -207,8 +207,10 @@ export function purchaseService() {
 			return { success: false, errors: { form: ['This approval level is already processed'] } };
 		}
 
-		const data: Record<string, ApprovalStatus> = {
-			[config.statusField]: 'APPROVED'
+		const approvedAtField = config.statusField.replace('Status', 'ApprovedAt');
+		const data: Record<string, ApprovalStatus | Date> = {
+			[config.statusField]: 'APPROVED',
+			[approvedAtField]: new Date()
 		};
 		data.approvalStatus = computeApprovalStatus(
 			purchase.departmentHeadId,

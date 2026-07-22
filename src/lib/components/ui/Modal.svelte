@@ -7,12 +7,21 @@
 		open: boolean;
 		title?: string;
 		size?: 'sm' | 'md' | 'lg' | 'xl';
+		class?: string;
 		children?: import('svelte').Snippet;
 		footer?: import('svelte').Snippet;
 		onclose?: () => void;
 	}
 
-	let { open, title, size = 'md', children, footer, onclose }: Props = $props();
+	let {
+		open,
+		title,
+		size = 'md',
+		class: className = '',
+		children,
+		footer,
+		onclose
+	}: Props = $props();
 
 	const sizes = {
 		sm: 'max-w-sm',
@@ -30,7 +39,7 @@
 
 {#if open}
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center p-4"
+		class={classNames('fixed inset-0 z-50 flex items-center justify-center p-4', className)}
 		role="dialog"
 		aria-modal="true"
 	>

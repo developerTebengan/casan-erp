@@ -30,7 +30,7 @@
 </script>
 
 <div class="bg-body min-h-screen">
-	<div class="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:block lg:w-64">
+	<div class="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:block lg:w-64 print:hidden">
 		<Sidebar {user} onlogout={handleLogout} />
 	</div>
 
@@ -49,9 +49,9 @@
 		/>
 	</Drawer>
 
-	<div class="lg:pl-64">
-		<Navbar {user} />
-		<main class="min-h-[calc(100vh-4rem)] px-4 pt-6 pb-24 sm:px-6 lg:px-8">
+	<div class="lg:pl-64 print:!pl-0">
+		<Navbar {user} class="print:hidden" />
+		<main class="min-h-[calc(100vh-4rem)] px-4 pt-6 pb-24 sm:px-6 lg:px-8 print:p-0">
 			{@render children?.()}
 		</main>
 	</div>

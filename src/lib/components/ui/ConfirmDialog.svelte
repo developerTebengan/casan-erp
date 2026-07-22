@@ -10,6 +10,7 @@
 		confirmText?: string;
 		cancelText?: string;
 		loading?: boolean;
+		class?: string;
 		onconfirm?: () => void;
 		oncancel?: () => void;
 	}
@@ -21,12 +22,13 @@
 		confirmText = 'Confirm',
 		cancelText = 'Cancel',
 		loading = false,
+		class: className = '',
 		onconfirm,
 		oncancel
 	}: Props = $props();
 </script>
 
-<Modal {open} {title} size="sm" onclose={oncancel}>
+<Modal {open} {title} size="sm" class={className} onclose={oncancel}>
 	<div class="flex items-start gap-4">
 		<div class="dark:bg-danger-900/30 rounded-full bg-danger-100 p-2">
 			<AlertTriangle class="h-6 w-6 text-danger-500" />

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { ChevronRight, Home } from '@lucide/svelte';
+	import { classNames } from '$lib/utils/format';
 
 	interface Crumb {
 		label: string;
@@ -8,12 +9,13 @@
 
 	interface Props {
 		items: Crumb[];
+		class?: string;
 	}
 
-	let { items }: Props = $props();
+	let { items, class: className = '' }: Props = $props();
 </script>
 
-<nav aria-label="Breadcrumb" class="mb-4">
+<nav aria-label="Breadcrumb" class={classNames('mb-4', className)}>
 	<ol class="flex flex-wrap items-center gap-2 text-sm">
 		<li>
 			<a

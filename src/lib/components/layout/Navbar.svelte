@@ -2,17 +2,22 @@
 	import { Menu, Sun, Moon, Bell } from '@lucide/svelte';
 	import { themeStore } from '$lib/stores/theme.svelte';
 	import { sidebarStore } from '$lib/stores/sidebar.svelte';
+	import { classNames } from '$lib/utils/format';
 	import type { User } from '$lib/types';
 
 	interface Props {
 		user?: User | null;
+		class?: string;
 	}
 
-	let { user }: Props = $props();
+	let { user, class: className = '' }: Props = $props();
 </script>
 
 <header
-	class="border-theme bg-card/80 sticky top-0 z-30 flex h-16 items-center justify-between border-b px-4 backdrop-blur-md sm:px-6 lg:px-8"
+	class={classNames(
+		'border-theme bg-card/80 sticky top-0 z-30 flex h-16 items-center justify-between border-b px-4 backdrop-blur-md sm:px-6 lg:px-8',
+		className
+	)}
 >
 	<div class="flex items-center gap-4">
 		<button

@@ -137,8 +137,11 @@ model Purchase {
   comments           String?
   total              Decimal          @default(0)
   departmentHeadStatus ApprovalStatus @default(PENDING)
+  departmentHeadApprovedAt DateTime?
   financeStatus      ApprovalStatus   @default(PENDING)
+  financeApprovedAt  DateTime?
   finalStatus        ApprovalStatus   @default(PENDING)
+  finalApprovedAt    DateTime?
   approvalStatus     ApprovalStatus   @default(PENDING)
   rejectionReason    String?
   createdAt          DateTime         @default(now())

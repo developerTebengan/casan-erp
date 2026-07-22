@@ -7,9 +7,10 @@
 		totalPages: number;
 		total: number;
 		onpagechange: (page: number) => void;
+		class?: string;
 	}
 
-	let { page, totalPages, total, onpagechange }: Props = $props();
+	let { page, totalPages, total, onpagechange, class: className = '' }: Props = $props();
 
 	function getPages(): (number | string)[] {
 		const pages: (number | string)[] = [];
@@ -29,7 +30,7 @@
 </script>
 
 {#if totalPages > 0}
-	<div class="flex flex-col items-center justify-between gap-4 py-4 sm:flex-row">
+	<div class="flex flex-col items-center justify-between gap-4 py-4 sm:flex-row {className}">
 		<p class="text-muted text-sm">
 			Showing page <span class="text-main font-medium">{page}</span> of
 			<span class="text-main font-medium">{totalPages}</span>

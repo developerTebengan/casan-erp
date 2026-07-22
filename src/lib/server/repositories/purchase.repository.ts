@@ -137,8 +137,11 @@ export function purchaseRepository() {
 		id: string,
 		data: Partial<{
 			departmentHeadStatus: ApprovalStatus;
+			departmentHeadApprovedAt: Date;
 			financeStatus: ApprovalStatus;
+			financeApprovedAt: Date;
 			finalStatus: ApprovalStatus;
+			finalApprovedAt: Date;
 			approvalStatus: ApprovalStatus;
 			rejectionReason: string | null;
 		}>
@@ -191,12 +194,15 @@ function mapPurchase(p: {
 	departmentHeadId: string | null;
 	departmentHead?: { id: string; name: string; email: string; role: string | UserRole } | null;
 	departmentHeadStatus?: string | ApprovalStatus;
+	departmentHeadApprovedAt?: Date | null;
 	financeApproverId: string | null;
 	financeApprover?: { id: string; name: string; email: string; role: string | UserRole } | null;
 	financeStatus?: string | ApprovalStatus;
+	financeApprovedAt?: Date | null;
 	finalApproverId: string | null;
 	finalApprover?: { id: string; name: string; email: string; role: string | UserRole } | null;
 	finalStatus?: string | ApprovalStatus;
+	finalApprovedAt?: Date | null;
 	approvalStatus?: string | ApprovalStatus;
 	rejectionReason?: string | null;
 	total: unknown;
@@ -235,12 +241,15 @@ function mapPurchase(p: {
 		departmentHeadId: p.departmentHeadId,
 		departmentHead: mapUser(p.departmentHead),
 		departmentHeadStatus: (p.departmentHeadStatus as ApprovalStatus) ?? 'PENDING',
+		departmentHeadApprovedAt: p.departmentHeadApprovedAt?.toISOString() ?? null,
 		financeApproverId: p.financeApproverId,
 		financeApprover: mapUser(p.financeApprover),
 		financeStatus: (p.financeStatus as ApprovalStatus) ?? 'PENDING',
+		financeApprovedAt: p.financeApprovedAt?.toISOString() ?? null,
 		finalApproverId: p.finalApproverId,
 		finalApprover: mapUser(p.finalApprover),
 		finalStatus: (p.finalStatus as ApprovalStatus) ?? 'PENDING',
+		finalApprovedAt: p.finalApprovedAt?.toISOString() ?? null,
 		approvalStatus: (p.approvalStatus as ApprovalStatus) ?? 'PENDING',
 		rejectionReason: p.rejectionReason,
 		total: Number(p.total),

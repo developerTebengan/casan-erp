@@ -103,6 +103,9 @@
 				<a href="/purchasing/${p.id}" class="inline-flex items-center rounded-lg p-2 text-slate-500 hover:bg-primary-50 hover:text-primary-600 dark:hover:bg-primary-900/20">
 					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
 				</a>
+				<a href="/purchasing/${p.id}/print" class="inline-flex items-center rounded-lg p-2 text-slate-500 hover:bg-primary-50 hover:text-primary-600 dark:hover:bg-primary-900/20" title="Print PR">
+					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 20h6"/><path d="M18 9V5a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v4"/><path d="M6 17H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/><path d="M6 9h12"/></svg>
+				</a>
 				<button type="button" data-delete="${p.id}" class="inline-flex items-center rounded-lg p-2 text-slate-500 hover:bg-danger-50 hover:text-danger-600 dark:hover:bg-danger-900/20">
 					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
 				</button>
@@ -113,7 +116,11 @@
 	const columns = [
 		{ key: 'prNumber', header: 'PR Number' },
 		{ key: 'supplier', header: 'Supplier', cell: (p: Purchase) => p.supplier?.name ?? '-' },
-		{ key: 'dateOfRequest', header: 'Date of Request', cell: (p: Purchase) => formatDate(p.dateOfRequest) },
+		{
+			key: 'dateOfRequest',
+			header: 'Date of Request',
+			cell: (p: Purchase) => formatDate(p.dateOfRequest)
+		},
 		{ key: 'priority', header: 'Priority', cell: priorityBadge },
 		{ key: 'total', header: 'Total', cell: (p: Purchase) => formatCurrency(p.total) },
 		{ key: 'actions', header: '', cell: actionsCell }
@@ -135,9 +142,9 @@
 </script>
 
 <div class="space-y-6">
-	<Breadcrumb items={[{ label: 'Purchasing Request' }]} />
+	<Breadcrumb items={[{ label: 'Purchasing Request' }]} class="print:hidden" />
 
-	<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+	<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between print:hidden">
 		<div>
 			<h1 class="text-main text-2xl font-bold sm:text-3xl">Purchasing Requests</h1>
 			<p class="text-muted">Manage your purchasing requests and supplier transactions</p>
@@ -148,7 +155,7 @@
 		</Button>
 	</div>
 
-	<Card padding="md">
+	<Card padding="md" class="print:hidden">
 		<div class="flex flex-col gap-4 lg:flex-row lg:items-end">
 			<div class="flex-1">
 				<Input
@@ -191,10 +198,11 @@
 		</EmptyState>
 	{:else}
 		<DataTable {columns} rows={purchases} {loading} onrowclick={handleRowClick} />
-		<Pagination {...pagination} onpagechange={loadPurchases} />
+		<Pagination {...pagination} onpagechange={loadPurchases} class="print:hidden" />
 	{/if}
 
 	<ConfirmDialog
+		class="print:hidden"
 		open={!!deleteId}
 		title="Delete Purchasing Request"
 		message="Are you sure you want to delete this purchasing request? This action cannot be undone."
