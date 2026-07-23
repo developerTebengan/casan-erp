@@ -2,11 +2,15 @@ import { json, error } from '@sveltejs/kit';
 import { supplierService } from '$lib/server/services/supplier.service';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async () => {
+export const GET: RequestHandler = async ({ url }) => {
 	try {
+		const search = url.searchParams.get('search') || undefined;
+		const page = Math.max(1, Number(url.searchParams.get('page') ?? 1));
+		const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit') ?? 10)));
+
 		const service = supplierService();
-		const suppliers = await service.list();
-		return json(suppliers);
+		const result = await service.list({ search, page, limit });
+		return json(result);
 	} catch (e) {
 		console.error(e);
 		throw error(500, { message: 'Failed to load suppliers' });

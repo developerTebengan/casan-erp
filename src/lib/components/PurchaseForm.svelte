@@ -1,9 +1,9 @@
 <script lang="ts">
+	import { Button, Card, Input, Select, Textarea } from '$lib/components/ui';
+	import type { Product, Purchase, PurchasePriority, Supplier, User } from '$lib/types';
+	import { formatCurrency, formatNumber } from '$lib/utils/format';
+	import { ExternalLink, Plus, Trash2 } from '@lucide/svelte';
 	import { untrack } from 'svelte';
-	import { Plus, Trash2, ExternalLink } from '@lucide/svelte';
-	import { Input, Select, Button, Textarea, Card } from '$lib/components/ui';
-	import { formatCurrency } from '$lib/utils/format';
-	import type { Product, Supplier, Purchase, PurchasePriority, User } from '$lib/types';
 
 	interface Props {
 		purchase?: Partial<Purchase>;
@@ -37,9 +37,7 @@
 	let priority = $state<PurchasePriority>(untrack(() => purchase?.priority ?? 'MEDIUM'));
 	let dateRequired = $state(
 		untrack(() =>
-			formatDateForInput(
-				purchase?.dateRequired ? new Date(purchase.dateRequired) : getTomorrow()
-			)
+			formatDateForInput(purchase?.dateRequired ? new Date(purchase.dateRequired) : getTomorrow())
 		)
 	);
 	let department = $state(untrack(() => purchase?.department ?? ''));
@@ -48,6 +46,7 @@
 	let departmentHeadId = $state(untrack(() => purchase?.departmentHeadId ?? ''));
 	let financeApproverId = $state(untrack(() => purchase?.financeApproverId ?? ''));
 	let finalApproverId = $state(untrack(() => purchase?.finalApproverId ?? ''));
+	let dateError = $state('');
 	let items = $state(
 		untrack(
 			() =>
@@ -58,6 +57,9 @@
 					notes: item.notes ?? ''
 				})) ?? [{ productId: '', qty: 1, price: 0, notes: '' }]
 		)
+	);
+	let priceInputs = $state(
+		untrack(() => items.map((item) => formatNumber(Number(item.price) || 0)))
 	);
 
 	const supplierOptions = $derived([
@@ -120,22 +122,43 @@
 
 	function addItem() {
 		items = [...items, { productId: '', qty: 1, price: 0, notes: '' }];
+		priceInputs = [...priceInputs, '0'];
 	}
 
 	function removeItem(index: number) {
 		items = items.filter((_, i) => i !== index);
+		priceInputs = priceInputs.filter((_, i) => i !== index);
 	}
 
 	function updatePrice(index: number) {
 		const item = items[index];
 		const product = products.find((p) => p.id === item.productId);
 		if (product && !item.price) {
-			items[index] = { ...item, price: product.purchasePrice };
+			items[index] = { ...item, price: product.price };
+			priceInputs[index] = formatNumber(product.price);
 		}
+	}
+
+	function handlePriceInput(index: number, raw: string) {
+		const numeric = Number(raw.replace(/\./g, '').replace(/,/g, '')) || 0;
+		items[index] = { ...items[index], price: numeric };
+	}
+
+	function handlePriceBlur(index: number) {
+		priceInputs[index] = formatNumber(Number(items[index].price) || 0);
+	}
+
+	function isDateValid() {
+		return new Date(dateOfRequest) <= new Date(dateRequired);
 	}
 
 	function handleSubmit(e: Event) {
 		e.preventDefault();
+		if (!isDateValid()) {
+			dateError = 'Date of Request cannot be later than Date Required';
+			return;
+		}
+		dateError = '';
 		const data = {
 			prNumber,
 			supplierId: supplierId || null,
@@ -192,8 +215,10 @@
 			name="dateOfRequest"
 			type="date"
 			bind:value={dateOfRequest}
+			max={dateRequired}
 			required
-			error={errors.dateOfRequest}
+			error={errors.dateOfRequest || dateError}
+			oninput={() => (dateError = '')}
 		/>
 		<Select
 			label="Priority"
@@ -218,8 +243,10 @@
 			name="dateRequired"
 			type="date"
 			bind:value={dateRequired}
+			min={dateOfRequest}
 			required
 			error={errors.dateRequired}
+			oninput={() => (dateError = '')}
 		/>
 	</div>
 
@@ -316,7 +343,14 @@
 						<Input label="Qty" type="number" min="1" bind:value={item.qty} required />
 					</div>
 					<div class="sm:col-span-2">
-						<Input label="Price" type="number" min="0" bind:value={item.price} required />
+						<Input
+							label="Price"
+							type="text"
+							bind:value={priceInputs[index]}
+							oninput={(e) => handlePriceInput(index, (e.target as HTMLInputElement).value)}
+							onblur={() => handlePriceBlur(index)}
+							required
+						/>
 					</div>
 					<div class="sm:col-span-3">
 						<Input label="Notes" bind:value={item.notes} placeholder="Item notes..." />

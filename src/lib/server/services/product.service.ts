@@ -18,8 +18,8 @@ export function productService() {
 		if (Number.isNaN(minimumStock) || minimumStock < 0)
 			errors.minimumStock = ['Minimum stock must be a non-negative number'];
 
-		const purchasePrice = Number(input.purchasePrice ?? 0);
-		const sellingPrice = Number(input.sellingPrice ?? 0);
+		const price = Number(input.price ?? 0);
+		if (Number.isNaN(price) || price < 0) errors.price = ['Price must be a non-negative number'];
 
 		const status = input.status as string;
 		if (status && !['ACTIVE', 'INACTIVE'].includes(status)) {
@@ -39,8 +39,7 @@ export function productService() {
 				unit: String(input.unit).trim(),
 				stock,
 				minimumStock,
-				purchasePrice,
-				sellingPrice,
+				price,
 				status: (status as 'ACTIVE' | 'INACTIVE') || 'ACTIVE'
 			}
 		};

@@ -30,7 +30,7 @@ export function stockTransactionRepository() {
 	async function findAll(filters: StockTransactionFilters = {}) {
 		const { search, productId, type, page = 1, limit = 10 } = filters;
 
-		const where: Record<string, unknown> = {};
+		const where: Record<string, unknown> = { deletedAt: null };
 		if (productId) where.productId = productId;
 		if (type) where.type = type;
 		if (search) {
@@ -64,8 +64,8 @@ export function stockTransactionRepository() {
 	}
 
 	async function findById(id: string): Promise<IStockTransaction | null> {
-		const tx = await db.stockTransaction.findUnique({
-			where: { id },
+		const tx = await db.stockTransaction.findFirst({
+			where: { id, deletedAt: null },
 			include: {
 				product: {
 					include: { category: { select: { id: true, name: true } } }
@@ -112,8 +112,7 @@ function mapStockTransaction(tx: {
 		unit: string;
 		stock: number;
 		minimumStock: number;
-		purchasePrice: unknown;
-		sellingPrice: unknown;
+		price: unknown;
 		status: string;
 		createdAt: Date;
 		updatedAt: Date;
@@ -138,8 +137,7 @@ function mapStockTransaction(tx: {
 				unit: tx.product.unit,
 				stock: tx.product.stock,
 				minimumStock: tx.product.minimumStock,
-				purchasePrice: Number(tx.product.purchasePrice),
-				sellingPrice: Number(tx.product.sellingPrice),
+				price: Number(tx.product.price),
 				status: tx.product.status as Product['status'],
 				createdAt: tx.product.createdAt.toISOString(),
 				updatedAt: tx.product.updatedAt.toISOString()

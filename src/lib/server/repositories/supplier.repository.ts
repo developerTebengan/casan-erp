@@ -1,5 +1,11 @@
 import { db } from '$lib/server/db';
-import type { Supplier } from '$lib/types';
+import type { PaginatedResponse, Supplier } from '$lib/types';
+
+export interface SupplierFilters {
+	search?: string;
+	page?: number;
+	limit?: number;
+}
 
 export interface SupplierCreateInput {
 	name: string;
@@ -15,19 +21,52 @@ export interface SupplierUpdateInput {
 
 export function supplierRepository() {
 	async function findAll(): Promise<Supplier[]> {
-		const suppliers = await db.supplier.findMany({ orderBy: { name: 'asc' } });
+		const suppliers = await db.supplier.findMany({
+			where: { deletedAt: null },
+			orderBy: { name: 'asc' }
+		});
 		return suppliers.map(mapSupplier);
 	}
 
+	async function findMany(filters: SupplierFilters = {}): Promise<PaginatedResponse<Supplier>> {
+		const { search, page = 1, limit = 10 } = filters;
+
+		const where: Record<string, unknown> = { deletedAt: null };
+		if (search) {
+			where.OR = [
+				{ name: { contains: search, mode: 'insensitive' } },
+				{ phone: { contains: search, mode: 'insensitive' } },
+				{ address: { contains: search, mode: 'insensitive' } }
+			];
+		}
+
+		const skip = (page - 1) * limit;
+
+		const [data, total] = await Promise.all([
+			db.supplier.findMany({
+				where,
+				skip,
+				take: limit,
+				orderBy: { name: 'asc' }
+			}),
+			db.supplier.count({ where })
+		]);
+
+		return {
+			data: data.map(mapSupplier),
+			pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
+		};
+	}
+
 	async function findById(id: string): Promise<Supplier | null> {
-		const supplier = await db.supplier.findUnique({ where: { id } });
+		const supplier = await db.supplier.findFirst({ where: { id, deletedAt: null } });
 		if (!supplier) return null;
 		return mapSupplier(supplier);
 	}
 
 	async function findByName(name: string): Promise<Supplier | null> {
 		const supplier = await db.supplier.findFirst({
-			where: { name: { equals: name, mode: 'insensitive' } }
+			where: { name: { equals: name, mode: 'insensitive' }, deletedAt: null }
 		});
 		return supplier ? mapSupplier(supplier) : null;
 	}
@@ -56,10 +95,10 @@ export function supplierRepository() {
 	}
 
 	async function remove(id: string): Promise<void> {
-		await db.supplier.delete({ where: { id } });
+		await db.supplier.update({ where: { id }, data: { deletedAt: new Date() } });
 	}
 
-	return { findAll, findById, findByName, create, update, remove };
+	return { findAll, findMany, findById, findByName, create, update, remove };
 }
 
 function mapSupplier(s: {

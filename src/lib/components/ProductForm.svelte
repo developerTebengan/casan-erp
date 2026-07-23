@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { Input, Select, Button } from '$lib/components/ui';
+	import { formatNumber } from '$lib/utils/format';
 	import type { Product, Category } from '$lib/types';
 
 	interface Props {
@@ -27,6 +28,8 @@
 	let unit = $state(untrack(() => product?.unit ?? 'PCS'));
 	let stock = $state(untrack(() => product?.stock ?? 0));
 	let minimumStock = $state(untrack(() => product?.minimumStock ?? 0));
+	let price = $state(untrack(() => product?.price ?? 0));
+	let priceInput = $state(untrack(() => formatNumber(Number(product?.price ?? 0))));
 	let status = $state(untrack(() => product?.status ?? 'ACTIVE'));
 
 	const categoryOptions = $derived(categories.map((c) => ({ value: c.id, label: c.name })));
@@ -44,6 +47,7 @@
 			unit,
 			stock: Number(stock),
 			minimumStock: Number(minimumStock),
+			price: Number(price),
 			status
 		};
 		onsubmit(data);
@@ -78,6 +82,21 @@
 			bind:value={minimumStock}
 			required
 			error={errors.minimumStock}
+		/>
+		<Input
+			label="Price"
+			name="price"
+			type="text"
+			bind:value={priceInput}
+			oninput={(e) => {
+				const raw = (e.target as HTMLInputElement).value;
+				price = Number(raw.replace(/\./g, '').replace(/,/g, '')) || 0;
+			}}
+			onblur={() => {
+				priceInput = formatNumber(price);
+			}}
+			required
+			error={errors.price}
 		/>
 		<Select
 			label="Status"

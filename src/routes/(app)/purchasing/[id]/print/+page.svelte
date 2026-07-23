@@ -206,37 +206,31 @@
 	<!-- Approvals -->
 	<section class="mb-6 text-slate-800">
 		<h2 class="mb-2 text-sm font-bold tracking-wide text-slate-800 uppercase">Approvals</h2>
-		<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-			{#each approvals as approval (approval.label)}
-				<div class="flex flex-col justify-between border border-slate-800 p-3 text-sm">
-					<p class="mb-3 font-bold text-slate-800">{approval.label}</p>
-					<div class="space-y-2">
-						<div>
-							<span class="block text-xs text-slate-500">Name</span>
-							<span class="font-medium">{approval.name}</span>
-						</div>
-						<div>
-							<span class="block text-xs text-slate-500">Position</span>
-							<span class="font-medium">{approval.role}</span>
-						</div>
-						<div>
-							<span class="block text-xs text-slate-500">Status</span>
-							<span class="font-medium">{statusLabel(approval.status)}</span>
-						</div>
-						<div>
-							<span class="block text-xs text-slate-500">Date</span>
-							<span class="font-medium">
-								{approval.date ? formatDate(approval.date) : '________________'}
-							</span>
-						</div>
-					</div>
-					<div class="mt-6">
-						<span class="block text-xs text-slate-500">Signature</span>
-						<div class="mt-6 border-t border-slate-400 pt-1 text-xs text-slate-500">&nbsp;</div>
-					</div>
-				</div>
-			{/each}
-		</div>
+		<table class="w-full border-collapse border border-slate-800 text-sm text-slate-800">
+			<thead>
+				<tr class="bg-slate-50">
+					<th class="border border-slate-300 px-2 py-2 text-left">No</th>
+					<th class="border border-slate-300 px-2 py-2 text-left">Approval Level</th>
+					<th class="border border-slate-300 px-2 py-2 text-left">Name</th>
+					<th class="border border-slate-300 px-2 py-2 text-left">Position</th>
+					<th class="border border-slate-300 px-2 py-2 text-left">Signature</th>
+				</tr>
+			</thead>
+			<tbody>
+				{#each approvals as approval, index (approval.label)}
+					<tr>
+						<td class="border border-slate-300 px-2 py-2">{itemNo(index)}</td>
+						<td class="border border-slate-300 px-2 py-2 font-medium">{approval.label}</td>
+						<td class="border border-slate-300 px-2 py-2">{approval.name}</td>
+						<td class="border border-slate-300 px-2 py-2">{approval.role}</td>
+
+						<td class="border border-slate-300 px-2 py-2">
+							<div class="mt-6 border-t border-slate-400 pt-1 text-xs text-slate-500">&nbsp;</div>
+						</td>
+					</tr>
+				{/each}
+			</tbody>
+		</table>
 	</section>
 
 	<!-- Comments / Special Instructions -->

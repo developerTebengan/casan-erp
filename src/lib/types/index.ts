@@ -30,8 +30,7 @@ export interface Product {
 	unit: string;
 	stock: number;
 	minimumStock: number;
-	purchasePrice: number;
-	sellingPrice: number;
+	price: number;
 	status: ProductStatus;
 	createdAt: string;
 	updatedAt: string;

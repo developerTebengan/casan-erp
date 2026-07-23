@@ -7,6 +7,7 @@
 		Input,
 		Breadcrumb,
 		DataTable,
+		Pagination,
 		Modal,
 		ConfirmDialog,
 		EmptyState,
@@ -17,7 +18,8 @@
 
 	let { data } = $props();
 
-	let suppliers = $state<Supplier[]>(untrack(() => data.suppliers));
+	let suppliers = $state<Supplier[]>(untrack(() => data.suppliers.data));
+	let pagination = $state(untrack(() => data.suppliers.pagination));
 	let search = $state('');
 	let loading = $state(false);
 
@@ -29,14 +31,28 @@
 	let deleteId = $state<string | null>(null);
 	let deleting = $state(false);
 
-	const filteredSuppliers = $derived(
-		suppliers.filter(
-			(s) =>
-				s.name.toLowerCase().includes(search.toLowerCase()) ||
-				(s.phone && s.phone.toLowerCase().includes(search.toLowerCase())) ||
-				(s.address && s.address.toLowerCase().includes(search.toLowerCase()))
-		)
-	);
+	async function loadSuppliers(page = 1) {
+		loading = true;
+		try {
+			const params = new URLSearchParams();
+			if (search) params.set('search', search);
+			params.set('page', String(page));
+			params.set('limit', '10');
+
+			const res = await fetch(`/api/suppliers?${params.toString()}`);
+			if (res.ok) {
+				const result = await res.json();
+				suppliers = result.data;
+				pagination = result.pagination;
+			}
+		} finally {
+			loading = false;
+		}
+	}
+
+	function handleSearch() {
+		loadSuppliers(1);
+	}
 
 	function openCreate() {
 		selectedSupplier = { name: '', phone: '', address: '' };
@@ -47,7 +63,11 @@
 	}
 
 	function openEdit(supplier: Supplier) {
-		selectedSupplier = { ...supplier, phone: supplier.phone ?? '', address: supplier.address ?? '' };
+		selectedSupplier = {
+			...supplier,
+			phone: supplier.phone ?? '',
+			address: supplier.address ?? ''
+		};
 		modalErrors = {};
 		modalMode = 'edit';
 	}
@@ -82,14 +102,10 @@
 			});
 
 			if (res.ok) {
-				const result = await res.json();
-				if (isCreate) {
-					suppliers = [...suppliers, result].sort((a, b) => a.name.localeCompare(b.name));
-					toastStore.success('Supplier created successfully');
-				} else {
-					suppliers = suppliers.map((s) => (s.id === result.id ? result : s));
-					toastStore.success('Supplier updated successfully');
-				}
+				await loadSuppliers(pagination.page);
+				toastStore.success(
+					isCreate ? 'Supplier created successfully' : 'Supplier updated successfully'
+				);
 				closeModal();
 			} else {
 				const errorData = await res.json().catch(() => ({}));
@@ -112,7 +128,7 @@
 		try {
 			const res = await fetch(`/api/suppliers/${deleteId}`, { method: 'DELETE' });
 			if (res.ok) {
-				suppliers = suppliers.filter((s) => s.id !== deleteId);
+				await loadSuppliers(pagination.page);
 				toastStore.success('Supplier deleted successfully');
 			} else {
 				toastStore.error('Failed to delete supplier');
@@ -189,6 +205,7 @@
 			label="Search"
 			placeholder="Search by name, phone, or address..."
 			bind:value={search}
+			oninput={handleSearch}
 		/>
 	</Card>
 
@@ -196,18 +213,16 @@
 		<div class="flex h-64 items-center justify-center">
 			<Spinner size="lg" />
 		</div>
-	{:else if filteredSuppliers.length === 0}
-		<EmptyState
-			title="No suppliers found"
-			description="Start by adding a new supplier."
-		>
+	{:else if suppliers.length === 0}
+		<EmptyState title="No suppliers found" description="Start by adding a new supplier.">
 			<Button variant="primary" onclick={openCreate}>
 				<Plus class="h-4 w-4" />
 				Add Supplier
 			</Button>
 		</EmptyState>
 	{:else}
-		<DataTable {columns} rows={filteredSuppliers} {loading} onrowclick={handleRowClick} />
+		<DataTable {columns} rows={suppliers} {loading} onrowclick={handleRowClick} />
+		<Pagination {...pagination} onpagechange={loadSuppliers} />
 	{/if}
 </div>
 
@@ -278,8 +293,9 @@
 		<Button
 			variant="primary"
 			onclick={() => {
+				const supplierId = selectedSupplier.id;
 				closeModal();
-				if (selectedSupplier.id) openEdit(suppliers.find((s) => s.id === selectedSupplier.id)!);
+				if (supplierId) openEdit(suppliers.find((s) => s.id === supplierId)!);
 			}}
 		>
 			Edit

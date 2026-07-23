@@ -18,7 +18,7 @@
 	} from '$lib/components/ui';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatCurrency, formatDate } from '$lib/utils/format';
-	import type { Purchase, Supplier } from '$lib/types';
+	import type { ApprovalStatus, Purchase, Supplier } from '$lib/types';
 
 	let { data } = $props();
 
@@ -97,6 +97,24 @@
 		return `<span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${variants[p.priority]}">${p.priority}</span>`;
 	}
 
+	function statusBadge(p: Purchase) {
+		function approvalStatusVariant(status: ApprovalStatus) {
+			if (status === 'APPROVED') return 'bg-success-100 text-success-700 dark:bg-success-900/30 dark:text-success-600';
+			if (status === 'REJECTED') return 'bg-danger-100 text-danger-700 dark:bg-danger-900/30 dark:text-danger-600';
+			return 'bg-warning-100 text-warning-700 dark:bg-warning-900/30 dark:text-warning-600';
+		}
+
+		function approvalStatusLabel(status: ApprovalStatus) {
+			if (status === 'APPROVED') return 'Approved';
+			if (status === 'REJECTED') return 'Rejected';
+			return 'Pending';
+		}
+
+		const variantClass = approvalStatusVariant(p.approvalStatus);
+		const label = approvalStatusLabel(p.approvalStatus);
+		return `<span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${variantClass}">${label}</span>`;
+	}
+
 	function actionsCell(p: Purchase) {
 		return `
 			<div class="flex items-center gap-2">
@@ -122,6 +140,7 @@
 			cell: (p: Purchase) => formatDate(p.dateOfRequest)
 		},
 		{ key: 'priority', header: 'Priority', cell: priorityBadge },
+		{ key: 'status', header: 'Status', cell: statusBadge },
 		{ key: 'total', header: 'Total', cell: (p: Purchase) => formatCurrency(p.total) },
 		{ key: 'actions', header: '', cell: actionsCell }
 	];

@@ -40,9 +40,9 @@
 
 	function typeBadge(tx: StockTransaction) {
 		const variants: Record<StockTransactionType, string> = {
-			IN: 'bg-success-100 text-success-700 dark:bg-success-900/30 dark:text-success-300',
-			OUT: 'bg-danger-100 text-danger-700 dark:bg-danger-900/30 dark:text-danger-300',
-			ADJUSTMENT: 'bg-warning-100 text-warning-700 dark:bg-warning-900/30 dark:text-warning-300'
+			IN: 'bg-success-100 text-success-700 dark:bg-success-900/30 dark:text-success-600',
+			OUT: 'bg-danger-100 text-danger-700 dark:bg-danger-900/30 dark:text-danger-600',
+			ADJUSTMENT: 'bg-warning-100 text-warning-700 dark:bg-warning-900/30 dark:text-warning-500'
 		};
 		const labels: Record<StockTransactionType, string> = {
 			IN: 'IN',

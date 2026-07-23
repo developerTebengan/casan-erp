@@ -16,8 +16,7 @@ export interface ProductCreateInput {
 	unit: string;
 	stock: number;
 	minimumStock: number;
-	purchasePrice: number;
-	sellingPrice: number;
+	price: number;
 	status: ProductStatus;
 }
 
@@ -27,7 +26,7 @@ export function productRepository() {
 	async function findAll(filters: ProductFilters = {}) {
 		const { search, categoryId, status, page = 1, limit = 10 } = filters;
 
-		const where: Record<string, unknown> = {};
+		const where: Record<string, unknown> = { deletedAt: null };
 		if (search) {
 			where.OR = [
 				{ name: { contains: search, mode: 'insensitive' } },
@@ -57,15 +56,15 @@ export function productRepository() {
 	}
 
 	async function findById(id: string) {
-		const product = await db.product.findUnique({
-			where: { id },
+		const product = await db.product.findFirst({
+			where: { id, deletedAt: null },
 			include: { category: { select: { id: true, name: true } } }
 		});
 		return product ? mapProduct(product) : null;
 	}
 
 	async function findByCode(code: string) {
-		const product = await db.product.findUnique({ where: { code } });
+		const product = await db.product.findFirst({ where: { code, deletedAt: null } });
 		return product;
 	}
 
@@ -87,7 +86,7 @@ export function productRepository() {
 	}
 
 	async function remove(id: string) {
-		await db.product.delete({ where: { id } });
+		await db.product.update({ where: { id }, data: { deletedAt: new Date() } });
 	}
 
 	return { findAll, findById, findByCode, create, update, remove };
@@ -102,8 +101,7 @@ function mapProduct(p: {
 	unit: string;
 	stock: number;
 	minimumStock: number;
-	purchasePrice: unknown;
-	sellingPrice: unknown;
+	price: unknown;
 	status: string;
 	createdAt: Date;
 	updatedAt: Date;
@@ -117,8 +115,7 @@ function mapProduct(p: {
 		unit: p.unit,
 		stock: p.stock,
 		minimumStock: p.minimumStock,
-		purchasePrice: Number(p.purchasePrice),
-		sellingPrice: Number(p.sellingPrice),
+		price: Number(p.price),
 		status: p.status as ProductStatus,
 		createdAt: p.createdAt.toISOString(),
 		updatedAt: p.updatedAt.toISOString()

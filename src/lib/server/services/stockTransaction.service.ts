@@ -61,7 +61,7 @@ export function stockTransactionService() {
 
 		const { productId, type, qty, note } = validation.data!;
 
-		const product = await db.product.findUnique({ where: { id: productId } });
+		const product = await db.product.findFirst({ where: { id: productId, deletedAt: null } });
 		if (!product) {
 			return { success: false, errors: { productId: ['Product not found'] } };
 		}

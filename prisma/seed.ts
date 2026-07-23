@@ -115,8 +115,7 @@ async function main() {
 			unit: 'PCS',
 			stock: 25,
 			minimumStock: 5,
-			purchasePrice: 6500000,
-			sellingPrice: 7500000,
+			price: 6500000,
 			status: ProductStatus.ACTIVE
 		},
 		{
@@ -126,8 +125,7 @@ async function main() {
 			unit: 'PCS',
 			stock: 120,
 			minimumStock: 20,
-			purchasePrice: 150000,
-			sellingPrice: 195000,
+			price: 150000,
 			status: ProductStatus.ACTIVE
 		},
 		{
@@ -137,8 +135,7 @@ async function main() {
 			unit: 'PCS',
 			stock: 45,
 			minimumStock: 10,
-			purchasePrice: 450000,
-			sellingPrice: 599000,
+			price: 450000,
 			status: ProductStatus.ACTIVE
 		},
 		{
@@ -148,8 +145,7 @@ async function main() {
 			unit: 'REAM',
 			stock: 200,
 			minimumStock: 50,
-			purchasePrice: 45000,
-			sellingPrice: 55000,
+			price: 45000,
 			status: ProductStatus.ACTIVE
 		},
 		{
@@ -159,8 +155,7 @@ async function main() {
 			unit: 'BOX',
 			stock: 80,
 			minimumStock: 15,
-			purchasePrice: 25000,
-			sellingPrice: 35000,
+			price: 25000,
 			status: ProductStatus.ACTIVE
 		},
 		{
@@ -170,8 +165,7 @@ async function main() {
 			unit: 'PCS',
 			stock: 12,
 			minimumStock: 3,
-			purchasePrice: 1200000,
-			sellingPrice: 1500000,
+			price: 1200000,
 			status: ProductStatus.ACTIVE
 		},
 		{
@@ -181,8 +175,7 @@ async function main() {
 			unit: 'PCS',
 			stock: 7,
 			minimumStock: 2,
-			purchasePrice: 2800000,
-			sellingPrice: 3400000,
+			price: 2800000,
 			status: ProductStatus.ACTIVE
 		},
 		{
@@ -192,8 +185,7 @@ async function main() {
 			unit: 'BTL',
 			stock: 4,
 			minimumStock: 10,
-			purchasePrice: 35000,
-			sellingPrice: 48000,
+			price: 35000,
 			status: ProductStatus.ACTIVE
 		},
 		{
@@ -203,8 +195,7 @@ async function main() {
 			unit: 'SET',
 			stock: 30,
 			minimumStock: 8,
-			purchasePrice: 85000,
-			sellingPrice: 120000,
+			price: 85000,
 			status: ProductStatus.ACTIVE
 		},
 		{
@@ -214,8 +205,7 @@ async function main() {
 			unit: 'PCS',
 			stock: 2,
 			minimumStock: 5,
-			purchasePrice: 175000,
-			sellingPrice: 235000,
+			price: 175000,
 			status: ProductStatus.ACTIVE
 		}
 	];
@@ -230,8 +220,7 @@ async function main() {
 					unit: p.unit,
 					stock: p.stock,
 					minimumStock: p.minimumStock,
-					purchasePrice: p.purchasePrice,
-					sellingPrice: p.sellingPrice,
+					price: p.price,
 					status: p.status
 				}
 			})
@@ -261,7 +250,7 @@ async function main() {
 		for (let j = 0; j < itemCount; j++) {
 			const product = products[(i + j) % products.length];
 			const qty = 1 + (j % 5);
-			const price = Number(product.purchasePrice);
+			const price = Number(product.price);
 			const subtotal = qty * price;
 			total += subtotal;
 			items.push({

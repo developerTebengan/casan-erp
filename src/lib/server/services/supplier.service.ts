@@ -1,6 +1,10 @@
 import { supplierRepository } from '$lib/server/repositories/supplier.repository';
 import { validateRequired, type ValidationResult } from '$lib/utils/validation';
-import type { SupplierCreateInput, SupplierUpdateInput } from '$lib/server/repositories/supplier.repository';
+import type {
+	SupplierCreateInput,
+	SupplierFilters,
+	SupplierUpdateInput
+} from '$lib/server/repositories/supplier.repository';
 
 export function supplierService() {
 	const repo = supplierRepository();
@@ -23,8 +27,8 @@ export function supplierService() {
 		};
 	}
 
-	async function list() {
-		return repo.findAll();
+	async function list(filters: SupplierFilters = {}) {
+		return repo.findMany(filters);
 	}
 
 	async function getById(id: string) {

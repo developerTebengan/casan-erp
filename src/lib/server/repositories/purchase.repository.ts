@@ -37,7 +37,7 @@ export function purchaseRepository() {
 	async function findAll(filters: PurchaseFilters = {}) {
 		const { search, supplierId, priority, approvalStatus, page = 1, limit = 10 } = filters;
 
-		const where: Record<string, unknown> = {};
+		const where: Record<string, unknown> = { deletedAt: null };
 		if (search) where.prNumber = { contains: search, mode: 'insensitive' };
 		if (supplierId) where.supplierId = supplierId;
 		if (priority) where.priority = priority;
@@ -66,8 +66,8 @@ export function purchaseRepository() {
 	}
 
 	async function findById(id: string): Promise<Purchase | null> {
-		const purchase = await db.purchase.findUnique({
-			where: { id },
+		const purchase = await db.purchase.findFirst({
+			where: { id, deletedAt: null },
 			include: {
 				supplier: { select: { id: true, name: true, phone: true, address: true } },
 				requester: { select: { id: true, name: true, email: true, role: true } },
@@ -83,7 +83,7 @@ export function purchaseRepository() {
 	}
 
 	async function findByPrNumber(prNumber: string) {
-		return db.purchase.findUnique({ where: { prNumber } });
+		return db.purchase.findFirst({ where: { prNumber, deletedAt: null } });
 	}
 
 	async function create(input: PurchaseCreateInput) {
@@ -130,7 +130,7 @@ export function purchaseRepository() {
 	}
 
 	async function remove(id: string) {
-		await db.purchase.delete({ where: { id } });
+		await db.purchase.update({ where: { id }, data: { deletedAt: new Date() } });
 	}
 
 	async function update(
@@ -271,8 +271,7 @@ function mapPurchase(p: {
 						unit: item.product.unit,
 						stock: 0,
 						minimumStock: 0,
-						purchasePrice: 0,
-						sellingPrice: 0,
+						price: 0,
 						status: 'ACTIVE',
 						createdAt: '',
 						updatedAt: ''

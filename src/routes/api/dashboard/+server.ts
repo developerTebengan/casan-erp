@@ -7,11 +7,15 @@ export const GET: RequestHandler = async () => {
 	try {
 		const [totalProducts, totalPurchaseOrders, totalSuppliers, products, purchases] =
 			await Promise.all([
-				db.product.count(),
-				db.purchase.count(),
-				db.supplier.count(),
-				db.product.findMany({ select: { id: true, stock: true, minimumStock: true } }),
+				db.product.count({ where: { deletedAt: null } }),
+				db.purchase.count({ where: { deletedAt: null } }),
+				db.supplier.count({ where: { deletedAt: null } }),
+				db.product.findMany({
+					where: { deletedAt: null },
+					select: { id: true, stock: true, minimumStock: true }
+				}),
 				db.purchase.findMany({
+					where: { deletedAt: null },
 					orderBy: { createdAt: 'desc' },
 					take: 10,
 					include: { supplier: { select: { name: true } } }
@@ -22,6 +26,7 @@ export const GET: RequestHandler = async () => {
 
 		const monthlyMap = new Map<string, number>();
 		const allPurchases = await db.purchase.findMany({
+			where: { deletedAt: null },
 			select: { dateOfRequest: true, total: true }
 		});
 
@@ -46,6 +51,7 @@ export const GET: RequestHandler = async () => {
 		}));
 
 		const latestProducts = await db.product.findMany({
+			where: { deletedAt: null },
 			orderBy: { createdAt: 'desc' },
 			take: 5,
 			include: { category: { select: { name: true } } }
