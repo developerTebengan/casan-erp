@@ -349,7 +349,7 @@
 					</div>
 					{#if purchase.approvalStatus === 'REJECTED' && purchase.rejectionReason}
 						<div class="dark:bg-danger-900/20 rounded-lg bg-danger-50 p-3">
-							<p class="text-danger-700 dark:text-danger-300 text-sm font-medium">
+							<p class="text-danger-700 text-sm font-medium dark:text-slate-700">
 								Rejection Reason
 							</p>
 							<p class="dark:text-danger-200 text-sm text-danger-600">{purchase.rejectionReason}</p>
