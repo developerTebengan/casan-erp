@@ -18,6 +18,7 @@ export interface UserUpdateInput {
 export function userRepository() {
 	async function findAll(): Promise<User[]> {
 		const users = await db.user.findMany({
+			where: { deletedAt: null },
 			orderBy: { name: 'asc' },
 			select: { id: true, name: true, email: true, role: true }
 		});
@@ -25,16 +26,16 @@ export function userRepository() {
 	}
 
 	async function findById(id: string): Promise<User | null> {
-		const user = await db.user.findUnique({
-			where: { id },
+		const user = await db.user.findFirst({
+			where: { id, deletedAt: null },
 			select: { id: true, name: true, email: true, role: true }
 		});
 		return user ? { ...user, role: user.role as UserRole } : null;
 	}
 
 	async function findByEmail(email: string): Promise<User | null> {
-		const user = await db.user.findUnique({
-			where: { email },
+		const user = await db.user.findFirst({
+			where: { email, deletedAt: null },
 			select: { id: true, name: true, email: true, role: true }
 		});
 		return user ? { ...user, role: user.role as UserRole } : null;
@@ -70,7 +71,10 @@ export function userRepository() {
 	}
 
 	async function remove(id: string): Promise<void> {
-		await db.user.delete({ where: { id } });
+		await db.user.update({
+			where: { id },
+			data: { deletedAt: new Date() }
+		});
 	}
 
 	return { findAll, findById, findByEmail, create, update, remove };

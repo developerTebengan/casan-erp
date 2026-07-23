@@ -2,8 +2,9 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider        = "prisma-client"
+  output          = "../generated/prisma"
+  previewFeatures = ["partialIndexes"]
 }
 
 datasource db {
@@ -22,28 +23,30 @@ enum UserRole {
 }
 
 model User {
-  id        String   @id @default(uuid())
+  id        String    @id @default(uuid())
   name      String
-  email     String   @unique
+  email     String
   password  String
-  role      UserRole @default(USER)
-  createdAt DateTime @default(now())
+  role      UserRole  @default(USER)
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
 
-  requests         Purchase[] @relation("Requester")
-  departmentHeadOf Purchase[] @relation("DepartmentHead")
+  requests          Purchase[] @relation("Requester")
+  departmentHeadOf  Purchase[] @relation("DepartmentHead")
   financeApproverOf Purchase[] @relation("FinanceApprover")
-  finalApproverOf  Purchase[] @relation("FinalApprover")
+  finalApproverOf   Purchase[] @relation("FinalApprover")
 
+  @@unique([email], where: raw("\"deletedAt\" IS NULL"))
   @@map("users")
 }
 
 model Supplier {
-  id        String    @id @default(uuid())
+  id        String     @id @default(uuid())
   name      String
   phone     String?
   address   String?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
   purchases Purchase[]
 
   @@map("suppliers")
@@ -60,20 +63,20 @@ model Category {
 }
 
 model Product {
-  id            String            @id @default(uuid())
-  code          String            @unique
+  id            String        @id @default(uuid())
+  code          String        @unique
   name          String
   categoryId    String
-  unit          String            @default("PCS")
-  stock         Int               @default(0)
-  minimumStock  Int               @default(0)
-  purchasePrice Decimal           @default(0)
-  sellingPrice  Decimal           @default(0)
-  status        ProductStatus     @default(ACTIVE)
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
+  unit          String        @default("PCS")
+  stock         Int           @default(0)
+  minimumStock  Int           @default(0)
+  purchasePrice Decimal       @default(0)
+  sellingPrice  Decimal       @default(0)
+  status        ProductStatus @default(ACTIVE)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
-  category          Category          @relation(fields: [categoryId], references: [id])
+  category          Category           @relation(fields: [categoryId], references: [id])
   purchaseItems     PurchaseItem[]
   stockTransactions StockTransaction[]
 
@@ -105,7 +108,7 @@ enum StockTransactionSource {
 }
 
 model StockTransaction {
-  id          String                @id @default(uuid())
+  id          String                 @id @default(uuid())
   productId   String
   type        StockTransactionType
   source      StockTransactionSource @default(MANUAL)
@@ -115,7 +118,7 @@ model StockTransaction {
   stockAfter  Int
   note        String?
   createdBy   String?
-  createdAt   DateTime              @default(now())
+  createdAt   DateTime               @default(now())
 
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 
@@ -125,38 +128,38 @@ model StockTransaction {
 }
 
 model Purchase {
-  id                 String           @id @default(uuid())
-  prNumber           String           @unique
-  supplierId         String?
-  dateOfRequest      DateTime         @default(now())
-  priority           PurchasePriority @default(MEDIUM)
-  requesterId        String
-  dateRequired       DateTime
-  department         String
-  purpose            String
-  comments           String?
-  total              Decimal          @default(0)
-  departmentHeadStatus ApprovalStatus @default(PENDING)
+  id                       String           @id @default(uuid())
+  prNumber                 String           @unique
+  supplierId               String?
+  dateOfRequest            DateTime         @default(now())
+  priority                 PurchasePriority @default(MEDIUM)
+  requesterId              String
+  dateRequired             DateTime
+  department               String
+  purpose                  String
+  comments                 String?
+  total                    Decimal          @default(0)
+  departmentHeadStatus     ApprovalStatus   @default(PENDING)
   departmentHeadApprovedAt DateTime?
-  financeStatus      ApprovalStatus   @default(PENDING)
-  financeApprovedAt  DateTime?
-  finalStatus        ApprovalStatus   @default(PENDING)
-  finalApprovedAt    DateTime?
-  approvalStatus     ApprovalStatus   @default(PENDING)
-  rejectionReason    String?
-  createdAt          DateTime         @default(now())
-  updatedAt          DateTime         @updatedAt
+  financeStatus            ApprovalStatus   @default(PENDING)
+  financeApprovedAt        DateTime?
+  finalStatus              ApprovalStatus   @default(PENDING)
+  finalApprovedAt          DateTime?
+  approvalStatus           ApprovalStatus   @default(PENDING)
+  rejectionReason          String?
+  createdAt                DateTime         @default(now())
+  updatedAt                DateTime         @updatedAt
 
-  supplier         Supplier? @relation(fields: [supplierId], references: [id])
-  requester        User      @relation("Requester", fields: [requesterId], references: [id])
-  departmentHead   User?     @relation("DepartmentHead", fields: [departmentHeadId], references: [id])
-  financeApprover  User?     @relation("FinanceApprover", fields: [financeApproverId], references: [id])
-  finalApprover    User?     @relation("FinalApprover", fields: [finalApproverId], references: [id])
-  items            PurchaseItem[]
+  supplier        Supplier?      @relation(fields: [supplierId], references: [id])
+  requester       User           @relation("Requester", fields: [requesterId], references: [id])
+  departmentHead  User?          @relation("DepartmentHead", fields: [departmentHeadId], references: [id])
+  financeApprover User?          @relation("FinanceApprover", fields: [financeApproverId], references: [id])
+  finalApprover   User?          @relation("FinalApprover", fields: [finalApproverId], references: [id])
+  items           PurchaseItem[]
 
-  departmentHeadId String?
+  departmentHeadId  String?
   financeApproverId String?
-  finalApproverId  String?
+  finalApproverId   String?
 
   @@map("purchases")
 }

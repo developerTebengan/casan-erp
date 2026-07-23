@@ -12,7 +12,9 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 			throw error(400, { message: 'Email and password are required' });
 		}
 
-		const user = await db.user.findUnique({ where: { email } });
+		const user = await db.user.findFirst({
+			where: { email, deletedAt: null }
+		});
 		if (!user || !(await verifyPassword(password, user.password))) {
 			throw error(401, { message: 'Invalid email or password' });
 		}

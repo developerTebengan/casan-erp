@@ -25,7 +25,9 @@ export const actions: Actions = {
 		}
 
 		try {
-			const user = await db.user.findUnique({ where: { email } });
+			const user = await db.user.findFirst({
+				where: { email, deletedAt: null }
+			});
 			if (!user || !(await verifyPassword(password, user.password))) {
 				return fail(401, { errors: { form: 'Invalid email or password' }, email });
 			}
