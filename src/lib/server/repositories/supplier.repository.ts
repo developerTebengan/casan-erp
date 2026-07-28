@@ -105,7 +105,21 @@ export function supplierRepository() {
 		await db.supplier.update({ where: { id }, data: { deletedAt: new Date() } });
 	}
 
-	return { findAll, findMany, findById, findByName, create, update, remove };
+	async function countByType() {
+		const groups = await db.supplier.groupBy({
+			by: ['type'],
+			where: { deletedAt: null },
+			_count: { _all: true }
+		});
+		const counts: Record<string, number> = { ALL: 0 };
+		for (const g of groups) {
+			counts[g.type] = g._count._all;
+			counts.ALL += g._count._all;
+		}
+		return counts;
+	}
+
+	return { findAll, findMany, findById, findByName, create, update, remove, countByType };
 }
 
 function mapSupplier(s: {

@@ -32,6 +32,7 @@ export interface PurchaseCreateInput {
 	priority: PurchasePriority;
 	requesterId: string;
 	dateRequired: Date;
+	decisionDeadline: Date;
 	department: string;
 	purpose: string;
 	comments?: string | null;
@@ -200,6 +201,7 @@ export function purchaseRepository() {
 				priority: input.priority,
 				requesterId: input.requesterId,
 				dateRequired: input.dateRequired,
+				decisionDeadline: input.decisionDeadline,
 				department: input.department,
 				purpose: input.purpose,
 				comments: input.comments,
@@ -236,6 +238,21 @@ export function purchaseRepository() {
 		await db.purchase.update({ where: { id }, data: { deletedAt: new Date() } });
 	}
 
+	async function countByApprovalStatus() {
+		const groups = await db.purchase.groupBy({
+			by: ['approvalStatus'],
+			where: { deletedAt: null },
+			_count: { _all: true }
+		});
+		const counts = { PENDING: 0, APPROVED: 0, REJECTED: 0, ALL: 0 };
+		for (const g of groups) {
+			const key = g.approvalStatus as keyof typeof counts;
+			if (key in counts) counts[key] = g._count._all;
+			counts.ALL += g._count._all;
+		}
+		return counts;
+	}
+
 	async function update(
 		id: string,
 		data: Partial<{
@@ -269,7 +286,7 @@ export function purchaseRepository() {
 		return mapPurchase(purchase);
 	}
 
-	return { findAll, findById, findByPrNumber, create, remove, update };
+	return { findAll, findById, findByPrNumber, create, remove, update, countByApprovalStatus };
 }
 
 function mapUser(
@@ -294,6 +311,7 @@ function mapPurchase(p: {
 	requesterId: string;
 	requester?: { id: string; name: string; email: string; role: string | UserRole } | null;
 	dateRequired: Date;
+	decisionDeadline: Date;
 	department: string;
 	purpose: string;
 	comments: string | null;
@@ -341,6 +359,7 @@ function mapPurchase(p: {
 		requesterId: p.requesterId,
 		requester: mapUser(p.requester),
 		dateRequired: p.dateRequired.toISOString(),
+		decisionDeadline: p.decisionDeadline.toISOString(),
 		department: p.department,
 		purpose: p.purpose,
 		comments: p.comments,

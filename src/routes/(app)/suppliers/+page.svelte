@@ -12,7 +12,8 @@
 		Modal,
 		ConfirmDialog,
 		EmptyState,
-		Spinner
+		Spinner,
+		StatusStatTabs
 	} from '$lib/components/ui';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import type { Supplier } from '$lib/types';
@@ -21,6 +22,8 @@
 
 	let suppliers = $state<Supplier[]>(untrack(() => data.suppliers.data));
 	let pagination = $state(untrack(() => data.suppliers.pagination));
+	let typeCounts = $state(untrack(() => data.typeCounts ?? { ALL: 0 }));
+	let typeTab = $state('ALL');
 	let search = $state('');
 	let loading = $state(false);
 
@@ -37,6 +40,7 @@
 		try {
 			const params = new URLSearchParams();
 			if (search) params.set('search', search);
+			if (typeTab && typeTab !== 'ALL') params.set('type', typeTab);
 			params.set('page', String(page));
 			params.set('limit', '10');
 
@@ -45,6 +49,7 @@
 				const result = await res.json();
 				suppliers = result.data;
 				pagination = result.pagination;
+				if (result.typeCounts) typeCounts = result.typeCounts;
 			}
 		} finally {
 			loading = false;
@@ -54,6 +59,30 @@
 	function handleSearch() {
 		loadSuppliers(1);
 	}
+
+	function switchType(id: string) {
+		typeTab = id;
+		loadSuppliers(1);
+	}
+
+	const supplierTypeOptions = [
+		{ value: 'GENERAL', label: 'General' },
+		{ value: 'MANUFACTURER', label: 'Manufacturer' },
+		{ value: 'DISTRIBUTOR', label: 'Distributor' },
+		{ value: 'RETAILER', label: 'Retailer' },
+		{ value: 'SERVICE', label: 'Service' },
+		{ value: 'OTHER', label: 'Other' }
+	];
+
+	const typeTabs = $derived([
+		{ id: 'ALL', label: 'All', count: typeCounts.ALL ?? 0, variant: 'secondary' as const },
+		...supplierTypeOptions.map((opt) => ({
+			id: opt.value,
+			label: opt.label,
+			count: typeCounts[opt.value] ?? 0,
+			variant: 'secondary' as const
+		}))
+	]);
 
 	function openCreate() {
 		selectedSupplier = { name: '', type: 'GENERAL', phone: '', address: '' };
@@ -164,15 +193,6 @@
 		{ key: 'actions', header: '', cell: actionsCell }
 	];
 
-	const supplierTypeOptions = [
-		{ value: 'GENERAL', label: 'General' },
-		{ value: 'MANUFACTURER', label: 'Manufacturer' },
-		{ value: 'DISTRIBUTOR', label: 'Distributor' },
-		{ value: 'RETAILER', label: 'Retailer' },
-		{ value: 'SERVICE', label: 'Service' },
-		{ value: 'OTHER', label: 'Other' }
-	];
-
 	function handleRowClick(row: Supplier, e: MouseEvent) {
 		const target = e.target as HTMLElement;
 		const detailBtn = target.closest('[data-detail]') as HTMLElement | null;
@@ -210,6 +230,8 @@
 			Add Supplier
 		</Button>
 	</div>
+
+	<StatusStatTabs tabs={typeTabs} active={typeTab} onchange={switchType} />
 
 	<Card padding="md">
 		<Input

@@ -62,6 +62,7 @@ export interface Purchase {
 	requesterId: string;
 	requester?: User;
 	dateRequired: string;
+	decisionDeadline: string;
 	department: string;
 	purpose: string;
 	comments?: string | null;

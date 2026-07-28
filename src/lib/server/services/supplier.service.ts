@@ -32,6 +32,10 @@ export function supplierService() {
 		return repo.findMany(filters);
 	}
 
+	async function typeCounts() {
+		return repo.countByType();
+	}
+
 	async function getById(id: string) {
 		return repo.findById(id);
 	}
@@ -82,5 +86,5 @@ export function supplierService() {
 		}
 	}
 
-	return { list, getById, create, update, remove, validate };
+	return { list, typeCounts, getById, create, update, remove, validate };
 }

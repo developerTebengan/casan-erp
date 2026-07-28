@@ -89,6 +89,7 @@ export function purchaseService() {
 			'prNumber',
 			'dateOfRequest',
 			'dateRequired',
+			'decisionDeadline',
 			'department',
 			'purpose'
 		]);
@@ -108,6 +109,16 @@ export function purchaseService() {
 		const dateRequired = input.dateRequired ? new Date(String(input.dateRequired)) : null;
 		if (dateRequired && Number.isNaN(dateRequired.getTime())) {
 			errors.dateRequired = ['Invalid date required'];
+		}
+
+		const decisionDeadline = input.decisionDeadline
+			? new Date(String(input.decisionDeadline))
+			: null;
+		if (decisionDeadline && Number.isNaN(decisionDeadline.getTime())) {
+			errors.decisionDeadline = ['Invalid decision deadline'];
+		}
+		if (decisionDeadline && dateOfRequest && decisionDeadline < dateOfRequest) {
+			errors.decisionDeadline = ['Decision deadline must be on/after date of request'];
 		}
 
 		const validApprovalRoles: Record<string, UserRole[]> = {
@@ -145,6 +156,7 @@ export function purchaseService() {
 				priority: (priority as PurchasePriority) || 'MEDIUM',
 				requesterId,
 				dateRequired: dateRequired!,
+				decisionDeadline: decisionDeadline!,
 				department: String(input.department).trim(),
 				purpose: String(input.purpose).trim(),
 				comments: input.comments ? String(input.comments).trim() : null,
@@ -158,6 +170,10 @@ export function purchaseService() {
 
 	async function list(filters: Parameters<typeof repo.findAll>[0]) {
 		return repo.findAll(filters);
+	}
+
+	async function statusCounts() {
+		return repo.countByApprovalStatus();
 	}
 
 	async function getById(id: string) {
@@ -360,5 +376,5 @@ export function purchaseService() {
 		return { success: true, data: updated };
 	}
 
-	return { list, getById, create, remove, validate, approve, reject, reassign };
+	return { list, statusCounts, getById, create, remove, validate, approve, reject, reassign };
 }

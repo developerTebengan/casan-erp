@@ -119,6 +119,15 @@
 		return 'Pending';
 	}
 
+	function isDecisionOverdue(p: typeof purchase) {
+		if (p.approvalStatus !== 'PENDING') return false;
+		const due = new Date(p.decisionDeadline || p.dateRequired);
+		const today = new Date();
+		due.setHours(0, 0, 0, 0);
+		today.setHours(0, 0, 0, 0);
+		return due < today;
+	}
+
 	function canActOnLevel(user: UserType | null | undefined, status: ApprovalStatus) {
 		if (status !== 'PENDING') return false;
 		if (isAdmin && user) return true;
@@ -329,8 +338,24 @@
 						<Calendar class="h-5 w-5" />
 					</div>
 					<div>
-						<p class="text-muted text-sm">Date Required</p>
+						<p class="text-muted text-sm">Date Required (goods)</p>
 						<p class="text-main font-semibold">{formatDate(purchase.dateRequired)}</p>
+					</div>
+				</div>
+				<div class="bg-card-secondary flex items-center gap-3 rounded-lg p-4">
+					<div
+						class="rounded-lg bg-danger-100 p-2 text-danger-700 dark:bg-danger-900/30 dark:text-danger-400"
+					>
+						<Calendar class="h-5 w-5" />
+					</div>
+					<div>
+						<p class="text-muted text-sm">Decision deadline</p>
+						<p class="text-main font-semibold">
+							{formatDate(purchase.decisionDeadline || purchase.dateRequired)}
+						</p>
+						{#if purchase.approvalStatus === 'PENDING' && isDecisionOverdue(purchase)}
+							<p class="text-danger-600 text-xs font-medium">Overdue — decide ASAP</p>
+						{/if}
 					</div>
 				</div>
 				<div class="bg-card-secondary flex items-center gap-3 rounded-lg p-4">
@@ -421,6 +446,16 @@
 					<div class="flex justify-between">
 						<span class="text-muted">Date Required</span>
 						<span class="text-main font-medium">{formatDate(purchase.dateRequired)}</span>
+					</div>
+					<div class="flex justify-between">
+						<span class="text-muted">Decision by</span>
+						<span
+							class="font-medium {isDecisionOverdue(purchase)
+								? 'text-danger-600'
+								: 'text-main'}"
+						>
+							{formatDate(purchase.decisionDeadline || purchase.dateRequired)}
+						</span>
 					</div>
 					<div class="flex justify-between">
 						<span class="text-muted">Department</span>

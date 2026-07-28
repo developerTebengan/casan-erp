@@ -1,4 +1,4 @@
-export const APP_VERSION = '0.3.0';
+export const APP_VERSION = '0.4.0';
 export const APP_NAME = 'Casan ERP';
 
 export type ChangelogChangeType = 'added' | 'changed' | 'fixed' | 'removed';
@@ -13,6 +13,20 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+	{
+		version: '0.4.0',
+		date: '2026-07-28',
+		changes: [
+			{
+				type: 'added',
+				items: [
+					'Status statistic tabs on Purchasing (Waiting / Approved / Unapproved) and Suppliers (by type)',
+					'PR decision deadline (latest date to approve or reject)',
+					'Overdue / due-soon highlights for pending PR decisions'
+				]
+			}
+		]
+	},
 	{
 		version: '0.3.0',
 		date: '2026-07-28',

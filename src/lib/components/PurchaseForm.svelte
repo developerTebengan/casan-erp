@@ -40,6 +40,17 @@
 			formatDateForInput(purchase?.dateRequired ? new Date(purchase.dateRequired) : getTomorrow())
 		)
 	);
+	let decisionDeadline = $state(
+		untrack(() =>
+			formatDateForInput(
+				purchase?.decisionDeadline
+					? new Date(purchase.decisionDeadline)
+					: purchase?.dateRequired
+						? new Date(purchase.dateRequired)
+						: getTomorrow()
+			)
+		)
+	);
 	let department = $state(untrack(() => purchase?.department ?? ''));
 	let purpose = $state(untrack(() => purchase?.purpose ?? ''));
 	let comments = $state(untrack(() => purchase?.comments ?? ''));
@@ -158,6 +169,10 @@
 			dateError = 'Date of Request cannot be later than Date Required';
 			return;
 		}
+		if (new Date(decisionDeadline) < new Date(dateOfRequest)) {
+			dateError = 'Decision deadline cannot be before Date of Request';
+			return;
+		}
 		dateError = '';
 		const data = {
 			prNumber,
@@ -165,6 +180,7 @@
 			dateOfRequest,
 			priority,
 			dateRequired,
+			decisionDeadline,
 			department,
 			purpose,
 			comments: comments || null,
@@ -239,7 +255,7 @@
 			error={errors.department}
 		/>
 		<Input
-			label="Date Required"
+			label="Date Required (goods)"
 			name="dateRequired"
 			type="date"
 			bind:value={dateRequired}
@@ -248,7 +264,21 @@
 			error={errors.dateRequired}
 			oninput={() => (dateError = '')}
 		/>
+		<Input
+			label="Decision deadline"
+			name="decisionDeadline"
+			type="date"
+			bind:value={decisionDeadline}
+			min={dateOfRequest}
+			required
+			error={errors.decisionDeadline || dateError}
+			oninput={() => (dateError = '')}
+		/>
 	</div>
+	<p class="text-muted -mt-4 text-xs">
+		Decision deadline is the latest date this PR should be approved or rejected (separate from when
+		goods are needed).
+	</p>
 
 	<div>
 		<Textarea

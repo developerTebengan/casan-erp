@@ -2,6 +2,13 @@
 
 All notable changes to Casan ERP are documented here.
 
+## [0.4.0] - 2026-07-28
+
+### Added
+- Status statistic tabs on Purchasing (Waiting / Approved / Unapproved) and Suppliers (by type)
+- PR decision deadline (latest date to approve or reject)
+- Overdue / due-soon highlights for pending PR decisions
+
 ## [0.3.0] - 2026-07-28
 
 ### Added

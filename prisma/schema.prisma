@@ -142,6 +142,7 @@ model Purchase {
   priority                 PurchasePriority @default(MEDIUM)
   requesterId              String
   dateRequired             DateTime
+  decisionDeadline         DateTime
   department               String
   purpose                  String
   comments                 String?

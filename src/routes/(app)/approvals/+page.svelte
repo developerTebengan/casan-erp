@@ -111,6 +111,22 @@
 		{ key: 'department', header: 'Department' },
 		{ key: 'priority', header: 'Priority', cell: priorityBadge },
 		{
+			key: 'deadline',
+			header: 'Decision by',
+			cell: (p: Purchase) => {
+				const d = p.decisionDeadline || p.dateRequired;
+				if (tab !== 'waiting' || p.approvalStatus !== 'PENDING') return formatDate(d);
+				const due = new Date(d);
+				const today = new Date();
+				due.setHours(0, 0, 0, 0);
+				today.setHours(0, 0, 0, 0);
+				const overdue = due < today;
+				return overdue
+					? `<span class="text-danger-600 font-semibold">${formatDate(d)} · overdue</span>`
+					: formatDate(d);
+			}
+		},
+		{
 			key: 'level',
 			header: 'Your level',
 			cell: (p: Purchase) => myLevelInfo(p).level

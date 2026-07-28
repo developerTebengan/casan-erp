@@ -27,19 +27,22 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit') ?? 10)));
 
 		const service = purchaseService();
-		const result = await service.list({
-			search,
-			supplierId,
-			priority,
-			approvalStatus,
-			awaitingApproverId: awaitingMe ? locals.user.id : undefined,
-			myApproverId: myDecision ? locals.user.id : undefined,
-			myDecision: myDecision || undefined,
-			decidedAfter,
-			page,
-			limit
-		});
-		return json(result);
+		const [result, statusCounts] = await Promise.all([
+			service.list({
+				search,
+				supplierId,
+				priority,
+				approvalStatus,
+				awaitingApproverId: awaitingMe ? locals.user.id : undefined,
+				myApproverId: myDecision ? locals.user.id : undefined,
+				myDecision: myDecision || undefined,
+				decidedAfter,
+				page,
+				limit
+			}),
+			service.statusCounts()
+		]);
+		return json({ ...result, statusCounts });
 	} catch (e) {
 		console.error(e);
 		throw error(500, { message: 'Failed to load purchases' });
