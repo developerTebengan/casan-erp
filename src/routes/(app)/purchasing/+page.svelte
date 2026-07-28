@@ -28,6 +28,7 @@
 	let search = $state('');
 	let supplierId = $state('');
 	let priority = $state('');
+	let approvalStatus = $state('');
 	let loading = $state(false);
 	let deleteId = $state<string | null>(null);
 	let deleting = $state(false);
@@ -38,6 +39,13 @@
 		{ value: 'MEDIUM', label: 'Medium' },
 		{ value: 'HIGH', label: 'High' },
 		{ value: 'URGENT', label: 'Urgent' }
+	];
+
+	const approvalStatusOptions = [
+		{ value: '', label: 'All Statuses' },
+		{ value: 'PENDING', label: 'Pending' },
+		{ value: 'APPROVED', label: 'Approved' },
+		{ value: 'REJECTED', label: 'Rejected' }
 	];
 
 	const supplierOptions = $derived([
@@ -52,6 +60,7 @@
 			if (search) params.set('search', search);
 			if (supplierId) params.set('supplierId', supplierId);
 			if (priority) params.set('priority', priority);
+			if (approvalStatus) params.set('approvalStatus', approvalStatus);
 			params.set('page', String(page));
 			params.set('limit', '10');
 
@@ -147,6 +156,7 @@
 
 	function handleRowClick(row: Purchase, e: MouseEvent) {
 		const target = e.target as HTMLElement;
+		if (target.closest('a')) return;
 		const deleteBtn = target.closest('[data-delete]') as HTMLElement | null;
 		if (deleteBtn) {
 			deleteId = deleteBtn.dataset.delete ?? null;
@@ -184,7 +194,7 @@
 					oninput={handleSearch}
 				/>
 			</div>
-			<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:w-[400px]">
+			<div class="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:w-[560px]">
 				<Select
 					label="Supplier"
 					options={supplierOptions}
@@ -195,6 +205,12 @@
 					label="Priority"
 					options={priorityOptions}
 					bind:value={priority}
+					onchange={handleSearch}
+				/>
+				<Select
+					label="Approval Status"
+					options={approvalStatusOptions}
+					bind:value={approvalStatus}
 					onchange={handleSearch}
 				/>
 			</div>

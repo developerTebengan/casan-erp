@@ -11,16 +11,36 @@
 		MessageSquare,
 		Printer,
 		Check,
-		X
+		X,
+		PackagePlus
 	} from '@lucide/svelte';
-	import { Card, Breadcrumb, Badge, Button, DataTable, Modal, Textarea } from '$lib/components/ui';
+	import { Card, Breadcrumb, Badge, Button, DataTable, Modal, Textarea, Input, Select } from '$lib/components/ui';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatCurrency, formatDate } from '$lib/utils/format';
-	import type { PurchaseItem, ApprovalStatus, User as UserType } from '$lib/types';
+	import type { PurchaseItem, ApprovalStatus, User as UserType, UserRole } from '$lib/types';
 
 	let { data } = $props();
 	const purchase = $derived(data.purchase);
 	const currentUser = $derived(data.user);
+	const canReceive = $derived(data.canReceive);
+	const isAdmin = $derived(data.isAdmin);
+	const users = $derived(data.users);
+	let receipt = $state(data.receipt);
+	let receiveQtys = $state<Record<string, number>>({});
+	let receiveNote = $state('');
+	let receiving = $state(false);
+	let reassignLevel = $state<'departmentHead' | 'finance' | 'final' | null>(null);
+	let reassignUserId = $state('');
+	let reassigning = $state(false);
+
+	$effect(() => {
+		receipt = data.receipt;
+		const next: Record<string, number> = {};
+		for (const line of data.receipt?.lines ?? []) {
+			next[line.productId] = line.remainingQty;
+		}
+		receiveQtys = next;
+	});
 
 	let loading = $state(false);
 	let rejectModalOpen = $state(false);
@@ -100,7 +120,58 @@
 	}
 
 	function canActOnLevel(user: UserType | null | undefined, status: ApprovalStatus) {
-		return status === 'PENDING' && user?.id === currentUser?.id;
+		if (status !== 'PENDING') return false;
+		if (isAdmin && user) return true;
+		return user?.id === currentUser?.id;
+	}
+
+	function isWaitingOnPrevious(levelKey: 'departmentHead' | 'finance' | 'final') {
+		const order = ['departmentHead', 'finance', 'final'] as const;
+		const idx = order.indexOf(levelKey);
+		for (let i = 0; i < idx; i++) {
+			const prev = approvalLevels[i];
+			if (prev.user && prev.status !== 'APPROVED') return true;
+		}
+		return false;
+	}
+
+	const nextPending = $derived(approvalLevels.find((l) => l.user && l.status === 'PENDING'));
+
+	function reassignOptions(levelKey: 'departmentHead' | 'finance' | 'final') {
+		const roleMap: Record<typeof levelKey, UserRole[]> = {
+			departmentHead: ['DEPARTMENT_HEAD'],
+			finance: ['FINANCE'],
+			final: ['MANAGER', 'DIRECTOR']
+		};
+		return [
+			{ value: '', label: 'Select user' },
+			...users
+				.filter((u) => roleMap[levelKey].includes(u.role))
+				.map((u) => ({ value: u.id, label: `${u.name} (${u.email})` }))
+		];
+	}
+
+	async function handleReassign() {
+		if (!reassignLevel || !reassignUserId) return;
+		reassigning = true;
+		try {
+			const res = await fetch(`/api/purchases/${purchase.id}/reassign`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ level: reassignLevel, approverId: reassignUserId })
+			});
+			if (res.ok) {
+				toastStore.success('Approver reassigned');
+				reassignLevel = null;
+				reassignUserId = '';
+				await invalidateAll();
+			} else {
+				const err = await res.json().catch(() => ({}));
+				toastStore.error(err.errors?.form?.[0] || err.message || 'Failed to reassign');
+			}
+		} finally {
+			reassigning = false;
+		}
 	}
 
 	async function handleApprove(level: 'departmentHead' | 'finance' | 'final') {
@@ -162,6 +233,38 @@
 			}
 		} finally {
 			loading = false;
+		}
+	}
+
+	async function handleReceive() {
+		if (!receipt) return;
+		receiving = true;
+		try {
+			const lines = receipt.lines
+				.map((line) => ({
+					productId: line.productId,
+					qty: Number(receiveQtys[line.productId] ?? 0)
+				}))
+				.filter((line) => line.qty > 0);
+
+			const res = await fetch(`/api/purchases/${purchase.id}/receive`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ lines, note: receiveNote })
+			});
+
+			if (res.ok) {
+				toastStore.success('Goods received — stock updated');
+				receiveNote = '';
+				await invalidateAll();
+			} else {
+				const errorData = await res.json().catch(() => ({}));
+				toastStore.error(
+					errorData.errors?.form?.[0] || errorData.message || 'Failed to receive goods'
+				);
+			}
+		} finally {
+			receiving = false;
 		}
 	}
 </script>
@@ -340,6 +443,34 @@
 
 			<Card padding="lg">
 				<h3 class="text-main mb-4 text-lg font-semibold">Approval</h3>
+
+				{#if purchase.approvalStatus === 'PENDING' && nextPending}
+					<div
+						class="mb-4 rounded-lg bg-primary-50 p-3 text-sm text-primary-800 dark:bg-primary-900/20 dark:text-primary-300"
+					>
+						<p class="font-medium">Waiting on: {nextPending.label}</p>
+						<p class="mt-1">
+							Assigned to
+							<strong>{nextPending.user?.name ?? '—'}</strong>
+							{#if nextPending.user?.email}
+								({nextPending.user.email})
+							{/if}
+						</p>
+						{#if nextPending.user && nextPending.user.id !== currentUser.id && !isAdmin}
+							<p class="mt-2 text-xs opacity-90">
+								Log in as that user (or ask Admin to approve/reassign). Demo password:
+								<code class="rounded bg-white/50 px-1 dark:bg-black/20">password</code>
+							</p>
+						{/if}
+						{#if isAdmin}
+							<p class="mt-2 text-xs opacity-90">
+								You are ADMIN — you can approve/reject any pending level or reassign the
+								approver below.
+							</p>
+						{/if}
+					</div>
+				{/if}
+
 				<div class="space-y-4 text-sm">
 					<div class="flex items-center justify-between">
 						<span class="text-muted">Overall Status</span>
@@ -349,10 +480,10 @@
 					</div>
 					{#if purchase.approvalStatus === 'REJECTED' && purchase.rejectionReason}
 						<div class="dark:bg-danger-900/20 rounded-lg bg-danger-50 p-3">
-							<p class="text-danger-700 text-sm font-medium dark:text-slate-700">
+							<p class="text-sm font-medium text-danger-700 dark:text-danger-300">
 								Rejection Reason
 							</p>
-							<p class="dark:text-danger-200 text-sm text-danger-600">{purchase.rejectionReason}</p>
+							<p class="text-sm text-danger-600 dark:text-danger-200">{purchase.rejectionReason}</p>
 						</div>
 					{/if}
 					<div class="border-theme border-t pt-4">
@@ -362,42 +493,137 @@
 						</div>
 					</div>
 					{#each approvalLevels as level (level.key)}
-						<div class="flex items-start justify-between gap-3">
-							<div class="min-w-0 flex-1">
-								<p class="text-muted">{level.label}</p>
-								<p class="text-main truncate font-medium">{approverName(level.user)}</p>
-								{#if level.date}
-									<p class="text-muted text-xs">{formatDate(level.date)}</p>
-								{/if}
-							</div>
-							<div class="flex shrink-0 flex-col items-end gap-2">
-								{#if level.user}
-									<Badge variant={approvalStatusVariant(level.status)}>
-										{approvalStatusLabel(level.status)}
-									</Badge>
-								{/if}
-								{#if canActOnLevel(level.user, level.status)}
-									<div class="flex gap-2">
-										<Button size="sm" {loading} onclick={() => handleApprove(level.key)}>
-											<Check class="h-3.5 w-3.5" />
-											Approve
-										</Button>
+						<div class="border-theme space-y-2 border-b pb-4 last:border-0 last:pb-0">
+							<div class="flex items-start justify-between gap-3">
+								<div class="min-w-0 flex-1">
+									<p class="text-muted">{level.label}</p>
+									<p class="text-main truncate font-medium">{approverName(level.user)}</p>
+									{#if level.user?.email}
+										<p class="text-muted truncate text-xs">{level.user.email}</p>
+									{/if}
+									{#if level.date}
+										<p class="text-muted text-xs">{formatDate(level.date)}</p>
+									{/if}
+									{#if isWaitingOnPrevious(level.key) && level.status === 'PENDING'}
+										<p class="text-warning-700 dark:text-warning-400 mt-1 text-xs">
+											Waiting for previous level to approve first
+										</p>
+									{/if}
+								</div>
+								<div class="flex shrink-0 flex-col items-end gap-2">
+									{#if level.user}
+										<Badge variant={approvalStatusVariant(level.status)}>
+											{approvalStatusLabel(level.status)}
+										</Badge>
+									{/if}
+									{#if canActOnLevel(level.user, level.status) && !isWaitingOnPrevious(level.key)}
+										<div class="flex gap-2">
+											<Button size="sm" {loading} onclick={() => handleApprove(level.key)}>
+												<Check class="h-3.5 w-3.5" />
+												{isAdmin && level.user?.id !== currentUser.id ? 'Admin approve' : 'Approve'}
+											</Button>
+											<Button
+												variant="danger"
+												size="sm"
+												{loading}
+												onclick={() => openRejectModal(level.key)}
+											>
+												<X class="h-3.5 w-3.5" />
+												Reject
+											</Button>
+										</div>
+									{/if}
+									{#if isAdmin && level.status === 'PENDING'}
 										<Button
-											variant="danger"
 											size="sm"
-											{loading}
-											onclick={() => openRejectModal(level.key)}
+											variant="secondary"
+											onclick={() => {
+												reassignLevel = level.key;
+												reassignUserId = level.user?.id ?? '';
+											}}
 										>
-											<X class="h-3.5 w-3.5" />
-											Reject
+											Reassign
 										</Button>
-									</div>
-								{/if}
+									{/if}
+								</div>
 							</div>
 						</div>
 					{/each}
 				</div>
 			</Card>
+
+			{#if purchase.approvalStatus === 'APPROVED' && receipt}
+				<Card padding="lg">
+					<div class="mb-4 flex items-center gap-3">
+						<div
+							class="rounded-lg bg-success-100 p-2 text-success-700 dark:bg-success-900/30 dark:text-success-500"
+						>
+							<PackagePlus class="h-5 w-5" />
+						</div>
+						<div>
+							<h3 class="text-main text-lg font-semibold">Goods Receipt</h3>
+							<p class="text-muted text-sm">
+								{#if receipt.fullyReceived}
+									All items received into stock
+								{:else if receipt.partiallyReceived}
+									Partially received — enter remaining quantities
+								{:else}
+									Receive approved items into inventory
+								{/if}
+							</p>
+						</div>
+					</div>
+
+					<div class="space-y-3">
+						{#each receipt.lines as line}
+							<div class="border-theme rounded-lg border p-3">
+								<div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+									<div>
+										<p class="text-main text-sm font-medium">
+											{line.productCode} — {line.productName}
+										</p>
+										<p class="text-muted text-xs">
+											Ordered {line.orderedQty} {line.unit} · Received {line.receivedQty} ·
+											Remaining {line.remainingQty}
+										</p>
+									</div>
+									{#if line.remainingQty === 0}
+										<Badge variant="success">Complete</Badge>
+									{/if}
+								</div>
+								{#if canReceive && line.remainingQty > 0}
+									<Input
+										label="Receive qty"
+										type="number"
+										value={String(receiveQtys[line.productId] ?? 0)}
+										oninput={(e) => {
+											const v = Number((e.target as HTMLInputElement).value);
+											receiveQtys = {
+												...receiveQtys,
+												[line.productId]: Number.isNaN(v) ? 0 : v
+											};
+										}}
+									/>
+								{/if}
+							</div>
+						{/each}
+					</div>
+
+					{#if canReceive && receipt.canReceive}
+						<div class="mt-4 space-y-3">
+							<Textarea
+								label="Note (optional)"
+								placeholder="Delivery note / invoice ref..."
+								bind:value={receiveNote}
+							/>
+							<Button variant="primary" class="w-full" loading={receiving} onclick={handleReceive}>
+								<PackagePlus class="h-4 w-4" />
+								Receive into stock
+							</Button>
+						</div>
+					{/if}
+				</Card>
+			{/if}
 		</div>
 	</div>
 </div>
@@ -424,4 +650,46 @@
 			</Button>
 		</div>
 	</div>
+</Modal>
+
+<Modal
+	open={!!reassignLevel}
+	title="Reassign approver"
+	onclose={() => {
+		reassignLevel = null;
+		reassignUserId = '';
+	}}
+>
+	{#if reassignLevel}
+		<div class="space-y-4">
+			<p class="text-muted text-sm">
+				Choose a user with the correct role for this approval level.
+			</p>
+			<Select
+				label="New approver"
+				options={reassignOptions(reassignLevel)}
+				bind:value={reassignUserId}
+			/>
+			<div class="flex justify-end gap-3">
+				<Button
+					variant="secondary"
+					onclick={() => {
+						reassignLevel = null;
+						reassignUserId = '';
+					}}
+					disabled={reassigning}
+				>
+					Cancel
+				</Button>
+				<Button
+					variant="primary"
+					loading={reassigning}
+					disabled={!reassignUserId}
+					onclick={handleReassign}
+				>
+					Save
+				</Button>
+			</div>
+		</div>
+	{/if}
 </Modal>

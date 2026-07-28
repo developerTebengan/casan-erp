@@ -25,7 +25,7 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 		}
 
 		const service = purchaseService();
-		const result = await service.reject(params.id, level, reason, userId);
+		const result = await service.reject(params.id, level, reason, userId, locals.user?.role);
 
 		if (!result.success) {
 			return json(

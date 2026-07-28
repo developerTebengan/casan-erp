@@ -1,17 +1,23 @@
 import { json, error } from '@sveltejs/kit';
 import { productService } from '$lib/server/services/product.service';
+import { hasPermission } from '$lib/permissions';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async ({ url }) => {
+export const GET: RequestHandler = async ({ url, locals }) => {
 	try {
+		if (!locals.user || !hasPermission(locals.user.role, 'inventory:view')) {
+			return json({ message: 'Forbidden' }, { status: 403 });
+		}
+
 		const search = url.searchParams.get('search') || undefined;
 		const categoryId = url.searchParams.get('categoryId') || undefined;
 		const status = (url.searchParams.get('status') as 'ACTIVE' | 'INACTIVE') || undefined;
+		const lowStock = url.searchParams.get('lowStock') === '1';
 		const page = Math.max(1, Number(url.searchParams.get('page') ?? 1));
 		const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit') ?? 10)));
 
 		const service = productService();
-		const result = await service.list({ search, categoryId, status, page, limit });
+		const result = await service.list({ search, categoryId, status, lowStock, page, limit });
 		return json(result);
 	} catch (e) {
 		console.error(e);
@@ -19,8 +25,12 @@ export const GET: RequestHandler = async ({ url }) => {
 	}
 };
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, locals }) => {
 	try {
+		if (!locals.user || !hasPermission(locals.user.role, 'inventory:write')) {
+			return json({ message: 'Forbidden' }, { status: 403 });
+		}
+
 		const body = await request.json();
 		const service = productService();
 		const result = await service.create(body);

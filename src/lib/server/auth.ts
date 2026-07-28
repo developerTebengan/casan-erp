@@ -1,8 +1,9 @@
-import { redirect, type Cookies } from '@sveltejs/kit';
+import { error, redirect, type Cookies } from '@sveltejs/kit';
 import bcrypt from 'bcryptjs';
 import { createHmac, timingSafeEqual } from 'crypto';
 import { db } from './db';
-import type { User } from '$lib/types';
+import { hasPermission, type AppPermission } from '$lib/permissions';
+import type { User, UserRole } from '$lib/types';
 
 const SESSION_SECRET =
 	process.env.SESSION_SECRET ?? 'casan-erp-development-secret-change-in-production';
@@ -63,6 +64,25 @@ export async function requireAuth(cookies: Cookies): Promise<User> {
 	const user = await getCurrentUser(cookies);
 	if (!user) {
 		throw redirect(303, '/login');
+	}
+	return user;
+}
+
+export async function requirePermission(
+	cookies: Cookies,
+	permission: AppPermission
+): Promise<User> {
+	const user = await requireAuth(cookies);
+	if (!hasPermission(user.role, permission)) {
+		throw error(403, { message: 'Forbidden' });
+	}
+	return user;
+}
+
+export async function requireRoles(cookies: Cookies, roles: UserRole[]): Promise<User> {
+	const user = await requireAuth(cookies);
+	if (!roles.includes(user.role)) {
+		throw error(403, { message: 'Forbidden' });
 	}
 	return user;
 }

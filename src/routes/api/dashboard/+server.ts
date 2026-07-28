@@ -1,28 +1,70 @@
 import { json, error } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
+import { purchaseService } from '$lib/server/services/purchase.service';
+import { hasPermission } from '$lib/permissions';
 import type { RequestHandler } from './$types';
-import type { RecentActivity } from '$lib/types';
+import type {
+	CategoryStockStat,
+	DashboardProductRow,
+	RecentActivity
+} from '$lib/types';
 
-export const GET: RequestHandler = async () => {
+export const GET: RequestHandler = async ({ locals }) => {
 	try {
-		const [totalProducts, totalPurchaseOrders, totalSuppliers, products, purchases] =
+		const user = locals.user;
+		const [totalProducts, totalPurchaseOrders, totalSuppliers, products, purchases, categories] =
 			await Promise.all([
 				db.product.count({ where: { deletedAt: null } }),
 				db.purchase.count({ where: { deletedAt: null } }),
 				db.supplier.count({ where: { deletedAt: null } }),
 				db.product.findMany({
 					where: { deletedAt: null },
-					select: { id: true, stock: true, minimumStock: true }
+					include: { category: { select: { id: true, name: true } } },
+					orderBy: { name: 'asc' }
 				}),
 				db.purchase.findMany({
 					where: { deletedAt: null },
 					orderBy: { createdAt: 'desc' },
 					take: 10,
 					include: { supplier: { select: { name: true } } }
-				})
+				}),
+				db.category.findMany({ where: { deletedAt: null }, orderBy: { name: 'asc' } })
 			]);
 
 		const lowStockItems = products.filter((p) => p.stock <= p.minimumStock).length;
+
+		let pendingApprovals = 0;
+		if (user && hasPermission(user.role, 'approvals:view')) {
+			const inbox = await purchaseService().list({
+				awaitingApproverId: user.id,
+				page: 1,
+				limit: 1
+			});
+			pendingApprovals = inbox.pagination.total;
+		}
+
+		const categoryStock: CategoryStockStat[] = categories.map((cat) => {
+			const catProducts = products.filter((p) => p.categoryId === cat.id);
+			return {
+				categoryId: cat.id,
+				categoryName: cat.name,
+				productCount: catProducts.length,
+				totalStock: catProducts.reduce((sum, p) => sum + p.stock, 0),
+				lowStockCount: catProducts.filter((p) => p.stock <= p.minimumStock).length,
+				inventoryValue: catProducts.reduce((sum, p) => sum + p.stock * Number(p.price), 0)
+			};
+		});
+
+		const productsByCategory: DashboardProductRow[] = products.slice(0, 20).map((p) => ({
+			id: p.id,
+			code: p.code,
+			name: p.name,
+			categoryName: p.category?.name ?? '-',
+			stock: p.stock,
+			minimumStock: p.minimumStock,
+			unit: p.unit,
+			imageUrl: p.imageUrl
+		}));
 
 		const monthlyMap = new Map<string, number>();
 		const allPurchases = await db.purchase.findMany({
@@ -50,17 +92,15 @@ export const GET: RequestHandler = async () => {
 			type: 'PURCHASE' as const
 		}));
 
-		const latestProducts = await db.product.findMany({
-			where: { deletedAt: null },
-			orderBy: { createdAt: 'desc' },
-			take: 5,
-			include: { category: { select: { name: true } } }
-		});
+		const latestProducts = products
+			.slice()
+			.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+			.slice(0, 5);
 
 		for (const p of latestProducts) {
 			recentActivities.push({
 				id: p.id,
-				description: `Product ${p.name} added to ${p.category.name}`,
+				description: `Product ${p.name} added to ${p.category?.name ?? 'category'}`,
 				date: p.createdAt.toISOString(),
 				type: 'PRODUCT' as const
 			});
@@ -73,10 +113,13 @@ export const GET: RequestHandler = async () => {
 				totalProducts,
 				totalPurchaseOrders,
 				totalSuppliers,
-				lowStockItems
+				lowStockItems,
+				pendingApprovals
 			},
 			monthlyPurchases,
-			recentActivities: recentActivities.slice(0, 10)
+			recentActivities: recentActivities.slice(0, 10),
+			categoryStock,
+			productsByCategory
 		});
 	} catch (e) {
 		console.error(e);

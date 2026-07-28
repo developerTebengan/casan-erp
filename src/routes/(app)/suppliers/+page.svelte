@@ -5,6 +5,7 @@
 		Card,
 		Button,
 		Input,
+		Select,
 		Breadcrumb,
 		DataTable,
 		Pagination,
@@ -55,9 +56,7 @@
 	}
 
 	function openCreate() {
-		selectedSupplier = { name: '', phone: '', address: '' };
-		selectedSupplier.phone = '';
-		selectedSupplier.address = '';
+		selectedSupplier = { name: '', type: 'GENERAL', phone: '', address: '' };
 		modalErrors = {};
 		modalMode = 'create';
 	}
@@ -65,6 +64,7 @@
 	function openEdit(supplier: Supplier) {
 		selectedSupplier = {
 			...supplier,
+			type: supplier.type ?? 'GENERAL',
 			phone: supplier.phone ?? '',
 			address: supplier.address ?? ''
 		};
@@ -96,6 +96,7 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					name: selectedSupplier.name,
+					type: selectedSupplier.type || 'GENERAL',
 					phone: selectedSupplier.phone,
 					address: selectedSupplier.address
 				})
@@ -157,9 +158,19 @@
 
 	const columns = [
 		{ key: 'name', header: 'Supplier Name' },
+		{ key: 'type', header: 'Type', cell: (s: Supplier) => s.type || 'GENERAL' },
 		{ key: 'phone', header: 'Phone', cell: (s: Supplier) => s.phone || '-' },
 		{ key: 'address', header: 'Address', cell: (s: Supplier) => s.address || '-' },
 		{ key: 'actions', header: '', cell: actionsCell }
+	];
+
+	const supplierTypeOptions = [
+		{ value: 'GENERAL', label: 'General' },
+		{ value: 'MANUFACTURER', label: 'Manufacturer' },
+		{ value: 'DISTRIBUTOR', label: 'Distributor' },
+		{ value: 'RETAILER', label: 'Retailer' },
+		{ value: 'SERVICE', label: 'Service' },
+		{ value: 'OTHER', label: 'Other' }
 	];
 
 	function handleRowClick(row: Supplier, e: MouseEvent) {
@@ -238,6 +249,14 @@
 			required
 			error={modalErrors.name}
 		/>
+		<Select
+			label="Supplier Type"
+			options={supplierTypeOptions}
+			bind:value={
+				() => selectedSupplier.type ?? 'GENERAL',
+				(v) => (selectedSupplier.type = v)
+			}
+		/>
 		<Input
 			label="Phone"
 			bind:value={() => selectedSupplier.phone ?? '', (v) => (selectedSupplier.phone = v)}
@@ -266,6 +285,7 @@
 			</div>
 			<div>
 				<h3 class="text-main text-lg font-semibold">{selectedSupplier.name}</h3>
+				<p class="text-muted text-sm">Type: {selectedSupplier.type || 'GENERAL'}</p>
 			</div>
 		</div>
 		{#if selectedSupplier.phone}

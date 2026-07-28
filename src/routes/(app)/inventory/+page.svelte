@@ -28,6 +28,7 @@
 	let search = $state('');
 	let categoryId = $state('');
 	let status = $state('');
+	let stockFilter = $state('');
 	let loading = $state(false);
 	let deleteId = $state<string | null>(null);
 	let deleting = $state(false);
@@ -50,6 +51,7 @@
 			if (search) params.set('search', search);
 			if (categoryId) params.set('categoryId', categoryId);
 			if (status) params.set('status', status);
+			if (stockFilter === '1') params.set('lowStock', '1');
 			params.set('page', String(page));
 			params.set('limit', '10');
 
@@ -114,10 +116,18 @@
 		`;
 	}
 
+	function photoCell(p: Product) {
+		if (p.imageUrl) {
+			return `<img src="${p.imageUrl}" alt="" class="h-10 w-10 rounded object-cover border border-slate-200" />`;
+		}
+		return `<span class="inline-flex h-10 w-10 items-center justify-center rounded bg-slate-100 text-xs text-slate-400">N/A</span>`;
+	}
+
 	const columns = [
+		{ key: 'photo', header: 'Photo', cell: photoCell },
 		{ key: 'code', header: 'Code' },
 		{ key: 'name', header: 'Product Name' },
-		{ key: 'category', header: 'Category', cell: (p: Product) => p.category?.name ?? '-' },
+		{ key: 'category', header: 'Category / Type', cell: (p: Product) => p.category?.name ?? '-' },
 		{ key: 'stock', header: 'Stock', cell: stockBadge },
 		{ key: 'status', header: 'Status', cell: statusBadge },
 		{ key: 'actions', header: '', cell: actionsCell }
@@ -134,6 +144,12 @@
 	}
 
 	onMount(() => {
+		const params = new URLSearchParams(window.location.search);
+		if (params.get('lowStock') === '1') {
+			stockFilter = '1';
+			loadProducts(1);
+			return;
+		}
 		if (!categories.length) loadProducts();
 	});
 </script>
@@ -146,10 +162,17 @@
 			<h1 class="text-main text-2xl font-bold sm:text-3xl">Inventory</h1>
 			<p class="text-muted">Manage your products and stock levels</p>
 		</div>
-		<Button href="/inventory/new" variant="primary">
-			<Plus class="h-4 w-4" />
-			Add Product
-		</Button>
+		<div class="flex flex-wrap gap-3">
+			{#if stockFilter === '1' || products.some((p) => p.stock <= p.minimumStock)}
+				<Button href="/purchasing/new?fromLowStock=1" variant="secondary">
+					Create PR from low stock
+				</Button>
+			{/if}
+			<Button href="/inventory/new" variant="primary">
+				<Plus class="h-4 w-4" />
+				Add Product
+			</Button>
+		</div>
 	</div>
 
 	<Card padding="md">
@@ -162,7 +185,7 @@
 					oninput={handleSearch}
 				/>
 			</div>
-			<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:w-[400px]">
+			<div class="grid grid-cols-1 gap-4 sm:grid-cols-3 lg:w-[560px]">
 				<Select
 					label="Category"
 					options={categoryOptions}
@@ -173,6 +196,15 @@
 					label="Status"
 					options={statusOptions}
 					bind:value={status}
+					onchange={handleSearch}
+				/>
+				<Select
+					label="Stock"
+					options={[
+						{ value: '', label: 'All stock levels' },
+						{ value: '1', label: 'Low stock only' }
+					]}
+					bind:value={stockFilter}
 					onchange={handleSearch}
 				/>
 			</div>

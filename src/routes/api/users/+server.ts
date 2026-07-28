@@ -1,9 +1,19 @@
 import { json, error } from '@sveltejs/kit';
 import { userService } from '$lib/server/services/user.service';
+import { hasPermission } from '$lib/permissions';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async () => {
+export const GET: RequestHandler = async ({ locals }) => {
 	try {
+		// Approvers list for PR form needs users; ADMIN manages; others with purchasing:write can list
+		if (
+			!locals.user ||
+			(!hasPermission(locals.user.role, 'users:manage') &&
+				!hasPermission(locals.user.role, 'purchasing:write'))
+		) {
+			return json({ message: 'Forbidden' }, { status: 403 });
+		}
+
 		const service = userService();
 		const users = await service.list();
 		return json(users);
@@ -13,8 +23,12 @@ export const GET: RequestHandler = async () => {
 	}
 };
 
-export const POST: RequestHandler = async ({ request }) => {
+export const POST: RequestHandler = async ({ request, locals }) => {
 	try {
+		if (!locals.user || !hasPermission(locals.user.role, 'users:manage')) {
+			return json({ message: 'Forbidden' }, { status: 403 });
+		}
+
 		const body = await request.json();
 		const service = userService();
 		const result = await service.create(body);

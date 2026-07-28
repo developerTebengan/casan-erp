@@ -21,6 +21,7 @@ export function supplierService() {
 			valid: true,
 			data: {
 				name: String(input.name).trim(),
+				type: input.type ? String(input.type).trim() : 'GENERAL',
 				phone: input.phone ? String(input.phone).trim() : undefined,
 				address: input.address ? String(input.address).trim() : undefined
 			}

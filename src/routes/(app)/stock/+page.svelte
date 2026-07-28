@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
+	import { goto } from '$app/navigation';
 	import { Plus } from '@lucide/svelte';
 	import {
 		Card,
@@ -52,6 +53,13 @@
 		return `<span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${variants[tx.type]}">${labels[tx.type]}</span>`;
 	}
 
+	function sourceCell(tx: StockTransaction) {
+		if (tx.source === 'PURCHASE' && tx.referenceId) {
+			return `<a href="/purchasing/${tx.referenceId}" class="text-primary-600 hover:underline" onclick="event.stopPropagation()">PR</a>`;
+		}
+		return tx.source;
+	}
+
 	async function loadTransactions(page = 1) {
 		loading = true;
 		try {
@@ -79,8 +87,14 @@
 	}
 
 	const columns = [
-		{ key: 'product', header: 'Product', cell: (tx: StockTransaction) => tx.product?.name ?? '-' },
+		{
+			key: 'product',
+			header: 'Product',
+			cell: (tx: StockTransaction) =>
+				tx.product ? `${tx.product.code} — ${tx.product.name}` : '-'
+		},
 		{ key: 'type', header: 'Type', cell: typeBadge },
+		{ key: 'source', header: 'Source', cell: sourceCell },
 		{ key: 'qty', header: 'Qty', cell: (tx: StockTransaction) => formatNumber(tx.qty) },
 		{
 			key: 'stockBefore',
@@ -107,7 +121,7 @@
 	<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 		<div>
 			<h1 class="text-main text-2xl font-bold sm:text-3xl">Stock Movement</h1>
-			<p class="text-muted">Track stock in, stock out, and adjustments</p>
+			<p class="text-muted">Track stock in, stock out, and adjustments. Click a row for detail / reverse.</p>
 		</div>
 		<Button href="/stock/new" variant="primary">
 			<Plus class="h-4 w-4" />
@@ -152,7 +166,15 @@
 			</Button>
 		</EmptyState>
 	{:else}
-		<DataTable {columns} rows={transactions} {loading} />
+		<DataTable
+			{columns}
+			rows={transactions}
+			{loading}
+			onrowclick={(row, e) => {
+				if ((e.target as HTMLElement).closest('a')) return;
+				goto(`/stock/${(row as StockTransaction).id}`);
+			}}
+		/>
 		<Pagination {...pagination} onpagechange={loadTransactions} />
 	{/if}
 </div>

@@ -6,6 +6,14 @@ export interface PurchaseFilters {
 	supplierId?: string;
 	priority?: PurchasePriority;
 	approvalStatus?: ApprovalStatus;
+	awaitingApproverId?: string;
+	/** History for a specific approver: waiting / approved / rejected by them */
+	myApproverId?: string;
+	myDecision?: 'PENDING' | 'APPROVED' | 'REJECTED';
+	/** Filter approved/rejected decisions on or after this date (ISO date) */
+	decidedAfter?: string;
+	/** Filter approved/rejected decisions on or before this date (ISO date) */
+	decidedBefore?: string;
 	page?: number;
 	limit?: number;
 }
@@ -35,13 +43,105 @@ export interface PurchaseCreateInput {
 
 export function purchaseRepository() {
 	async function findAll(filters: PurchaseFilters = {}) {
-		const { search, supplierId, priority, approvalStatus, page = 1, limit = 10 } = filters;
+		const {
+			search,
+			supplierId,
+			priority,
+			approvalStatus,
+			awaitingApproverId,
+			myApproverId,
+			myDecision,
+			decidedAfter,
+			decidedBefore,
+			page = 1,
+			limit = 10
+		} = filters;
 
 		const where: Record<string, unknown> = { deletedAt: null };
 		if (search) where.prNumber = { contains: search, mode: 'insensitive' };
 		if (supplierId) where.supplierId = supplierId;
 		if (priority) where.priority = priority;
-		if (approvalStatus) where.approvalStatus = approvalStatus;
+		if (approvalStatus && !awaitingApproverId && !myApproverId) {
+			where.approvalStatus = approvalStatus;
+		}
+
+		if (awaitingApproverId) {
+			where.approvalStatus = 'PENDING';
+			where.OR = [
+				{
+					departmentHeadId: awaitingApproverId,
+					departmentHeadStatus: 'PENDING'
+				},
+				{
+					financeApproverId: awaitingApproverId,
+					financeStatus: 'PENDING'
+				},
+				{
+					finalApproverId: awaitingApproverId,
+					finalStatus: 'PENDING'
+				}
+			];
+		}
+
+		if (myApproverId && myDecision) {
+			const after = decidedAfter ? new Date(decidedAfter) : null;
+			const before = decidedBefore ? new Date(decidedBefore) : null;
+			const afterValid = after && !Number.isNaN(after.getTime()) ? after : null;
+			const beforeValid = before && !Number.isNaN(before.getTime()) ? before : null;
+
+			function dateRange(field: string) {
+				if (!afterValid && !beforeValid) return {};
+				const range: Record<string, Date> = {};
+				if (afterValid) range.gte = afterValid;
+				if (beforeValid) range.lte = beforeValid;
+				return { [field]: range };
+			}
+
+			if (myDecision === 'PENDING') {
+				where.approvalStatus = 'PENDING';
+				where.OR = [
+					{ departmentHeadId: myApproverId, departmentHeadStatus: 'PENDING' },
+					{ financeApproverId: myApproverId, financeStatus: 'PENDING' },
+					{ finalApproverId: myApproverId, finalStatus: 'PENDING' }
+				];
+			} else if (myDecision === 'APPROVED') {
+				where.OR = [
+					{
+						departmentHeadId: myApproverId,
+						departmentHeadStatus: 'APPROVED',
+						...dateRange('departmentHeadApprovedAt')
+					},
+					{
+						financeApproverId: myApproverId,
+						financeStatus: 'APPROVED',
+						...dateRange('financeApprovedAt')
+					},
+					{
+						finalApproverId: myApproverId,
+						finalStatus: 'APPROVED',
+						...dateRange('finalApprovedAt')
+					}
+				];
+			} else if (myDecision === 'REJECTED') {
+				where.OR = [
+					{
+						departmentHeadId: myApproverId,
+						departmentHeadStatus: 'REJECTED',
+						...dateRange('updatedAt')
+					},
+					{
+						financeApproverId: myApproverId,
+						financeStatus: 'REJECTED',
+						...dateRange('updatedAt')
+					},
+					{
+						finalApproverId: myApproverId,
+						finalStatus: 'REJECTED',
+						...dateRange('updatedAt')
+					}
+				];
+			}
+		}
 
 		const skip = (page - 1) * limit;
 
@@ -50,10 +150,13 @@ export function purchaseRepository() {
 				where,
 				skip,
 				take: limit,
-				orderBy: { createdAt: 'desc' },
+				orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
 				include: {
 					supplier: { select: { id: true, name: true } },
-					requester: { select: { id: true, name: true, email: true, role: true } }
+					requester: { select: { id: true, name: true, email: true, role: true } },
+					departmentHead: { select: { id: true, name: true, email: true, role: true } },
+					financeApprover: { select: { id: true, name: true, email: true, role: true } },
+					finalApprover: { select: { id: true, name: true, email: true, role: true } }
 				}
 			}),
 			db.purchase.count({ where })
@@ -61,7 +164,7 @@ export function purchaseRepository() {
 
 		return {
 			data: data.map(mapPurchase),
-			pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
+			pagination: { page, limit, total, totalPages: Math.ceil(total / limit) || 1 }
 		};
 	}
 
@@ -136,12 +239,15 @@ export function purchaseRepository() {
 	async function update(
 		id: string,
 		data: Partial<{
+			departmentHeadId: string | null;
+			financeApproverId: string | null;
+			finalApproverId: string | null;
 			departmentHeadStatus: ApprovalStatus;
-			departmentHeadApprovedAt: Date;
+			departmentHeadApprovedAt: Date | null;
 			financeStatus: ApprovalStatus;
-			financeApprovedAt: Date;
+			financeApprovedAt: Date | null;
 			finalStatus: ApprovalStatus;
-			finalApprovedAt: Date;
+			finalApprovedAt: Date | null;
 			approvalStatus: ApprovalStatus;
 			rejectionReason: string | null;
 		}>

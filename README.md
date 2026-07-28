@@ -32,6 +32,9 @@ docker run -d --name casan-erp-postgres \
   -e POSTGRES_DB=casan_erp \
   -p 5432:5432 postgres:17-alpine
 
+# Run docker compose
+docker compose up
+
 # Set DATABASE_URL in .env
 # DATABASE_URL="postgresql://casan:casan123@localhost:5432/casan_erp?schema=public"
 
