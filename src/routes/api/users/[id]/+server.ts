@@ -1,9 +1,18 @@
 import { json, error } from '@sveltejs/kit';
 import { userService } from '$lib/server/services/user.service';
+import { hasPermission } from '$lib/permissions';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async ({ params }) => {
+export const GET: RequestHandler = async ({ params, locals }) => {
 	try {
+		if (
+			!locals.user ||
+			(!hasPermission(locals.user.role, 'users:manage') &&
+				!hasPermission(locals.user.role, 'purchasing:write'))
+		) {
+			return json({ message: 'Forbidden' }, { status: 403 });
+		}
+
 		const service = userService();
 		const user = await service.getById(params.id);
 		if (!user) throw error(404, { message: 'User not found' });
@@ -15,8 +24,12 @@ export const GET: RequestHandler = async ({ params }) => {
 	}
 };
 
-export const PUT: RequestHandler = async ({ params, request }) => {
+export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	try {
+		if (!locals.user || !hasPermission(locals.user.role, 'users:manage')) {
+			return json({ message: 'Forbidden' }, { status: 403 });
+		}
+
 		const body = await request.json();
 		const service = userService();
 		const result = await service.update(params.id, body);
@@ -33,8 +46,12 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 	}
 };
 
-export const DELETE: RequestHandler = async ({ params }) => {
+export const DELETE: RequestHandler = async ({ params, locals }) => {
 	try {
+		if (!locals.user || !hasPermission(locals.user.role, 'users:manage')) {
+			return json({ message: 'Forbidden' }, { status: 403 });
+		}
+
 		const service = userService();
 		const result = await service.remove(params.id);
 

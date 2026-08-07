@@ -11,24 +11,31 @@ function isApprovalLevel(value: unknown): value is ApprovalLevel {
 
 export const POST: RequestHandler = async ({ params, request, locals }) => {
 	try {
-		const userId = locals.user?.id;
-		if (!userId) {
+		if (!locals.user) {
 			return json({ message: 'Unauthorized' }, { status: 401 });
 		}
 
 		const body = await request.json();
 		const level = body.level;
+		const approverId = body.approverId;
 
 		if (!isApprovalLevel(level)) {
 			return json({ message: 'Invalid approval level' }, { status: 400 });
 		}
+		if (!approverId || typeof approverId !== 'string') {
+			return json({ message: 'approverId is required' }, { status: 400 });
+		}
 
-		const service = purchaseService();
-		const result = await service.approve(params.id, level, userId, locals.user?.role);
+		const result = await purchaseService().reassign(
+			params.id,
+			level,
+			approverId,
+			locals.user.role
+		);
 
 		if (!result.success) {
 			return json(
-				{ message: 'Failed to approve purchasing request', errors: result.errors },
+				{ message: 'Failed to reassign approver', errors: result.errors },
 				{ status: 400 }
 			);
 		}
@@ -37,6 +44,6 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 	} catch (e) {
 		if (e instanceof Error && 'status' in e) throw e;
 		console.error(e);
-		throw error(500, { message: 'Failed to approve purchasing request' });
+		throw error(500, { message: 'Failed to reassign approver' });
 	}
 };

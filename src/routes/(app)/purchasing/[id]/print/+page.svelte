@@ -112,6 +112,13 @@
 				{formatDate(purchase.dateRequired)}
 			</div>
 
+			<div class="border-r border-b border-slate-300 bg-slate-50 p-2 font-semibold">
+				Decision Deadline
+			</div>
+			<div class="border-b border-slate-300 p-2 md:col-span-2">
+				{formatDate(purchase.decisionDeadline || purchase.dateRequired)}
+			</div>
+
 			<div class="border-r border-slate-300 bg-slate-50 p-2 font-semibold">Overall Status</div>
 			<div class="p-2 md:col-span-2">{statusLabel(purchase.approvalStatus)}</div>
 		</div>

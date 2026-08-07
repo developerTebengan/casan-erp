@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "products" ADD COLUMN IF NOT EXISTS "imageUrl" TEXT;
+
+-- AlterTable
+ALTER TABLE "suppliers" ADD COLUMN IF NOT EXISTS "type" TEXT NOT NULL DEFAULT 'GENERAL';

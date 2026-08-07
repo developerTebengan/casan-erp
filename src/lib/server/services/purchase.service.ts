@@ -1,4 +1,5 @@
 import { purchaseRepository } from '$lib/server/repositories/purchase.repository';
+import { userRepository } from '$lib/server/repositories/user.repository';
 import { validateRequired, type ValidationResult } from '$lib/utils/validation';
 import type { PurchaseCreateInput } from '$lib/server/repositories/purchase.repository';
 import type { PurchasePriority, ApprovalStatus, UserRole } from '$lib/types';
@@ -88,6 +89,7 @@ export function purchaseService() {
 			'prNumber',
 			'dateOfRequest',
 			'dateRequired',
+			'decisionDeadline',
 			'department',
 			'purpose'
 		]);
@@ -107,6 +109,16 @@ export function purchaseService() {
 		const dateRequired = input.dateRequired ? new Date(String(input.dateRequired)) : null;
 		if (dateRequired && Number.isNaN(dateRequired.getTime())) {
 			errors.dateRequired = ['Invalid date required'];
+		}
+
+		const decisionDeadline = input.decisionDeadline
+			? new Date(String(input.decisionDeadline))
+			: null;
+		if (decisionDeadline && Number.isNaN(decisionDeadline.getTime())) {
+			errors.decisionDeadline = ['Invalid decision deadline'];
+		}
+		if (decisionDeadline && dateOfRequest && decisionDeadline < dateOfRequest) {
+			errors.decisionDeadline = ['Decision deadline must be on/after date of request'];
 		}
 
 		const validApprovalRoles: Record<string, UserRole[]> = {
@@ -144,6 +156,7 @@ export function purchaseService() {
 				priority: (priority as PurchasePriority) || 'MEDIUM',
 				requesterId,
 				dateRequired: dateRequired!,
+				decisionDeadline: decisionDeadline!,
 				department: String(input.department).trim(),
 				purpose: String(input.purpose).trim(),
 				comments: input.comments ? String(input.comments).trim() : null,
@@ -157,6 +170,10 @@ export function purchaseService() {
 
 	async function list(filters: Parameters<typeof repo.findAll>[0]) {
 		return repo.findAll(filters);
+	}
+
+	async function statusCounts() {
+		return repo.countByApprovalStatus();
 	}
 
 	async function getById(id: string) {
@@ -183,7 +200,12 @@ export function purchaseService() {
 		return { success: true };
 	}
 
-	async function approve(id: string, level: ApprovalLevel, userId: string) {
+	async function approve(
+		id: string,
+		level: ApprovalLevel,
+		userId: string,
+		userRole?: UserRole
+	) {
 		const purchase = await repo.findById(id);
 		if (!purchase) return { success: false, errors: { form: ['Purchasing request not found'] } };
 		if (purchase.approvalStatus === 'APPROVED' || purchase.approvalStatus === 'REJECTED') {
@@ -192,12 +214,22 @@ export function purchaseService() {
 
 		const config = LEVEL_CONFIG[level];
 		const approverId = purchase[`${config.idField}` as keyof typeof purchase] as
-			string | null | undefined;
-		if (!approverId) {
+			| string
+			| null
+			| undefined;
+		const isAdmin = userRole === 'ADMIN';
+
+		if (!approverId && !isAdmin) {
 			return { success: false, errors: { form: [`No ${level} approver assigned`] } };
 		}
-		if (approverId !== userId) {
+		if (!isAdmin && approverId !== userId) {
 			return { success: false, errors: { form: ['You are not authorized to approve this level'] } };
+		}
+		if (!approverId && isAdmin) {
+			return {
+				success: false,
+				errors: { form: ['Assign an approver first, or reassign this level before approving'] }
+			};
 		}
 
 		const currentStatus = purchase[
@@ -205,6 +237,26 @@ export function purchaseService() {
 		] as ApprovalStatus;
 		if (currentStatus !== 'PENDING') {
 			return { success: false, errors: { form: ['This approval level is already processed'] } };
+		}
+
+		// Sequential: earlier assigned levels must already be approved
+		const order: ApprovalLevel[] = ['departmentHead', 'finance', 'final'];
+		const currentIndex = order.indexOf(level);
+		for (let i = 0; i < currentIndex; i++) {
+			const prev = order[i];
+			const prevConfig = LEVEL_CONFIG[prev];
+			const prevAssignee = purchase[prevConfig.idField as keyof typeof purchase] as
+				| string
+				| null
+				| undefined;
+			if (!prevAssignee) continue;
+			const prevStatus = purchase[prevConfig.statusField] as ApprovalStatus;
+			if (prevStatus !== 'APPROVED') {
+				return {
+					success: false,
+					errors: { form: [`Waiting for ${prev} approval before this level`] }
+				};
+			}
 		}
 
 		const approvedAtField = config.statusField.replace('Status', 'ApprovedAt');
@@ -225,7 +277,13 @@ export function purchaseService() {
 		return { success: true, data: updated };
 	}
 
-	async function reject(id: string, level: ApprovalLevel, reason: string, userId: string) {
+	async function reject(
+		id: string,
+		level: ApprovalLevel,
+		reason: string,
+		userId: string,
+		userRole?: UserRole
+	) {
 		const purchase = await repo.findById(id);
 		if (!purchase) return { success: false, errors: { form: ['Purchasing request not found'] } };
 		if (purchase.approvalStatus === 'APPROVED' || purchase.approvalStatus === 'REJECTED') {
@@ -234,11 +292,15 @@ export function purchaseService() {
 
 		const config = LEVEL_CONFIG[level];
 		const approverId = purchase[`${config.idField}` as keyof typeof purchase] as
-			string | null | undefined;
-		if (!approverId) {
+			| string
+			| null
+			| undefined;
+		const isAdmin = userRole === 'ADMIN';
+
+		if (!approverId && !isAdmin) {
 			return { success: false, errors: { form: [`No ${level} approver assigned`] } };
 		}
-		if (approverId !== userId) {
+		if (!isAdmin && approverId !== userId) {
 			return { success: false, errors: { form: ['You are not authorized to reject this level'] } };
 		}
 
@@ -256,12 +318,63 @@ export function purchaseService() {
 		const data: Record<string, ApprovalStatus | string | null> = {
 			[config.statusField]: 'REJECTED',
 			approvalStatus: 'REJECTED',
-			rejectionReason: String(reason).trim()
+			rejectionReason: isAdmin
+				? `[Admin override] ${String(reason).trim()}`
+				: String(reason).trim()
 		};
 
 		const updated = await repo.update(id, data);
 		return { success: true, data: updated };
 	}
 
-	return { list, getById, create, remove, validate, approve, reject };
+	async function reassign(
+		id: string,
+		level: ApprovalLevel,
+		newApproverId: string,
+		actorRole: UserRole
+	) {
+		if (actorRole !== 'ADMIN') {
+			return { success: false, errors: { form: ['Only ADMIN can reassign approvers'] } };
+		}
+
+		const purchase = await repo.findById(id);
+		if (!purchase) return { success: false, errors: { form: ['Purchasing request not found'] } };
+		if (purchase.approvalStatus === 'APPROVED' || purchase.approvalStatus === 'REJECTED') {
+			return { success: false, errors: { form: ['Purchasing request is already finalized'] } };
+		}
+
+		const config = LEVEL_CONFIG[level];
+		const currentStatus = purchase[config.statusField] as ApprovalStatus;
+		if (currentStatus !== 'PENDING') {
+			return {
+				success: false,
+				errors: { form: ['Cannot reassign a level that is already processed'] }
+			};
+		}
+
+		if (!newApproverId) {
+			return { success: false, errors: { form: ['New approver is required'] } };
+		}
+
+		const user = await userRepository().findById(newApproverId);
+		if (!user) {
+			return { success: false, errors: { form: ['User not found'] } };
+		}
+		if (!config.validRoles.includes(user.role)) {
+			return {
+				success: false,
+				errors: {
+					form: [`User must have role: ${config.validRoles.join(' or ')}`]
+				}
+			};
+		}
+
+		const updated = await repo.update(id, {
+			[config.idField]: newApproverId
+		} as Parameters<typeof repo.update>[1]);
+
+		return { success: true, data: updated };
+	}
+
+	return { list, statusCounts, getById, create, remove, validate, approve, reject, reassign };
 }

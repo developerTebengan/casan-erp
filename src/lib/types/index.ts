@@ -15,6 +15,7 @@ export interface Category {
 export interface Supplier {
 	id: string;
 	name: string;
+	type?: string | null;
 	phone?: string | null;
 	address?: string | null;
 }
@@ -31,6 +32,7 @@ export interface Product {
 	stock: number;
 	minimumStock: number;
 	price: number;
+	imageUrl?: string | null;
 	status: ProductStatus;
 	createdAt: string;
 	updatedAt: string;
@@ -60,6 +62,7 @@ export interface Purchase {
 	requesterId: string;
 	requester?: User;
 	dateRequired: string;
+	decisionDeadline: string;
 	department: string;
 	purpose: string;
 	comments?: string | null;
@@ -115,6 +118,27 @@ export interface DashboardStats {
 	totalPurchaseOrders: number;
 	totalSuppliers: number;
 	lowStockItems: number;
+	pendingApprovals: number;
+}
+
+export interface CategoryStockStat {
+	categoryId: string;
+	categoryName: string;
+	productCount: number;
+	totalStock: number;
+	lowStockCount: number;
+	inventoryValue: number;
+}
+
+export interface DashboardProductRow {
+	id: string;
+	code: string;
+	name: string;
+	categoryName: string;
+	stock: number;
+	minimumStock: number;
+	unit: string;
+	imageUrl?: string | null;
 }
 
 export interface MonthlyPurchase {
@@ -133,6 +157,8 @@ export interface DashboardData {
 	stats: DashboardStats;
 	monthlyPurchases: MonthlyPurchase[];
 	recentActivities: RecentActivity[];
+	categoryStock: CategoryStockStat[];
+	productsByCategory: DashboardProductRow[];
 }
 
 export interface PaginatedResponse<T> {

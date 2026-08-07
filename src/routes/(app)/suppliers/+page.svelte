@@ -5,13 +5,15 @@
 		Card,
 		Button,
 		Input,
+		Select,
 		Breadcrumb,
 		DataTable,
 		Pagination,
 		Modal,
 		ConfirmDialog,
 		EmptyState,
-		Spinner
+		Spinner,
+		StatusStatTabs
 	} from '$lib/components/ui';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import type { Supplier } from '$lib/types';
@@ -20,6 +22,8 @@
 
 	let suppliers = $state<Supplier[]>(untrack(() => data.suppliers.data));
 	let pagination = $state(untrack(() => data.suppliers.pagination));
+	let typeCounts = $state(untrack(() => data.typeCounts ?? { ALL: 0 }));
+	let typeTab = $state('ALL');
 	let search = $state('');
 	let loading = $state(false);
 
@@ -36,6 +40,7 @@
 		try {
 			const params = new URLSearchParams();
 			if (search) params.set('search', search);
+			if (typeTab && typeTab !== 'ALL') params.set('type', typeTab);
 			params.set('page', String(page));
 			params.set('limit', '10');
 
@@ -44,6 +49,7 @@
 				const result = await res.json();
 				suppliers = result.data;
 				pagination = result.pagination;
+				if (result.typeCounts) typeCounts = result.typeCounts;
 			}
 		} finally {
 			loading = false;
@@ -54,10 +60,32 @@
 		loadSuppliers(1);
 	}
 
+	function switchType(id: string) {
+		typeTab = id;
+		loadSuppliers(1);
+	}
+
+	const supplierTypeOptions = [
+		{ value: 'GENERAL', label: 'General' },
+		{ value: 'MANUFACTURER', label: 'Manufacturer' },
+		{ value: 'DISTRIBUTOR', label: 'Distributor' },
+		{ value: 'RETAILER', label: 'Retailer' },
+		{ value: 'SERVICE', label: 'Service' },
+		{ value: 'OTHER', label: 'Other' }
+	];
+
+	const typeTabs = $derived([
+		{ id: 'ALL', label: 'All', count: typeCounts.ALL ?? 0, variant: 'secondary' as const },
+		...supplierTypeOptions.map((opt) => ({
+			id: opt.value,
+			label: opt.label,
+			count: typeCounts[opt.value] ?? 0,
+			variant: 'secondary' as const
+		}))
+	]);
+
 	function openCreate() {
-		selectedSupplier = { name: '', phone: '', address: '' };
-		selectedSupplier.phone = '';
-		selectedSupplier.address = '';
+		selectedSupplier = { name: '', type: 'GENERAL', phone: '', address: '' };
 		modalErrors = {};
 		modalMode = 'create';
 	}
@@ -65,6 +93,7 @@
 	function openEdit(supplier: Supplier) {
 		selectedSupplier = {
 			...supplier,
+			type: supplier.type ?? 'GENERAL',
 			phone: supplier.phone ?? '',
 			address: supplier.address ?? ''
 		};
@@ -96,6 +125,7 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					name: selectedSupplier.name,
+					type: selectedSupplier.type || 'GENERAL',
 					phone: selectedSupplier.phone,
 					address: selectedSupplier.address
 				})
@@ -157,6 +187,7 @@
 
 	const columns = [
 		{ key: 'name', header: 'Supplier Name' },
+		{ key: 'type', header: 'Type', cell: (s: Supplier) => s.type || 'GENERAL' },
 		{ key: 'phone', header: 'Phone', cell: (s: Supplier) => s.phone || '-' },
 		{ key: 'address', header: 'Address', cell: (s: Supplier) => s.address || '-' },
 		{ key: 'actions', header: '', cell: actionsCell }
@@ -200,6 +231,8 @@
 		</Button>
 	</div>
 
+	<StatusStatTabs tabs={typeTabs} active={typeTab} onchange={switchType} />
+
 	<Card padding="md">
 		<Input
 			label="Search"
@@ -238,6 +271,14 @@
 			required
 			error={modalErrors.name}
 		/>
+		<Select
+			label="Supplier Type"
+			options={supplierTypeOptions}
+			bind:value={
+				() => selectedSupplier.type ?? 'GENERAL',
+				(v) => (selectedSupplier.type = v)
+			}
+		/>
 		<Input
 			label="Phone"
 			bind:value={() => selectedSupplier.phone ?? '', (v) => (selectedSupplier.phone = v)}
@@ -266,6 +307,7 @@
 			</div>
 			<div>
 				<h3 class="text-main text-lg font-semibold">{selectedSupplier.name}</h3>
+				<p class="text-muted text-sm">Type: {selectedSupplier.type || 'GENERAL'}</p>
 			</div>
 		</div>
 		{#if selectedSupplier.phone}

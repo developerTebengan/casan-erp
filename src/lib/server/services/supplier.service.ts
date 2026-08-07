@@ -21,6 +21,7 @@ export function supplierService() {
 			valid: true,
 			data: {
 				name: String(input.name).trim(),
+				type: input.type ? String(input.type).trim() : 'GENERAL',
 				phone: input.phone ? String(input.phone).trim() : undefined,
 				address: input.address ? String(input.address).trim() : undefined
 			}
@@ -29,6 +30,10 @@ export function supplierService() {
 
 	async function list(filters: SupplierFilters = {}) {
 		return repo.findMany(filters);
+	}
+
+	async function typeCounts() {
+		return repo.countByType();
 	}
 
 	async function getById(id: string) {
@@ -81,5 +86,5 @@ export function supplierService() {
 		}
 	}
 
-	return { list, getById, create, update, remove, validate };
+	return { list, typeCounts, getById, create, update, remove, validate };
 }

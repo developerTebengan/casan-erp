@@ -1,6 +1,7 @@
-import { redirect, type Handle } from '@sveltejs/kit';
+import { error, redirect, type Handle } from '@sveltejs/kit';
 import { sequence } from '@sveltejs/kit/hooks';
 import { getCurrentUser } from '$lib/server/auth';
+import { canAccessPath } from '$lib/permissions';
 
 const PUBLIC_ROUTES = ['/login', '/api/auth/login'];
 
@@ -20,6 +21,15 @@ const authHandle: Handle = async ({ event, resolve }) => {
 
 	if (user && url.pathname === '/login') {
 		throw redirect(303, '/dashboard');
+	}
+
+	if (
+		user &&
+		!url.pathname.startsWith('/api/') &&
+		!url.pathname.startsWith('/_app') &&
+		!canAccessPath(user.role, url.pathname)
+	) {
+		throw error(403, { message: 'You do not have access to this page' });
 	}
 
 	return resolve(event);

@@ -1,6 +1,13 @@
 <script lang="ts">
-	import { Building2, Users, Shield, Cog, Save } from '@lucide/svelte';
-	import { Card, Breadcrumb, Button, Input } from '$lib/components/ui';
+	import { Building2, Users, Shield, Cog, Save, ScrollText } from '@lucide/svelte';
+	import { Card, Breadcrumb, Button, Input, Badge } from '$lib/components/ui';
+	import {
+		APP_NAME,
+		APP_VERSION,
+		CHANGELOG,
+		CHANGE_TYPE_LABEL,
+		type ChangelogChangeType
+	} from '$lib/version';
 
 	let activeTab = $state('company');
 
@@ -8,8 +15,19 @@
 		{ id: 'company', label: 'Company Profile', icon: Building2 },
 		{ id: 'users', label: 'User Management', icon: Users },
 		{ id: 'roles', label: 'Role Management', icon: Shield },
-		{ id: 'app', label: 'Application', icon: Cog }
+		{ id: 'app', label: 'Application', icon: Cog },
+		{ id: 'changelog', label: 'Version & Changelog', icon: ScrollText }
 	];
+
+	const changeBadgeVariant: Record<
+		ChangelogChangeType,
+		'primary' | 'success' | 'warning' | 'danger' | 'secondary'
+	> = {
+		added: 'success',
+		changed: 'primary',
+		fixed: 'warning',
+		removed: 'danger'
+	};
 </script>
 
 <div class="space-y-6">
@@ -75,6 +93,47 @@
 						<p class="text-muted text-sm">
 							Role management functionality will be available in the next release.
 						</p>
+					</div>
+				</div>
+			{:else if activeTab === 'changelog'}
+				<div class="space-y-6">
+					<div class="flex flex-wrap items-center justify-between gap-3">
+						<div>
+							<h2 class="text-main text-xl font-semibold">Version & Changelog</h2>
+							<p class="text-muted">Release history for {APP_NAME}</p>
+						</div>
+						<Badge variant="primary">Current v{APP_VERSION}</Badge>
+					</div>
+
+					<div class="space-y-6">
+						{#each CHANGELOG as entry}
+							<div class="border-theme rounded-xl border p-4 sm:p-5">
+								<div class="mb-4 flex flex-wrap items-center gap-3">
+									<span class="text-main text-lg font-semibold">v{entry.version}</span>
+									<span class="text-muted text-sm">{entry.date}</span>
+									{#if entry.version === APP_VERSION}
+										<Badge variant="success">Current</Badge>
+									{/if}
+								</div>
+
+								<div class="space-y-4">
+									{#each entry.changes as group}
+										<div>
+											<div class="mb-2">
+												<Badge variant={changeBadgeVariant[group.type]}>
+													{CHANGE_TYPE_LABEL[group.type]}
+												</Badge>
+											</div>
+											<ul class="text-main list-disc space-y-1 pl-5 text-sm">
+												{#each group.items as item}
+													<li>{item}</li>
+												{/each}
+											</ul>
+										</div>
+									{/each}
+								</div>
+							</div>
+						{/each}
 					</div>
 				</div>
 			{:else}

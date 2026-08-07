@@ -5,12 +5,16 @@ import type { RequestHandler } from './$types';
 export const GET: RequestHandler = async ({ url }) => {
 	try {
 		const search = url.searchParams.get('search') || undefined;
+		const type = url.searchParams.get('type') || undefined;
 		const page = Math.max(1, Number(url.searchParams.get('page') ?? 1));
 		const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit') ?? 10)));
 
 		const service = supplierService();
-		const result = await service.list({ search, page, limit });
-		return json(result);
+		const [result, typeCounts] = await Promise.all([
+			service.list({ search, type, page, limit }),
+			service.typeCounts()
+		]);
+		return json({ ...result, typeCounts });
 	} catch (e) {
 		console.error(e);
 		throw error(500, { message: 'Failed to load suppliers' });

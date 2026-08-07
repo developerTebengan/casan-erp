@@ -43,6 +43,7 @@ model User {
 model Supplier {
   id        String     @id @default(uuid())
   name      String
+  type      String     @default("GENERAL")
   phone     String?
   address   String?
   createdAt DateTime   @default(now())
@@ -74,6 +75,7 @@ model Product {
   stock        Int           @default(0)
   minimumStock Int           @default(0)
   price        Decimal       @default(0)
+  imageUrl     String?
   status       ProductStatus @default(ACTIVE)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
@@ -140,6 +142,7 @@ model Purchase {
   priority                 PurchasePriority @default(MEDIUM)
   requesterId              String
   dateRequired             DateTime
+  decisionDeadline         DateTime
   department               String
   purpose                  String
   comments                 String?

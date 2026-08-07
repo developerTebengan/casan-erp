@@ -5,6 +5,7 @@ export interface ProductFilters {
 	search?: string;
 	categoryId?: string;
 	status?: ProductStatus;
+	lowStock?: boolean;
 	page?: number;
 	limit?: number;
 }
@@ -17,6 +18,7 @@ export interface ProductCreateInput {
 	stock: number;
 	minimumStock: number;
 	price: number;
+	imageUrl?: string | null;
 	status: ProductStatus;
 }
 
@@ -24,34 +26,48 @@ export interface ProductUpdateInput extends Partial<ProductCreateInput> {}
 
 export function productRepository() {
 	async function findAll(filters: ProductFilters = {}) {
-		const { search, categoryId, status, page = 1, limit = 10 } = filters;
+		const { search, categoryId, status, lowStock, page = 1, limit = 10 } = filters;
+		const skip = (page - 1) * limit;
 
-		const where: Record<string, unknown> = { deletedAt: null };
+		const baseWhere: Record<string, unknown> = { deletedAt: null };
 		if (search) {
-			where.OR = [
+			baseWhere.OR = [
 				{ name: { contains: search, mode: 'insensitive' } },
 				{ code: { contains: search, mode: 'insensitive' } }
 			];
 		}
-		if (categoryId) where.categoryId = categoryId;
-		if (status) where.status = status;
+		if (categoryId) baseWhere.categoryId = categoryId;
+		if (status) baseWhere.status = status;
 
-		const skip = (page - 1) * limit;
+		if (lowStock) {
+			const all = await db.product.findMany({
+				where: baseWhere,
+				orderBy: { createdAt: 'desc' },
+				include: { category: { select: { id: true, name: true } } }
+			});
+			const filtered = all.filter((p) => p.stock <= p.minimumStock);
+			const total = filtered.length;
+			const data = filtered.slice(skip, skip + limit);
+			return {
+				data: data.map(mapProduct),
+				pagination: { page, limit, total, totalPages: Math.ceil(total / limit) || 1 }
+			};
+		}
 
 		const [data, total] = await Promise.all([
 			db.product.findMany({
-				where,
+				where: baseWhere,
 				skip,
 				take: limit,
 				orderBy: { createdAt: 'desc' },
 				include: { category: { select: { id: true, name: true } } }
 			}),
-			db.product.count({ where })
+			db.product.count({ where: baseWhere })
 		]);
 
 		return {
 			data: data.map(mapProduct),
-			pagination: { page, limit, total, totalPages: Math.ceil(total / limit) }
+			pagination: { page, limit, total, totalPages: Math.ceil(total / limit) || 1 }
 		};
 	}
 
@@ -102,6 +118,7 @@ function mapProduct(p: {
 	stock: number;
 	minimumStock: number;
 	price: unknown;
+	imageUrl?: string | null;
 	status: string;
 	createdAt: Date;
 	updatedAt: Date;
@@ -116,6 +133,7 @@ function mapProduct(p: {
 		stock: p.stock,
 		minimumStock: p.minimumStock,
 		price: Number(p.price),
+		imageUrl: p.imageUrl ?? null,
 		status: p.status as ProductStatus,
 		createdAt: p.createdAt.toISOString(),
 		updatedAt: p.updatedAt.toISOString()

@@ -102,5 +102,82 @@ export function stockTransactionService() {
 		return { success: true, data: tx };
 	}
 
-	return { list, getById, create, validate };
+	async function reverse(id: string, createdBy?: string | null, reason?: string | null) {
+		const original = await repo.findById(id);
+		if (!original) {
+			return { success: false, errors: { form: ['Stock transaction not found'] } };
+		}
+
+		if (original.note?.includes('[REVERSED]') || original.note?.startsWith('Reversal of ')) {
+			return {
+				success: false,
+				errors: { form: ['This transaction was already reversed or is a reversal'] }
+			};
+		}
+
+		const existingReversal = await db.stockTransaction.findFirst({
+			where: {
+				deletedAt: null,
+				note: { startsWith: `Reversal of ${original.id}` }
+			}
+		});
+		if (existingReversal) {
+			return { success: false, errors: { form: ['This transaction was already reversed'] } };
+		}
+
+		const product = await db.product.findFirst({
+			where: { id: original.productId, deletedAt: null }
+		});
+		if (!product) {
+			return { success: false, errors: { form: ['Product not found'] } };
+		}
+
+		const delta = -original.qty; // undo the signed qty effect on stock
+		const stockAfter = product.stock + delta;
+		if (stockAfter < 0) {
+			return {
+				success: false,
+				errors: {
+					form: [
+						`Cannot reverse: would leave negative stock (${stockAfter}). Available: ${product.stock}`
+					]
+				}
+			};
+		}
+
+		let reverseType: StockTransactionType = 'ADJUSTMENT';
+		if (original.type === 'IN') reverseType = 'OUT';
+		else if (original.type === 'OUT') reverseType = 'IN';
+		else reverseType = 'ADJUSTMENT';
+
+		const noteParts = [
+			`Reversal of ${original.id}`,
+			reason?.trim() ? reason.trim() : null
+		].filter(Boolean);
+
+		const reverseTx = await repo.create({
+			productId: product.id,
+			type: reverseType,
+			source: 'ADJUSTMENT',
+			referenceId: original.referenceId,
+			qty: delta,
+			stockBefore: product.stock,
+			stockAfter,
+			note: noteParts.join(' — '),
+			createdBy
+		});
+
+		await db.product.update({ where: { id: product.id }, data: { stock: stockAfter } });
+
+		await db.stockTransaction.update({
+			where: { id: original.id },
+			data: {
+				note: `${original.note ? original.note + ' ' : ''}[REVERSED]`
+			}
+		});
+
+		return { success: true, data: reverseTx };
+	}
+
+	return { list, getById, create, reverse, validate };
 }

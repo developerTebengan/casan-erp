@@ -11,10 +11,10 @@
 		DataTable,
 		Pagination,
 		Breadcrumb,
-		Badge,
 		ConfirmDialog,
 		EmptyState,
-		Spinner
+		Spinner,
+		StatusStatTabs
 	} from '$lib/components/ui';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatCurrency, formatDate } from '$lib/utils/format';
@@ -25,6 +25,10 @@
 	let purchases = $state<Purchase[]>(untrack(() => data.purchases.data));
 	let pagination = $state(untrack(() => data.purchases.pagination));
 	let suppliers = $state<Supplier[]>(untrack(() => data.suppliers));
+	let statusCounts = $state(
+		untrack(() => data.statusCounts ?? { PENDING: 0, APPROVED: 0, REJECTED: 0, ALL: 0 })
+	);
+	let statusTab = $state(untrack(() => (data.initialStatus as string) || 'PENDING'));
 	let search = $state('');
 	let supplierId = $state('');
 	let priority = $state('');
@@ -45,6 +49,33 @@
 		...suppliers.map((s) => ({ value: s.id, label: s.name }))
 	]);
 
+	const statusTabs = $derived([
+		{
+			id: 'PENDING',
+			label: 'Waiting',
+			count: statusCounts.PENDING ?? 0,
+			variant: 'warning' as const
+		},
+		{
+			id: 'APPROVED',
+			label: 'Approved',
+			count: statusCounts.APPROVED ?? 0,
+			variant: 'success' as const
+		},
+		{
+			id: 'REJECTED',
+			label: 'Unapproved',
+			count: statusCounts.REJECTED ?? 0,
+			variant: 'danger' as const
+		},
+		{
+			id: 'ALL',
+			label: 'All',
+			count: statusCounts.ALL ?? 0,
+			variant: 'secondary' as const
+		}
+	]);
+
 	async function loadPurchases(page = 1) {
 		loading = true;
 		try {
@@ -52,6 +83,7 @@
 			if (search) params.set('search', search);
 			if (supplierId) params.set('supplierId', supplierId);
 			if (priority) params.set('priority', priority);
+			if (statusTab && statusTab !== 'ALL') params.set('approvalStatus', statusTab);
 			params.set('page', String(page));
 			params.set('limit', '10');
 
@@ -60,6 +92,7 @@
 				const result = await res.json();
 				purchases = result.data;
 				pagination = result.pagination;
+				if (result.statusCounts) statusCounts = result.statusCounts;
 			}
 		} finally {
 			loading = false;
@@ -67,6 +100,11 @@
 	}
 
 	function handleSearch() {
+		loadPurchases(1);
+	}
+
+	function switchStatus(id: string) {
+		statusTab = id;
 		loadPurchases(1);
 	}
 
@@ -99,20 +137,42 @@
 
 	function statusBadge(p: Purchase) {
 		function approvalStatusVariant(status: ApprovalStatus) {
-			if (status === 'APPROVED') return 'bg-success-100 text-success-700 dark:bg-success-900/30 dark:text-success-600';
-			if (status === 'REJECTED') return 'bg-danger-100 text-danger-700 dark:bg-danger-900/30 dark:text-danger-600';
+			if (status === 'APPROVED')
+				return 'bg-success-100 text-success-700 dark:bg-success-900/30 dark:text-success-600';
+			if (status === 'REJECTED')
+				return 'bg-danger-100 text-danger-700 dark:bg-danger-900/30 dark:text-danger-600';
 			return 'bg-warning-100 text-warning-700 dark:bg-warning-900/30 dark:text-warning-600';
 		}
 
 		function approvalStatusLabel(status: ApprovalStatus) {
 			if (status === 'APPROVED') return 'Approved';
-			if (status === 'REJECTED') return 'Rejected';
-			return 'Pending';
+			if (status === 'REJECTED') return 'Unapproved';
+			return 'Waiting';
 		}
 
 		const variantClass = approvalStatusVariant(p.approvalStatus);
 		const label = approvalStatusLabel(p.approvalStatus);
 		return `<span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${variantClass}">${label}</span>`;
+	}
+
+	function deadlineCell(p: Purchase) {
+		const d = p.decisionDeadline || p.dateRequired;
+		const date = new Date(d);
+		const today = new Date();
+		today.setHours(0, 0, 0, 0);
+		const due = new Date(date);
+		due.setHours(0, 0, 0, 0);
+		const pending = p.approvalStatus === 'PENDING';
+		const overdue = pending && due < today;
+		const dueSoon =
+			pending && !overdue && (due.getTime() - today.getTime()) / (1000 * 60 * 60 * 24) <= 2;
+		const classes = overdue
+			? 'text-danger-600 font-semibold'
+			: dueSoon
+				? 'text-warning-700 font-medium'
+				: '';
+		const suffix = overdue ? ' · overdue' : dueSoon ? ' · due soon' : '';
+		return `<span class="${classes}">${formatDate(d)}${suffix}</span>`;
 	}
 
 	function actionsCell(p: Purchase) {
@@ -139,6 +199,7 @@
 			header: 'Date of Request',
 			cell: (p: Purchase) => formatDate(p.dateOfRequest)
 		},
+		{ key: 'deadline', header: 'Decision by', cell: deadlineCell },
 		{ key: 'priority', header: 'Priority', cell: priorityBadge },
 		{ key: 'status', header: 'Status', cell: statusBadge },
 		{ key: 'total', header: 'Total', cell: (p: Purchase) => formatCurrency(p.total) },
@@ -147,6 +208,7 @@
 
 	function handleRowClick(row: Purchase, e: MouseEvent) {
 		const target = e.target as HTMLElement;
+		if (target.closest('a')) return;
 		const deleteBtn = target.closest('[data-delete]') as HTMLElement | null;
 		if (deleteBtn) {
 			deleteId = deleteBtn.dataset.delete ?? null;
@@ -172,6 +234,10 @@
 			<Plus class="h-4 w-4" />
 			Create PR
 		</Button>
+	</div>
+
+	<div class="print:hidden">
+		<StatusStatTabs tabs={statusTabs} active={statusTab} onchange={switchStatus} />
 	</div>
 
 	<Card padding="md" class="print:hidden">
