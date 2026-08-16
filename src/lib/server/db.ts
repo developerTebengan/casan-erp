@@ -3,19 +3,19 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../../../generated/prisma/client.ts';
 import { Pool } from 'pg';
 
-function parseDatabaseUrl(url: string | undefined) {
+function createPool(url: string | undefined) {
 	if (!url) throw new Error('DATABASE_URL is not defined');
 	const parsed = new URL(url);
-	return {
-		host: parsed.hostname,
-		port: parsed.port ? Number(parsed.port) : 5432,
-		user: parsed.username,
-		password: decodeURIComponent(parsed.password),
-		database: parsed.pathname.slice(1)
-	};
+	const host = parsed.hostname;
+	const local = host === 'localhost' || host === '127.0.0.1';
+	return new Pool({
+		connectionString: url,
+		max: local ? 10 : 1,
+		ssl: local ? undefined : { rejectUnauthorized: false }
+	});
 }
 
-const pool = new Pool(parseDatabaseUrl(process.env.DATABASE_URL));
+const pool = createPool(process.env.DATABASE_URL);
 const adapter = new PrismaPg(pool);
 
 const globalForPrisma = globalThis as unknown as {

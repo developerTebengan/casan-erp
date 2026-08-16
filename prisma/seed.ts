@@ -9,19 +9,18 @@ import {
 import { Pool } from 'pg';
 import bcrypt from 'bcryptjs';
 
-function parseDatabaseUrl(url: string | undefined) {
+function createPool(url: string | undefined) {
 	if (!url) throw new Error('DATABASE_URL is not defined');
-	const parsed = new URL(url);
-	return {
-		host: parsed.hostname,
-		port: parsed.port ? Number(parsed.port) : 5432,
-		user: parsed.username,
-		password: decodeURIComponent(parsed.password),
-		database: parsed.pathname.slice(1)
-	};
+	const host = new URL(url).hostname;
+	const local = host === 'localhost' || host === '127.0.0.1';
+	return new Pool({
+		connectionString: url,
+		max: local ? 10 : 1,
+		ssl: local ? undefined : { rejectUnauthorized: false }
+	});
 }
 
-const pool = new Pool(parseDatabaseUrl(process.env.DATABASE_URL));
+const pool = createPool(process.env.DATABASE_URL);
 const adapter = new PrismaPg(pool);
 
 const prisma = new PrismaClient({ adapter });
@@ -281,6 +280,7 @@ async function main() {
 				priority: priorities[i % priorities.length],
 				requesterId: requester.id,
 				dateRequired: requiredDate,
+				decisionDeadline: requiredDate,
 				department: departments[i % departments.length],
 				purpose: `Procurement request for ${supplier.name}`,
 				comments: i % 4 === 0 ? 'Please process this request urgently' : undefined,
