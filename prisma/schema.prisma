@@ -205,3 +205,18 @@ model PurchaseItem {
 
   @@map("purchase_items")
 }
+
+model CompanySettings {
+  id           String   @id @default("default")
+  companyName  String
+  email        String
+  phone        String
+  taxId        String
+  address      String
+  currency     String   @default("IDR")
+  dateFormat   String   @default("DD/MM/YYYY")
+  itemsPerPage Int      @default(10)
+  updatedAt    DateTime @updatedAt
+
+  @@map("company_settings")
+}

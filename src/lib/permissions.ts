@@ -13,7 +13,8 @@ export type AppPermission =
 	| 'suppliers:view'
 	| 'suppliers:write'
 	| 'users:manage'
-	| 'settings:view';
+	| 'settings:view'
+	| 'settings:write';
 
 const ALL_ROLES: UserRole[] = [
 	'ADMIN',
@@ -38,7 +39,8 @@ const ROLE_PERMISSIONS: Record<UserRole, AppPermission[]> = {
 		'suppliers:view',
 		'suppliers:write',
 		'users:manage',
-		'settings:view'
+		'settings:view',
+		'settings:write'
 	],
 	USER: [
 		'dashboard:view',

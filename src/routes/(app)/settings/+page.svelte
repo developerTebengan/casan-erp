@@ -1,6 +1,11 @@
 <script lang="ts">
-	import { Building2, Users, Shield, Cog, Save, ScrollText } from '@lucide/svelte';
-	import { Card, Breadcrumb, Button, Input, Badge } from '$lib/components/ui';
+	import { Building2, Cog, Save, ScrollText } from '@lucide/svelte';
+	import { Card, Breadcrumb, Button, Input, Badge, Select } from '$lib/components/ui';
+	import { toastStore } from '$lib/stores/toast.svelte';
+	import { localeStore } from '$lib/stores/locale.svelte';
+	import { t } from '$lib/i18n';
+	import { hasPermission } from '$lib/permissions';
+	import { untrack } from 'svelte';
 	import {
 		APP_NAME,
 		APP_VERSION,
@@ -9,14 +14,34 @@
 		type ChangelogChangeType
 	} from '$lib/version';
 
-	let activeTab = $state('company');
+	let { data } = $props();
 
-	const tabs = [
-		{ id: 'company', label: 'Company Profile', icon: Building2 },
-		{ id: 'users', label: 'User Management', icon: Users },
-		{ id: 'roles', label: 'Role Management', icon: Shield },
-		{ id: 'app', label: 'Application', icon: Cog },
-		{ id: 'changelog', label: 'Version & Changelog', icon: ScrollText }
+	let activeTab = $state('company');
+	let saving = $state(false);
+	let errors = $state<Record<string, string>>({});
+
+	let companyName = $state(untrack(() => data.settings.companyName));
+	let email = $state(untrack(() => data.settings.email));
+	let phone = $state(untrack(() => data.settings.phone));
+	let taxId = $state(untrack(() => data.settings.taxId));
+	let address = $state(untrack(() => data.settings.address));
+	let currency = $state(untrack(() => data.settings.currency));
+	let dateFormat = $state(untrack(() => data.settings.dateFormat));
+	let itemsPerPage = $state(untrack(() => String(data.settings.itemsPerPage)));
+
+	const canWrite = $derived(hasPermission(data.user.role, 'settings:write'));
+	const locale = $derived(localeStore.value);
+
+	const tabs = $derived([
+		{ id: 'company', label: t('settings.company', locale), icon: Building2 },
+		{ id: 'app', label: t('settings.application', locale), icon: Cog },
+		{ id: 'changelog', label: t('settings.changelog', locale), icon: ScrollText }
+	]);
+
+	const pageSizeOptions = [
+		{ value: '10', label: '10' },
+		{ value: '25', label: '25' },
+		{ value: '50', label: '50' }
 	];
 
 	const changeBadgeVariant: Record<
@@ -28,14 +53,53 @@
 		fixed: 'warning',
 		removed: 'danger'
 	};
+
+	async function save() {
+		saving = true;
+		errors = {};
+		try {
+			const res = await fetch('/api/settings', {
+				method: 'PUT',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					companyName,
+					email,
+					phone,
+					taxId,
+					address,
+					currency,
+					dateFormat,
+					itemsPerPage: Number(itemsPerPage)
+				})
+			});
+			const payload = await res.json();
+			if (!res.ok) {
+				const fieldErrors = payload.errors as Record<string, string[] | string> | undefined;
+				if (fieldErrors) {
+					errors = Object.fromEntries(
+						Object.entries(fieldErrors).map(([key, value]) => [
+							key,
+							Array.isArray(value) ? (value[0] ?? '') : String(value)
+						])
+					);
+				}
+				toastStore.error(payload.message || 'Validation failed');
+				return;
+			}
+			toastStore.success(t('settings.saved', locale));
+		} catch {
+			toastStore.error('Failed to save settings');
+		} finally {
+			saving = false;
+		}
+	}
 </script>
 
 <div class="space-y-6">
-	<Breadcrumb items={[{ label: 'Settings' }]} />
+	<Breadcrumb items={[{ label: t('page.settings', locale) }]} />
 
 	<div>
-		<h1 class="text-main text-2xl font-bold sm:text-3xl">Settings</h1>
-		<p class="text-muted">Manage your company and application preferences</p>
+		<h1 class="text-main text-2xl font-bold sm:text-3xl">{t('page.settings', locale)}</h1>
 	</div>
 
 	<div class="grid gap-6 lg:grid-cols-4">
@@ -60,46 +124,28 @@
 		<Card class="lg:col-span-3" padding="lg">
 			{#if activeTab === 'company'}
 				<div class="space-y-6">
-					<h2 class="text-main text-xl font-semibold">Company Profile</h2>
+					<h2 class="text-main text-xl font-semibold">{t('settings.company', locale)}</h2>
 					<div class="grid gap-6 sm:grid-cols-2">
-						<Input label="Company Name" value="Casan ERP Indonesia" />
-						<Input label="Email" value="info@casanerp.com" />
-						<Input label="Phone" value="021-555-1234" />
-						<Input label="Tax ID" value="1234567890" />
+						<Input label="Company Name" bind:value={companyName} error={errors.companyName} />
+						<Input label="Email" bind:value={email} error={errors.email} />
+						<Input label="Phone" bind:value={phone} error={errors.phone} />
+						<Input label="Tax ID" bind:value={taxId} error={errors.taxId} />
 					</div>
-					<Input label="Address" value="Jl. Sudirman No. 123, Jakarta" />
-					<div class="flex justify-end">
-						<Button variant="primary">
-							<Save class="h-4 w-4" />
-							Save Changes
-						</Button>
-					</div>
-				</div>
-			{:else if activeTab === 'users'}
-				<div class="space-y-6">
-					<h2 class="text-main text-xl font-semibold">User Management</h2>
-					<p class="text-muted">Manage system users and their access.</p>
-					<div class="rounded-lg bg-slate-50 p-6 dark:bg-slate-800/50">
-						<p class="text-muted text-sm">
-							User management functionality will be available in the next release.
-						</p>
-					</div>
-				</div>
-			{:else if activeTab === 'roles'}
-				<div class="space-y-6">
-					<h2 class="text-main text-xl font-semibold">Role Management</h2>
-					<p class="text-muted">Define roles and permissions for the system.</p>
-					<div class="rounded-lg bg-slate-50 p-6 dark:bg-slate-800/50">
-						<p class="text-muted text-sm">
-							Role management functionality will be available in the next release.
-						</p>
-					</div>
+					<Input label="Address" bind:value={address} error={errors.address} />
+					{#if canWrite}
+						<div class="flex justify-end">
+							<Button variant="primary" loading={saving} onclick={save}>
+								<Save class="h-4 w-4" />
+								{t('settings.save', locale)}
+							</Button>
+						</div>
+					{/if}
 				</div>
 			{:else if activeTab === 'changelog'}
 				<div class="space-y-6">
 					<div class="flex flex-wrap items-center justify-between gap-3">
 						<div>
-							<h2 class="text-main text-xl font-semibold">Version & Changelog</h2>
+							<h2 class="text-main text-xl font-semibold">{t('settings.changelog', locale)}</h2>
 							<p class="text-muted">Release history for {APP_NAME}</p>
 						</div>
 						<Badge variant="primary">Current v{APP_VERSION}</Badge>
@@ -138,20 +184,25 @@
 				</div>
 			{:else}
 				<div class="space-y-6">
-					<h2 class="text-main text-xl font-semibold">Application Settings</h2>
-					<p class="text-muted">Configure application behavior and defaults.</p>
+					<h2 class="text-main text-xl font-semibold">{t('settings.application', locale)}</h2>
 					<div class="grid gap-6 sm:grid-cols-2">
-						<Input label="Default Currency" value="IDR" />
-						<Input label="Date Format" value="DD/MM/YYYY" />
-						<Input label="Default Language" value="English" />
-						<Input label="Items Per Page" value="10" />
+						<Input label="Default Currency" bind:value={currency} error={errors.currency} />
+						<Input label="Date Format" bind:value={dateFormat} error={errors.dateFormat} />
+						<Select
+							label="Items Per Page"
+							bind:value={itemsPerPage}
+							options={pageSizeOptions}
+							error={errors.itemsPerPage}
+						/>
 					</div>
-					<div class="flex justify-end">
-						<Button variant="primary">
-							<Save class="h-4 w-4" />
-							Save Changes
-						</Button>
-					</div>
+					{#if canWrite}
+						<div class="flex justify-end">
+							<Button variant="primary" loading={saving} onclick={save}>
+								<Save class="h-4 w-4" />
+								{t('settings.save', locale)}
+							</Button>
+						</div>
+					{/if}
 				</div>
 			{/if}
 		</Card>
