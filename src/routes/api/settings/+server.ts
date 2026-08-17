@@ -24,8 +24,18 @@ export const PUT: RequestHandler = async ({ request, locals }) => {
 			return json({ message: 'Forbidden' }, { status: 403 });
 		}
 
-		const body = await request.json();
-		const result = await settingsService().update(body);
+		let body: unknown;
+		try {
+			body = await request.json();
+		} catch {
+			return json({ message: 'Invalid JSON' }, { status: 400 });
+		}
+
+		if (body === null || typeof body !== 'object' || Array.isArray(body)) {
+			return json({ message: 'Invalid payload' }, { status: 400 });
+		}
+
+		const result = await settingsService().update(body as Record<string, unknown>);
 
 		if (!result.valid) {
 			return json({ message: 'Validation failed', errors: result.errors }, { status: 400 });

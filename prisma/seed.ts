@@ -308,16 +308,7 @@ async function main() {
 			dateFormat: 'DD/MM/YYYY',
 			itemsPerPage: 10
 		},
-		update: {
-			companyName: 'Casan ERP Indonesia',
-			email: 'info@casanerp.com',
-			phone: '021-555-1234',
-			taxId: '1234567890',
-			address: 'Jl. Sudirman No. 123, Jakarta',
-			currency: 'IDR',
-			dateFormat: 'DD/MM/YYYY',
-			itemsPerPage: 10
-		}
+		update: {}
 	});
 
 	console.log('Seed completed successfully.');
