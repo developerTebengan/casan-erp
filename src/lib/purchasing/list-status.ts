@@ -1,6 +1,6 @@
 import type { ApprovalStatus, Purchase } from '$lib/types';
 
-export type PurchaseListStatus = 'WAITING' | 'STOCK_IN' | 'REJECTED';
+export type PurchaseListStatus = 'WAITING' | 'PARTIAL' | 'STOCK_IN' | 'REJECTED';
 
 export interface AgreementLevel {
 	key: 'departmentHead' | 'finance' | 'final';
@@ -41,9 +41,11 @@ export function agreementProgress(p: {
 export function purchaseListStatus(p: {
 	approvalStatus: ApprovalStatus;
 	fullyReceived?: boolean;
+	partiallyReceived?: boolean;
 }): PurchaseListStatus {
 	if (p.approvalStatus === 'REJECTED') return 'REJECTED';
 	if (p.approvalStatus === 'APPROVED' && p.fullyReceived) return 'STOCK_IN';
+	if (p.approvalStatus === 'APPROVED' && p.partiallyReceived) return 'PARTIAL';
 	return 'WAITING';
 }
 
@@ -59,16 +61,31 @@ export function fullyReceivedFromLines(
 	return ordered.every((item) => (receivedMap[item.productId] ?? 0) >= item.qty);
 }
 
+export function partiallyReceivedFromLines(
+	ordered: { productId: string; qty: number }[],
+	received: { productId: string; qty: number }[]
+): boolean {
+	if (ordered.length === 0) return false;
+	if (fullyReceivedFromLines(ordered, received)) return false;
+	const receivedMap: Record<string, number> = {};
+	for (const row of received) {
+		receivedMap[row.productId] = (receivedMap[row.productId] ?? 0) + Math.abs(row.qty);
+	}
+	return ordered.some((item) => (receivedMap[item.productId] ?? 0) > 0);
+}
+
 export function applyFulfillment(
 	purchases: Purchase[],
 	ordered: { purchaseId: string; productId: string; qty: number }[],
 	received: { purchaseId: string; productId: string; qty: number }[]
 ): Purchase[] {
-	return purchases.map((p) => ({
-		...p,
-		fullyReceived: fullyReceivedFromLines(
-			ordered.filter((row) => row.purchaseId === p.id),
-			received.filter((row) => row.purchaseId === p.id)
-		)
-	}));
+	return purchases.map((p) => {
+		const orderedLines = ordered.filter((row) => row.purchaseId === p.id);
+		const receivedLines = received.filter((row) => row.purchaseId === p.id);
+		return {
+			...p,
+			fullyReceived: fullyReceivedFromLines(orderedLines, receivedLines),
+			partiallyReceived: partiallyReceivedFromLines(orderedLines, receivedLines)
+		};
+	});
 }

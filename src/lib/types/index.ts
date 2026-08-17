@@ -86,6 +86,7 @@ export interface Purchase {
 	total: number;
 	items?: PurchaseItem[];
 	fullyReceived?: boolean;
+	partiallyReceived?: boolean;
 	createdAt: string;
 	updatedAt: string;
 }

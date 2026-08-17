@@ -2,6 +2,12 @@
 
 All notable changes to Casan ERP are documented here.
 
+## [0.5.3] - 2026-08-18
+
+### Changed
+- Receive into stock per item so later deliveries can wait
+- Purchase list shows Partial when only some lines are in stock
+
 ## [0.5.2] - 2026-08-18
 
 ### Added

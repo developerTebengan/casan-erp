@@ -35,11 +35,21 @@ describe('agreementProgress', () => {
 });
 
 describe('purchaseListStatus', () => {
-	it('is waiting until fully received', () => {
+	it('is waiting until goods start arriving', () => {
 		expect(purchaseListStatus({ approvalStatus: 'PENDING' })).toBe('WAITING');
 		expect(purchaseListStatus({ approvalStatus: 'APPROVED', fullyReceived: false })).toBe(
 			'WAITING'
 		);
+	});
+
+	it('is partial when some lines are in stock', () => {
+		expect(
+			purchaseListStatus({
+				approvalStatus: 'APPROVED',
+				fullyReceived: false,
+				partiallyReceived: true
+			})
+		).toBe('PARTIAL');
 	});
 
 	it('is stock in when approved and fully received', () => {
@@ -91,6 +101,8 @@ describe('applyFulfillment', () => {
 			[{ purchaseId: 'p1', productId: 'a', qty: 1 }]
 		);
 		expect(result[0].fullyReceived).toBe(true);
+		expect(result[0].partiallyReceived).toBe(false);
 		expect(result[1].fullyReceived).toBe(false);
+		expect(result[1].partiallyReceived).toBe(false);
 	});
 });

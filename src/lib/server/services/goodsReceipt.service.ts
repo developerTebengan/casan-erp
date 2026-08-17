@@ -13,7 +13,10 @@ export function goodsReceiptService() {
 	const purchases = purchaseRepository();
 	const stockRepo = stockTransactionRepository();
 
-	async function getReceivedByProduct(purchaseId: string): Promise<Record<string, number>> {
+	async function getReceivedByProduct(purchaseId: string): Promise<{
+		qtyByProduct: Record<string, number>;
+		lastInAtByProduct: Record<string, string>;
+	}> {
 		const txs = await db.stockTransaction.findMany({
 			where: {
 				referenceId: purchaseId,
@@ -21,21 +24,26 @@ export function goodsReceiptService() {
 				type: 'IN',
 				deletedAt: null
 			},
-			select: { productId: true, qty: true }
+			select: { productId: true, qty: true, createdAt: true }
 		});
 
-		const map: Record<string, number> = {};
+		const qtyByProduct: Record<string, number> = {};
+		const lastInAtByProduct: Record<string, string> = {};
 		for (const tx of txs) {
-			map[tx.productId] = (map[tx.productId] ?? 0) + Math.abs(tx.qty);
+			qtyByProduct[tx.productId] = (qtyByProduct[tx.productId] ?? 0) + Math.abs(tx.qty);
+			const at = tx.createdAt.toISOString();
+			if (!lastInAtByProduct[tx.productId] || at > lastInAtByProduct[tx.productId]) {
+				lastInAtByProduct[tx.productId] = at;
+			}
 		}
-		return map;
+		return { qtyByProduct, lastInAtByProduct };
 	}
 
 	async function getReceiptSummary(purchaseId: string) {
 		const purchase = await purchases.findById(purchaseId);
 		if (!purchase) return null;
 
-		const receivedMap = await getReceivedByProduct(purchaseId);
+		const { qtyByProduct, lastInAtByProduct } = await getReceivedByProduct(purchaseId);
 		const allocated = allocateReceivedQty(
 			(purchase.items ?? []).map((item) => ({
 				itemId: item.id,
@@ -47,7 +55,7 @@ export function goodsReceiptService() {
 				categoryName: item.product?.category?.name ?? null,
 				supplierName: item.supplier?.name ?? purchase.supplier?.name ?? null
 			})),
-			receivedMap
+			qtyByProduct
 		);
 
 		const lines = allocated.map((item) => ({
@@ -61,7 +69,8 @@ export function goodsReceiptService() {
 			orderedQty: item.qty,
 			receivedQty: item.receivedQty,
 			remainingQty: item.remainingQty,
-			status: item.status
+			status: item.status,
+			lastInAt: item.receivedQty > 0 ? (lastInAtByProduct[item.productId] ?? null) : null
 		}));
 
 		const groups = groupByProductType(lines);

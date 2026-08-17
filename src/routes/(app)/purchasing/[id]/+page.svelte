@@ -30,6 +30,7 @@
 	let receiveQtys = $state<Record<string, number>>({});
 	let receiveNote = $state('');
 	let receiving = $state(false);
+	let receivingItemId = $state<string | null>(null);
 	let reassignLevel = $state<'departmentHead' | 'finance' | 'final' | null>(null);
 	let reassignUserId = $state('');
 	let reassigning = $state(false);
@@ -38,7 +39,7 @@
 		receipt = data.receipt;
 		const next: Record<string, number> = {};
 		for (const line of data.receipt?.lines ?? []) {
-			next[line.itemId] = line.remainingQty;
+			next[line.itemId] = 0;
 		}
 		receiveQtys = next;
 	});
@@ -280,18 +281,33 @@
 		}
 	}
 
-	async function handleReceive() {
+	async function handleReceive(itemId?: string) {
 		if (!receipt) return;
-		receiving = true;
-		try {
-			const lines = receipt.lines
-				.map((line) => ({
-					itemId: line.itemId,
-					productId: line.productId,
-					qty: Number(receiveQtys[line.itemId] ?? 0)
-				}))
-				.filter((line) => line.qty > 0);
+		const lines = itemId
+			? (() => {
+					const line = receipt.lines.find((row) => row.itemId === itemId);
+					if (!line || line.remainingQty <= 0) return [];
+					const entered = Number(receiveQtys[itemId] ?? 0);
+					const qty =
+						entered > 0 ? Math.min(entered, line.remainingQty) : line.remainingQty;
+					return [{ itemId: line.itemId, productId: line.productId, qty }];
+				})()
+			: receipt.lines
+					.map((line) => ({
+						itemId: line.itemId,
+						productId: line.productId,
+						qty: Number(receiveQtys[line.itemId] ?? 0)
+					}))
+					.filter((line) => line.qty > 0);
 
+		if (lines.length === 0) {
+			toastStore.error('Enter qty for items that arrived, or receive one item at a time');
+			return;
+		}
+
+		receiving = true;
+		receivingItemId = itemId ?? 'bulk';
+		try {
 			const res = await fetch(`/api/purchases/${purchase.id}/receive`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
@@ -299,7 +315,9 @@
 			});
 
 			if (res.ok) {
-				toastStore.success('Goods received — stock updated');
+				toastStore.success(
+					itemId ? 'Item received into stock' : 'Goods received — stock updated'
+				);
 				receiveNote = '';
 				await invalidateAll();
 			} else {
@@ -310,8 +328,13 @@
 			}
 		} finally {
 			receiving = false;
+			receivingItemId = null;
 		}
 	}
+
+	const enteredReceiveCount = $derived(
+		Object.values(receiveQtys).filter((qty) => Number(qty) > 0).length
+	);
 </script>
 
 <div class="space-y-6">
@@ -637,9 +660,9 @@
 								{#if receipt.fullyReceived}
 									All items received into stock
 								{:else if receipt.partiallyReceived}
-									Partially received — enter remaining quantities
+									Some items are in. Receive the rest when they arrive.
 								{:else}
-									Receive approved items into inventory
+									Receive each item when it arrives. Leave others at 0 for later.
 								{/if}
 							</p>
 						</div>
@@ -674,6 +697,9 @@
 														{/if}
 														Ordered {line.orderedQty}
 														{line.unit} · Received {line.receivedQty} · Remaining {line.remainingQty}
+														{#if line.lastInAt}
+															· Last in {formatDate(line.lastInAt)}
+														{/if}
 													</p>
 												</div>
 												<Badge
@@ -687,18 +713,49 @@
 												</Badge>
 											</div>
 											{#if canReceive && line.remainingQty > 0}
-												<Input
-													label="Receive qty"
-													type="number"
-													value={String(receiveQtys[line.itemId] ?? 0)}
-													oninput={(e) => {
-														const v = Number((e.target as HTMLInputElement).value);
-														receiveQtys = {
-															...receiveQtys,
-															[line.itemId]: Number.isNaN(v) ? 0 : v
-														};
-													}}
-												/>
+												<div class="space-y-2">
+													<Input
+														label="Receive qty"
+														type="number"
+														min="0"
+														max={line.remainingQty}
+														value={String(receiveQtys[line.itemId] ?? 0)}
+														oninput={(e) => {
+															const v = Number((e.target as HTMLInputElement).value);
+															receiveQtys = {
+																...receiveQtys,
+																[line.itemId]: Number.isNaN(v) ? 0 : v
+															};
+														}}
+													/>
+													<p class="text-muted text-xs">
+														0 = receive all remaining for this item only
+													</p>
+													<div class="flex flex-wrap gap-2">
+														<Button
+															size="sm"
+															variant="secondary"
+															onclick={() => {
+																receiveQtys = {
+																	...receiveQtys,
+																	[line.itemId]: line.remainingQty
+																};
+															}}
+														>
+															Fill remaining
+														</Button>
+														<Button
+															size="sm"
+															variant="primary"
+															loading={receiving && receivingItemId === line.itemId}
+															disabled={receiving}
+															onclick={() => handleReceive(line.itemId)}
+														>
+															<PackagePlus class="h-3.5 w-3.5" />
+															Receive this item
+														</Button>
+													</div>
+												</div>
 											{/if}
 										</div>
 									{/each}
@@ -714,9 +771,20 @@
 								placeholder="Delivery note / invoice ref..."
 								bind:value={receiveNote}
 							/>
-							<Button variant="primary" class="w-full" loading={receiving} onclick={handleReceive}>
+							<Button
+								variant="secondary"
+								class="w-full"
+								loading={receiving && receivingItemId === 'bulk'}
+								disabled={receiving || enteredReceiveCount === 0}
+								onclick={() => handleReceive()}
+							>
 								<PackagePlus class="h-4 w-4" />
-								Receive into stock
+								{#if enteredReceiveCount > 0}
+									Receive {enteredReceiveCount} entered
+									{enteredReceiveCount === 1 ? 'item' : 'items'}
+								{:else}
+									Enter qty to receive several items
+								{/if}
 							</Button>
 						</div>
 					{/if}
