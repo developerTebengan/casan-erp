@@ -52,6 +52,19 @@ describe('i18n', () => {
 		expect(t('dash.ops.pending', 'en')).toBe('Pending');
 	});
 
+	it('translates table open and action labels', () => {
+		expect(t('table.open', 'id')).toBe('Buka');
+		expect(t('table.open', 'en')).toBe('Open');
+		expect(t('table.view', 'id')).toBe('Lihat');
+		expect(t('table.view', 'en')).toBe('View');
+		expect(t('table.print', 'id')).toBe('Cetak');
+		expect(t('table.print', 'en')).toBe('Print');
+		expect(t('table.edit', 'id')).toBe('Ubah');
+		expect(t('table.edit', 'en')).toBe('Edit');
+		expect(t('table.delete', 'id')).toBe('Hapus');
+		expect(t('table.delete', 'en')).toBe('Delete');
+	});
+
 	it('translates login and logout chrome', () => {
 		expect(t('page.login', 'id')).toBe('Masuk');
 		expect(t('page.login', 'en')).toBe('Login');

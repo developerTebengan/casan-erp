@@ -10,6 +10,8 @@
 		Button,
 		Input
 	} from '$lib/components/ui';
+	import { localeStore } from '$lib/stores/locale.svelte';
+	import { t } from '$lib/i18n';
 	import { formatCurrency, formatDate, formatDateTime } from '$lib/utils/format';
 	import type { Purchase } from '$lib/types';
 
@@ -286,7 +288,7 @@
 								href="/purchasing/{p.id}"
 								class="text-sm font-medium text-primary-600 hover:underline"
 							>
-								Open
+								{t('table.open', localeStore.value)}
 							</a>
 						</div>
 					</div>

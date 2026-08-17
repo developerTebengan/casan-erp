@@ -15,6 +15,8 @@
 		StatusStatTabs
 	} from '$lib/components/ui';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { localeStore } from '$lib/stores/locale.svelte';
+	import { t } from '$lib/i18n';
 	import { formatCurrency, formatDate } from '$lib/utils/format';
 	import type { ApprovalStatus, Purchase, Supplier } from '$lib/types';
 
@@ -279,7 +281,7 @@
 						<div class="mt-2">{@html statusBadge(p)}</div>
 					</div>
 					<a href="/purchasing/{p.id}" class="text-sm font-medium text-primary-600 hover:underline">
-						Open
+						{t('table.open', localeStore.value)}
 					</a>
 				</div>
 			</Card>
@@ -291,6 +293,7 @@
 			<a
 				href="/purchasing/{p.id}"
 				class="inline-flex items-center rounded-lg p-2 text-slate-500 hover:bg-primary-50 hover:text-primary-600 dark:hover:bg-primary-900/20"
+				aria-label={t('table.view', localeStore.value)}
 			>
 				<Eye class="h-4 w-4" />
 			</a>
@@ -298,6 +301,7 @@
 				href="/purchasing/{p.id}/print"
 				class="inline-flex items-center rounded-lg p-2 text-slate-500 hover:bg-primary-50 hover:text-primary-600 dark:hover:bg-primary-900/20"
 				title="Print PR"
+				aria-label={t('table.print', localeStore.value)}
 			>
 				<Printer class="h-4 w-4" />
 			</a>
@@ -305,6 +309,7 @@
 				type="button"
 				class="dark:hover:bg-danger-900/20 inline-flex items-center rounded-lg p-2 text-slate-500 hover:bg-danger-50 hover:text-danger-600"
 				onclick={() => (deleteId = p.id)}
+				aria-label={t('table.delete', localeStore.value)}
 			>
 				<Trash2 class="h-4 w-4" />
 			</button>
