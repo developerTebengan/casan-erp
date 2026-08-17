@@ -3,8 +3,12 @@ import { stockTransactionService } from '$lib/server/services/stockTransaction.s
 import { hasPermission } from '$lib/permissions';
 import type { RequestHandler } from './$types';
 
-export const GET: RequestHandler = async ({ url }) => {
+export const GET: RequestHandler = async ({ url, locals }) => {
 	try {
+		if (!locals.user || !hasPermission(locals.user.role, 'stock:view')) {
+			return json({ message: 'Forbidden' }, { status: 403 });
+		}
+
 		const search = url.searchParams.get('search') || undefined;
 		const productId = url.searchParams.get('productId') || undefined;
 		const type = (url.searchParams.get('type') as 'IN' | 'OUT' | 'ADJUSTMENT') || undefined;

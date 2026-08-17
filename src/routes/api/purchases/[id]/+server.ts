@@ -1,5 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import { purchaseService } from '$lib/server/services/purchase.service';
+import { hasPermission } from '$lib/permissions';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ params }) => {
@@ -15,9 +16,19 @@ export const GET: RequestHandler = async ({ params }) => {
 	}
 };
 
-export const DELETE: RequestHandler = async ({ params }) => {
+export const DELETE: RequestHandler = async ({ params, locals }) => {
 	try {
+		if (!locals.user || !hasPermission(locals.user.role, 'purchasing:write')) {
+			return json({ message: 'Forbidden' }, { status: 403 });
+		}
+
 		const service = purchaseService();
+		const purchase = await service.getById(params.id);
+		if (!purchase) throw error(404, { message: 'Purchasing request not found' });
+		if (locals.user.role !== 'ADMIN' && locals.user.id !== purchase.requesterId) {
+			return json({ message: 'Forbidden' }, { status: 403 });
+		}
+
 		const result = await service.remove(params.id);
 
 		if (!result.success) {

@@ -158,12 +158,7 @@ export function userService() {
 		}
 
 		const password = await hashPassword(next);
-		await repo.update(userId, {
-			name: user.name,
-			email: user.email,
-			role: user.role as UserRole,
-			password
-		});
+		await db.user.update({ where: { id: userId }, data: { password } });
 		return { success: true as const };
 	}
 

@@ -4,11 +4,11 @@
 	import { themeStore } from '$lib/stores/theme.svelte';
 	import { localeStore } from '$lib/stores/locale.svelte';
 	import { t } from '$lib/i18n';
-	import { PUBLIC_SHOW_DEMO_LOGINS } from '$env/static/public';
+	import { env } from '$env/dynamic/public';
 	import { onMount } from 'svelte';
 	import { untrack } from 'svelte';
 
-	const showDemo = PUBLIC_SHOW_DEMO_LOGINS === 'true';
+	const showDemo = env.PUBLIC_SHOW_DEMO_LOGINS === 'true';
 
 	interface LoginForm {
 		email?: string;

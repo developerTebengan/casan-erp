@@ -305,14 +305,16 @@
 			>
 				<Printer class="h-4 w-4" />
 			</a>
-			<button
-				type="button"
-				class="dark:hover:bg-danger-900/20 inline-flex items-center rounded-lg p-2 text-slate-500 hover:bg-danger-50 hover:text-danger-600"
-				onclick={() => (deleteId = p.id)}
-				aria-label={t('table.delete', localeStore.value)}
-			>
-				<Trash2 class="h-4 w-4" />
-			</button>
+			{#if data.user.role === 'ADMIN' || data.user.id === p.requesterId}
+				<button
+					type="button"
+					class="dark:hover:bg-danger-900/20 inline-flex items-center rounded-lg p-2 text-slate-500 hover:bg-danger-50 hover:text-danger-600"
+					onclick={() => (deleteId = p.id)}
+					aria-label={t('table.delete', localeStore.value)}
+				>
+					<Trash2 class="h-4 w-4" />
+				</button>
+			{/if}
 		</div>
 	{/snippet}
 
