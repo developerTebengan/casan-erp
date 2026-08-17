@@ -82,6 +82,7 @@ export interface Purchase {
 	rejectionReason?: string | null;
 	total: number;
 	items?: PurchaseItem[];
+	fullyReceived?: boolean;
 	createdAt: string;
 	updatedAt: string;
 }

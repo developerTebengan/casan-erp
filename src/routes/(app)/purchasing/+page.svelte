@@ -18,7 +18,8 @@
 	import { localeStore } from '$lib/stores/locale.svelte';
 	import { t } from '$lib/i18n';
 	import { formatCurrency, formatDate } from '$lib/utils/format';
-	import type { ApprovalStatus, Purchase, Supplier } from '$lib/types';
+	import { agreementProgress, purchaseListStatus } from '$lib/purchasing/list-status';
+	import type { Purchase, Supplier } from '$lib/types';
 
 	let { data } = $props();
 
@@ -31,21 +32,12 @@
 	let statusTab = $state(untrack(() => (data.initialStatus as string) || 'PENDING'));
 	let search = $state('');
 	let supplierId = $state('');
-	let priority = $state('');
 	let loading = $state(false);
 	let deleteId = $state<string | null>(null);
 	let deleting = $state(false);
 	let pageSize = $state(10);
 	let sortKey = $state<string | undefined>();
 	let sortDir = $state<'asc' | 'desc'>('asc');
-
-	const priorityOptions = [
-		{ value: '', label: 'All Priorities' },
-		{ value: 'LOW', label: 'Low' },
-		{ value: 'MEDIUM', label: 'Medium' },
-		{ value: 'HIGH', label: 'High' },
-		{ value: 'URGENT', label: 'Urgent' }
-	];
 
 	const supplierOptions = $derived([
 		{ value: '', label: 'All Suppliers' },
@@ -97,7 +89,6 @@
 			const params = new URLSearchParams();
 			if (search) params.set('search', search);
 			if (supplierId) params.set('supplierId', supplierId);
-			if (priority) params.set('priority', priority);
 			if (statusTab && statusTab !== 'ALL') params.set('approvalStatus', statusTab);
 			params.set('page', String(page));
 			params.set('limit', String(pageSize));
@@ -150,34 +141,42 @@
 		}
 	}
 
-	function priorityBadge(p: Purchase) {
-		const variants: Record<string, string> = {
-			LOW: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-100',
-			MEDIUM: 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-600',
-			HIGH: 'bg-warning-100 text-warning-700 dark:bg-warning-900/30 dark:text-warning-600',
-			URGENT: 'bg-danger-100 text-danger-700 dark:bg-danger-900/30 dark:text-danger-600'
-		};
-		return `<span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${variants[p.priority]}">${p.priority}</span>`;
+	function listStatusBadge(p: Purchase) {
+		const status = purchaseListStatus(p);
+		if (status === 'STOCK_IN') {
+			return `<span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-success-100 text-success-700 dark:bg-success-900/30 dark:text-success-600">${t('pr.status.stockIn', localeStore.value)}</span>`;
+		}
+		if (status === 'REJECTED') {
+			return `<span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-danger-100 text-danger-700 dark:bg-danger-900/30 dark:text-danger-600">${t('pr.status.rejected', localeStore.value)}</span>`;
+		}
+		return `<span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-warning-100 text-warning-700 dark:bg-warning-900/30 dark:text-warning-600">${t('pr.status.waiting', localeStore.value)}</span>`;
 	}
 
-	function statusBadge(p: Purchase) {
-		function approvalStatusVariant(status: ApprovalStatus) {
-			if (status === 'APPROVED')
-				return 'bg-success-100 text-success-700 dark:bg-success-900/30 dark:text-success-600';
-			if (status === 'REJECTED')
-				return 'bg-danger-100 text-danger-700 dark:bg-danger-900/30 dark:text-danger-600';
-			return 'bg-warning-100 text-warning-700 dark:bg-warning-900/30 dark:text-warning-600';
-		}
+	function agreementCell(p: Purchase) {
+		const progress = agreementProgress(p);
+		const count = t('pr.agreed', localeStore.value, {
+			approved: progress.approved,
+			assigned: progress.assigned
+		});
+		const marks = progress.levels
+			.map((level) => {
+				const label = t(`pr.level.${level.key}`, localeStore.value);
+				const mark = level.status === 'APPROVED' ? '✓' : level.status === 'REJECTED' ? '×' : '–';
+				return `${label} ${mark}`;
+			})
+			.join(' · ');
+		return `<div><div class="font-medium">${count}</div><div class="text-muted mt-0.5 text-xs">${marks || '—'}</div></div>`;
+	}
 
-		function approvalStatusLabel(status: ApprovalStatus) {
-			if (status === 'APPROVED') return 'Approved';
-			if (status === 'REJECTED') return 'Unapproved';
-			return 'Waiting';
-		}
-
-		const variantClass = approvalStatusVariant(p.approvalStatus);
-		const label = approvalStatusLabel(p.approvalStatus);
-		return `<span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${variantClass}">${label}</span>`;
+	function purposeCell(p: Purchase) {
+		const text = (p.purpose || '').trim();
+		if (!text) return '—';
+		const escaped = text
+			.replace(/&/g, '&amp;')
+			.replace(/</g, '&lt;')
+			.replace(/>/g, '&gt;')
+			.replace(/"/g, '&quot;');
+		return `<span class="line-clamp-2 max-w-56" title="${escaped}">${escaped}</span>`;
 	}
 
 	function deadlineCell(p: Purchase) {
@@ -200,8 +199,9 @@
 		return `<span class="${classes}">${formatDate(d)}${suffix}</span>`;
 	}
 
-	const columns = [
+	const columns = $derived([
 		{ key: 'prNumber', header: 'PR Number', sortKey: 'prNumber' },
+		{ key: 'purpose', header: t('pr.purpose', localeStore.value), cell: purposeCell },
 		{ key: 'supplier', header: 'Supplier', cell: (p: Purchase) => p.supplier?.name ?? '-' },
 		{
 			key: 'dateOfRequest',
@@ -210,10 +210,10 @@
 			cell: (p: Purchase) => formatDate(p.dateOfRequest)
 		},
 		{ key: 'deadline', header: 'Decision by', sortKey: 'decisionDeadline', cell: deadlineCell },
-		{ key: 'priority', header: 'Priority', cell: priorityBadge },
-		{ key: 'status', header: 'Status', cell: statusBadge },
+		{ key: 'agreement', header: t('pr.agreement', localeStore.value), cell: agreementCell },
+		{ key: 'status', header: 'Status', cell: listStatusBadge },
 		{ key: 'total', header: 'Total', cell: (p: Purchase) => formatCurrency(p.total) }
-	];
+	]);
 
 	function handleRowClick(row: Purchase, e: MouseEvent) {
 		const target = e.target as HTMLElement;
@@ -255,17 +255,11 @@
 					oninput={handleSearch}
 				/>
 			</div>
-			<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:w-[400px]">
+			<div class="lg:w-[280px]">
 				<Select
 					label="Supplier"
 					options={supplierOptions}
 					bind:value={supplierId}
-					onchange={handleSearch}
-				/>
-				<Select
-					label="Priority"
-					options={priorityOptions}
-					bind:value={priority}
 					onchange={handleSearch}
 				/>
 			</div>
@@ -278,7 +272,14 @@
 				<div class="flex items-start justify-between gap-3">
 					<div class="min-w-0">
 						<p class="text-main font-semibold">{p.prNumber}</p>
-						<div class="mt-2">{@html statusBadge(p)}</div>
+						<p class="text-muted mt-1 line-clamp-2 text-sm">{p.purpose || '—'}</p>
+						<p class="text-muted mt-1 text-xs">
+							{t('pr.agreed', localeStore.value, {
+								approved: agreementProgress(p).approved,
+								assigned: agreementProgress(p).assigned
+							})}
+						</p>
+						<div class="mt-2">{@html listStatusBadge(p)}</div>
 					</div>
 					<a href="/purchasing/{p.id}" class="text-sm font-medium text-primary-600 hover:underline">
 						{t('table.open', localeStore.value)}

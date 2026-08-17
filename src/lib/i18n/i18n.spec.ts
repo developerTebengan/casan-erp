@@ -72,8 +72,18 @@ describe('i18n', () => {
 		expect(t('auth.signIn', 'en')).toBe('Sign in');
 		expect(t('auth.demoTitle', 'id')).toBe('Akun demo');
 		expect(t('auth.demoTitle', 'en')).toBe('Demo accounts');
+		expect(t('auth.demoName', 'id')).toBe('Nama');
+		expect(t('auth.demoPosition', 'en')).toBe('Position');
 		expect(t('common.logout', 'id')).toBe('Keluar');
 		expect(t('common.logout', 'en')).toBe('Log out');
+	});
+
+	it('translates purchase list agreement and fulfillment', () => {
+		expect(t('pr.agreed', 'en', { approved: 2, assigned: 3 })).toBe('2/3 agreed');
+		expect(t('pr.agreed', 'id', { approved: 2, assigned: 3 })).toBe('2/3 disetujui');
+		expect(t('pr.status.stockIn', 'en')).toBe('Stock in');
+		expect(t('pr.status.stockIn', 'id')).toBe('Stok masuk');
+		expect(t('pr.purpose', 'id')).toBe('Keperluan');
 	});
 });
 

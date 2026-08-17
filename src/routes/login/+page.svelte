@@ -3,12 +3,27 @@
 	import { Button, Input } from '$lib/components/ui';
 	import { themeStore } from '$lib/stores/theme.svelte';
 	import { localeStore } from '$lib/stores/locale.svelte';
-	import { t } from '$lib/i18n';
+	import { t, roleLabel } from '$lib/i18n';
 	import { env } from '$env/dynamic/public';
 	import { onMount } from 'svelte';
 	import { untrack } from 'svelte';
+	import type { UserRole } from '$lib/types';
 
-	const showDemo = env.PUBLIC_SHOW_DEMO_LOGINS === 'true';
+	const showDemo = env.PUBLIC_SHOW_DEMO_LOGINS !== 'false';
+
+	const DEMO_ACCOUNTS: { name: string; email: string; role: UserRole; password: string }[] = [
+		{ name: 'Admin User', email: 'admin@casanerp.com', role: 'ADMIN', password: 'password' },
+		{ name: 'John Doe', email: 'user@casanerp.com', role: 'USER', password: 'password' },
+		{
+			name: 'Budi Santoso',
+			email: 'dept.head@casanerp.com',
+			role: 'DEPARTMENT_HEAD',
+			password: 'password'
+		},
+		{ name: 'Siti Aminah', email: 'finance@casanerp.com', role: 'FINANCE', password: 'password' },
+		{ name: 'Ahmad Wijaya', email: 'manager@casanerp.com', role: 'MANAGER', password: 'password' },
+		{ name: 'Dewi Kusuma', email: 'director@casanerp.com', role: 'DIRECTOR', password: 'password' }
+	];
 
 	interface LoginForm {
 		email?: string;
@@ -56,7 +71,7 @@
 			</button>
 		</div>
 	</div>
-	<div class="w-full max-w-md space-y-8">
+	<div class="w-full max-w-xl space-y-8">
 		<div class="text-center">
 			<div
 				class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-600 text-white shadow-lg shadow-primary-600/30"
@@ -120,77 +135,48 @@
 				<div
 					class="border-theme mt-6 rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
 				>
-					<p class="mb-2 font-semibold text-slate-900 dark:text-white">
-						{t('auth.demoTitle', localeStore.value)} — password:
-						<code class="rounded bg-slate-100 px-1.5 py-0.5 font-mono dark:bg-slate-700"
-							>password</code
-						>
+					<p class="mb-3 font-semibold text-slate-900 dark:text-white">
+						{t('auth.demoTitle', localeStore.value)}
 					</p>
-					<ul class="space-y-1.5 text-slate-700 dark:text-slate-200">
-						<li>
-							<button
-								type="button"
-								class="text-left hover:text-primary-600 hover:underline"
-								onclick={() => {
-									email = 'admin@casanerp.com';
-									password = 'password';
-								}}>admin@casanerp.com</button
-							> — Admin
-						</li>
-						<li>
-							<button
-								type="button"
-								class="text-left hover:text-primary-600 hover:underline"
-								onclick={() => {
-									email = 'user@casanerp.com';
-									password = 'password';
-								}}>user@casanerp.com</button
-							> — Requester
-						</li>
-						<li>
-							<button
-								type="button"
-								class="text-left hover:text-primary-600 hover:underline"
-								onclick={() => {
-									email = 'dept.head@casanerp.com';
-									password = 'password';
-								}}>dept.head@casanerp.com</button
-							> — Dept Head
-						</li>
-						<li>
-							<button
-								type="button"
-								class="text-left hover:text-primary-600 hover:underline"
-								onclick={() => {
-									email = 'finance@casanerp.com';
-									password = 'password';
-								}}>finance@casanerp.com</button
-							> — Finance
-						</li>
-						<li>
-							<button
-								type="button"
-								class="text-left hover:text-primary-600 hover:underline"
-								onclick={() => {
-									email = 'manager@casanerp.com';
-									password = 'password';
-								}}>manager@casanerp.com</button
-							> — Manager
-						</li>
-						<li>
-							<button
-								type="button"
-								class="text-left hover:text-primary-600 hover:underline"
-								onclick={() => {
-									email = 'director@casanerp.com';
-									password = 'password';
-								}}>director@casanerp.com</button
-							> — Director
-						</li>
-					</ul>
-					<p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
-						Click an email to fill the form.
-					</p>
+					<div class="overflow-x-auto">
+						<table class="w-full text-left text-xs">
+							<thead>
+								<tr class="text-muted border-b border-slate-200 dark:border-slate-700">
+									<th class="py-1.5 pr-3 font-semibold">{t('auth.demoName', localeStore.value)}</th>
+									<th class="py-1.5 pr-3 font-semibold">{t('auth.demoPosition', localeStore.value)}</th>
+									<th class="py-1.5 font-semibold">{t('auth.password', localeStore.value)}</th>
+								</tr>
+							</thead>
+							<tbody>
+								{#each DEMO_ACCOUNTS as account}
+									<tr>
+										<td class="py-1.5 pr-3 align-top">
+											<button
+												type="button"
+												class="text-left font-medium hover:text-primary-600 hover:underline"
+												onclick={() => {
+													email = account.email;
+													password = account.password;
+												}}
+											>
+												{account.name}
+											</button>
+											<div class="text-muted font-mono">{account.email}</div>
+										</td>
+										<td class="py-1.5 pr-3 align-top">
+											{roleLabel(account.role, localeStore.value)}
+										</td>
+										<td class="py-1.5 align-top">
+											<code class="rounded bg-slate-100 px-1.5 py-0.5 font-mono dark:bg-slate-700"
+												>{account.password}</code
+											>
+										</td>
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+					</div>
+					<p class="text-muted mt-2 text-xs">{t('auth.demoHint', localeStore.value)}</p>
 				</div>
 			{/if}
 		</div>

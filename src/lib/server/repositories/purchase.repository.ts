@@ -1,4 +1,5 @@
 import { db } from '$lib/server/db';
+import { applyFulfillment } from '$lib/purchasing/list-status';
 import type { Purchase, PurchasePriority, ApprovalStatus, UserRole } from '$lib/types';
 
 export interface PurchaseFilters {
@@ -181,8 +182,41 @@ export function purchaseRepository() {
 			db.purchase.count({ where })
 		]);
 
+		const mapped = data.map(mapPurchase);
+		const ids = mapped.map((p) => p.id);
+		if (ids.length === 0) {
+			return {
+				data: mapped,
+				pagination: { page, limit, total, totalPages: Math.ceil(total / limit) || 1 }
+			};
+		}
+
+		const [ordered, received] = await Promise.all([
+			db.purchaseItem.findMany({
+				where: { purchaseId: { in: ids } },
+				select: { purchaseId: true, productId: true, qty: true }
+			}),
+			db.stockTransaction.findMany({
+				where: {
+					referenceId: { in: ids },
+					source: 'PURCHASE',
+					type: 'IN',
+					deletedAt: null
+				},
+				select: { referenceId: true, productId: true, qty: true }
+			})
+		]);
+
 		return {
-			data: data.map(mapPurchase),
+			data: applyFulfillment(
+				mapped,
+				ordered,
+				received.map((tx) => ({
+					purchaseId: tx.referenceId ?? '',
+					productId: tx.productId,
+					qty: tx.qty
+				}))
+			),
 			pagination: { page, limit, total, totalPages: Math.ceil(total / limit) || 1 }
 		};
 	}

@@ -1,4 +1,4 @@
-export const APP_VERSION = '0.5.0';
+export const APP_VERSION = '0.5.1';
 export const APP_NAME = 'Casan ERP';
 
 export type ChangelogChangeType = 'added' | 'changed' | 'fixed' | 'removed';
@@ -13,6 +13,24 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+	{
+		version: '0.5.1',
+		date: '2026-08-17',
+		changes: [
+			{
+				type: 'added',
+				items: [
+					'Demo login table with name, position, and password',
+					'Purchase list agreement progress (e.g. 2/3 agreed)',
+					'Purchase list purpose and stock-in / waiting status'
+				]
+			},
+			{
+				type: 'removed',
+				items: ['Priority column and filter on the purchase request list']
+			}
+		]
+	},
 	{
 		version: '0.5.0',
 		date: '2026-08-17',

@@ -2,6 +2,16 @@
 
 All notable changes to Casan ERP are documented here.
 
+## [0.5.1] - 2026-08-17
+
+### Added
+- Demo login table with name, position, and password
+- Purchase list agreement progress (e.g. 2/3 agreed)
+- Purchase list purpose and stock-in / waiting status
+
+### Removed
+- Priority column and filter on the purchase request list
+
 ## [0.5.0] - 2026-08-17
 
 ### Added
