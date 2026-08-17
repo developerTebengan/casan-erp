@@ -5,7 +5,7 @@
 	let { data, children } = $props();
 </script>
 
-<AppLayout user={data.user}>
+<AppLayout user={data.user} unreadCount={data.unreadCount} waitingCount={data.waitingCount}>
 	{@render children()}
 </AppLayout>
 

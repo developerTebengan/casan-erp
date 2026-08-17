@@ -13,10 +13,12 @@
 
 	interface Props {
 		user: User | null;
+		unreadCount?: number;
+		waitingCount?: number;
 		children?: import('svelte').Snippet;
 	}
 
-	let { user, children }: Props = $props();
+	let { user, unreadCount = 0, waitingCount = 0, children }: Props = $props();
 
 	onMount(() => {
 		themeStore.init();
@@ -52,7 +54,7 @@
 	</Drawer>
 
 	<div class="lg:pl-64 print:!pl-0">
-		<Navbar {user} class="print:hidden" />
+		<Navbar {user} {unreadCount} {waitingCount} class="print:hidden" />
 		<main class="min-h-[calc(100vh-4rem)] px-4 pt-6 pb-24 sm:px-6 lg:px-8 print:p-0">
 			{@render children?.()}
 		</main>

@@ -31,13 +31,37 @@ model User {
   createdAt DateTime  @default(now())
   deletedAt DateTime?
 
-  requests          Purchase[] @relation("Requester")
-  departmentHeadOf  Purchase[] @relation("DepartmentHead")
-  financeApproverOf Purchase[] @relation("FinanceApprover")
-  finalApproverOf   Purchase[] @relation("FinalApprover")
+  requests          Purchase[]     @relation("Requester")
+  departmentHeadOf  Purchase[]     @relation("DepartmentHead")
+  financeApproverOf Purchase[]     @relation("FinanceApprover")
+  finalApproverOf   Purchase[]     @relation("FinalApprover")
+  notifications     Notification[]
 
   @@unique([email], where: raw("\"deletedAt\" IS NULL"))
   @@map("users")
+}
+
+enum NotificationType {
+  PR_WAITING
+  PR_DECIDED
+
+  @@map("notification_type")
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  type      NotificationType
+  titleKey  String
+  bodyKey   String
+  params    Json
+  href      String
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id])
+
+  @@index([userId, readAt])
+  @@map("notifications")
 }
 
 model Supplier {

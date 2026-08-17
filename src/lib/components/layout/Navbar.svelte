@@ -1,18 +1,62 @@
 <script lang="ts">
 	import { Menu, Sun, Moon, Bell } from '@lucide/svelte';
+	import { goto } from '$app/navigation';
 	import { themeStore } from '$lib/stores/theme.svelte';
 	import { localeStore } from '$lib/stores/locale.svelte';
 	import { sidebarStore } from '$lib/stores/sidebar.svelte';
 	import { classNames } from '$lib/utils/format';
-	import { roleLabel } from '$lib/i18n';
+	import { roleLabel, t } from '$lib/i18n';
 	import type { User } from '$lib/types';
+
+	interface NotificationItem {
+		id: string;
+		titleKey: string;
+		params: Record<string, string>;
+		href: string;
+		readAt: string | null;
+	}
 
 	interface Props {
 		user?: User | null;
+		unreadCount?: number;
+		waitingCount?: number;
 		class?: string;
 	}
 
-	let { user, class: className = '' }: Props = $props();
+	let {
+		user,
+		unreadCount = 0,
+		waitingCount: _waitingCount = 0,
+		class: className = ''
+	}: Props = $props();
+
+	let open = $state(false);
+	let items = $state<NotificationItem[]>([]);
+	let loading = $state(false);
+
+	async function togglePanel() {
+		open = !open;
+		if (!open) return;
+		loading = true;
+		try {
+			const res = await fetch('/api/notifications');
+			if (!res.ok) {
+				items = [];
+				return;
+			}
+			items = (await res.json()) as NotificationItem[];
+		} catch {
+			items = [];
+		} finally {
+			loading = false;
+		}
+	}
+
+	async function openNotification(item: NotificationItem) {
+		await fetch(`/api/notifications/${item.id}/read`, { method: 'POST' });
+		open = false;
+		await goto(item.href);
+	}
 </script>
 
 <header
@@ -54,14 +98,54 @@
 				EN
 			</button>
 		</div>
-		<button
-			type="button"
-			class="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-			aria-label="Notifications"
-		>
-			<Bell class="h-5 w-5" />
-			<span class="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-danger-500"></span>
-		</button>
+		<div class="relative">
+			<button
+				type="button"
+				class="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+				aria-label="Notifications"
+				aria-expanded={open}
+				onclick={togglePanel}
+			>
+				<Bell class="h-5 w-5" />
+				{#if unreadCount > 0}
+					<span
+						class="absolute top-0.5 right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger-500 px-1 text-[10px] font-semibold text-white"
+					>
+						{unreadCount}
+					</span>
+				{/if}
+			</button>
+			{#if open}
+				<div
+					class="border-theme bg-card absolute right-0 z-40 mt-2 w-80 overflow-hidden rounded-xl border shadow-lg"
+				>
+					{#if loading}
+						<p class="text-muted px-4 py-6 text-center text-sm">…</p>
+					{:else if items.length === 0}
+						<p class="text-muted px-4 py-6 text-center text-sm">
+							{t('notify.empty', localeStore.value)}
+						</p>
+					{:else}
+						<ul class="max-h-96 overflow-y-auto">
+							{#each items as n (n.id)}
+								<li>
+									<button
+										type="button"
+										class={classNames(
+											'w-full px-4 py-3 text-left text-sm hover:bg-slate-50 dark:hover:bg-slate-800',
+											n.readAt ? 'text-muted' : 'text-main font-medium'
+										)}
+										onclick={() => openNotification(n)}
+									>
+										{t(n.titleKey, localeStore.value, n.params)}
+									</button>
+								</li>
+							{/each}
+						</ul>
+					{/if}
+				</div>
+			{/if}
+		</div>
 		<button
 			type="button"
 			class="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"

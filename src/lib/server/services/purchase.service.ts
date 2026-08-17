@@ -1,5 +1,6 @@
 import { purchaseRepository } from '$lib/server/repositories/purchase.repository';
 import { userRepository } from '$lib/server/repositories/user.repository';
+import { notificationService } from '$lib/server/services/notification.service';
 import { validateRequired, type ValidationResult } from '$lib/utils/validation';
 import type { PurchaseCreateInput } from '$lib/server/repositories/purchase.repository';
 import type { PurchasePriority, ApprovalStatus, UserRole } from '$lib/types';
@@ -190,6 +191,7 @@ export function purchaseService() {
 		}
 
 		const purchase = await repo.create(validation.data!);
+		await notificationService().notifyPurchaseEvent('created', purchase);
 		return { success: true, data: purchase };
 	}
 
@@ -200,12 +202,7 @@ export function purchaseService() {
 		return { success: true };
 	}
 
-	async function approve(
-		id: string,
-		level: ApprovalLevel,
-		userId: string,
-		userRole?: UserRole
-	) {
+	async function approve(id: string, level: ApprovalLevel, userId: string, userRole?: UserRole) {
 		const purchase = await repo.findById(id);
 		if (!purchase) return { success: false, errors: { form: ['Purchasing request not found'] } };
 		if (purchase.approvalStatus === 'APPROVED' || purchase.approvalStatus === 'REJECTED') {
@@ -214,9 +211,7 @@ export function purchaseService() {
 
 		const config = LEVEL_CONFIG[level];
 		const approverId = purchase[`${config.idField}` as keyof typeof purchase] as
-			| string
-			| null
-			| undefined;
+			string | null | undefined;
 		const isAdmin = userRole === 'ADMIN';
 
 		if (!approverId && !isAdmin) {
@@ -246,9 +241,7 @@ export function purchaseService() {
 			const prev = order[i];
 			const prevConfig = LEVEL_CONFIG[prev];
 			const prevAssignee = purchase[prevConfig.idField as keyof typeof purchase] as
-				| string
-				| null
-				| undefined;
+				string | null | undefined;
 			if (!prevAssignee) continue;
 			const prevStatus = purchase[prevConfig.statusField] as ApprovalStatus;
 			if (prevStatus !== 'APPROVED') {
@@ -274,6 +267,7 @@ export function purchaseService() {
 		);
 
 		const updated = await repo.update(id, data);
+		await notificationService().notifyPurchaseEvent('approved', updated);
 		return { success: true, data: updated };
 	}
 
@@ -292,9 +286,7 @@ export function purchaseService() {
 
 		const config = LEVEL_CONFIG[level];
 		const approverId = purchase[`${config.idField}` as keyof typeof purchase] as
-			| string
-			| null
-			| undefined;
+			string | null | undefined;
 		const isAdmin = userRole === 'ADMIN';
 
 		if (!approverId && !isAdmin) {
@@ -318,12 +310,11 @@ export function purchaseService() {
 		const data: Record<string, ApprovalStatus | string | null> = {
 			[config.statusField]: 'REJECTED',
 			approvalStatus: 'REJECTED',
-			rejectionReason: isAdmin
-				? `[Admin override] ${String(reason).trim()}`
-				: String(reason).trim()
+			rejectionReason: isAdmin ? `[Admin override] ${String(reason).trim()}` : String(reason).trim()
 		};
 
 		const updated = await repo.update(id, data);
+		await notificationService().notifyPurchaseEvent('rejected', updated);
 		return { success: true, data: updated };
 	}
 
