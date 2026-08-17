@@ -1,4 +1,4 @@
-export const APP_VERSION = '0.5.3';
+export const APP_VERSION = '0.5.4';
 export const APP_NAME = 'Casan ERP';
 
 export type ChangelogChangeType = 'added' | 'changed' | 'fixed' | 'removed';
@@ -13,6 +13,19 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+	{
+		version: '0.5.4',
+		date: '2026-08-18',
+		changes: [
+			{
+				type: 'changed',
+				items: [
+					'Receive qty defaults to the invoiced amount still due',
+					'Stock-in is only via Receive this item, so other lines wait'
+				]
+			}
+		]
+	},
 	{
 		version: '0.5.3',
 		date: '2026-08-18',

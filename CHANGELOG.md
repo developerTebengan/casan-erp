@@ -2,6 +2,12 @@
 
 All notable changes to Casan ERP are documented here.
 
+## [0.5.4] - 2026-08-18
+
+### Changed
+- Receive qty defaults to the invoiced amount still due
+- Stock-in is only via Receive this item, so other lines wait
+
 ## [0.5.3] - 2026-08-18
 
 ### Changed
