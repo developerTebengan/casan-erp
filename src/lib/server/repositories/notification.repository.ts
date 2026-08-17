@@ -66,12 +66,19 @@ export function notificationRepository() {
 	}
 
 	async function findLatestForUser(userId: string, limit = 20): Promise<NotificationRecord[]> {
-		const rows = await db.notification.findMany({
-			where: { userId },
-			orderBy: [{ readAt: { sort: 'asc', nulls: 'first' } }, { createdAt: 'desc' }],
+		const unread = await db.notification.findMany({
+			where: { userId, readAt: null },
+			orderBy: { createdAt: 'desc' },
 			take: limit
 		});
-		return rows.map(mapNotification);
+		if (unread.length >= limit) return unread.map(mapNotification);
+
+		const read = await db.notification.findMany({
+			where: { userId, readAt: { not: null } },
+			orderBy: { createdAt: 'desc' },
+			take: limit - unread.length
+		});
+		return [...unread, ...read].map(mapNotification);
 	}
 
 	async function countUnread(userId: string): Promise<number> {

@@ -191,7 +191,11 @@ export function purchaseService() {
 		}
 
 		const purchase = await repo.create(validation.data!);
-		await notificationService().notifyPurchaseEvent('created', purchase);
+		try {
+			await notificationService().notifyPurchaseEvent('created', purchase);
+		} catch (err) {
+			console.error(err);
+		}
 		return { success: true, data: purchase };
 	}
 
@@ -267,7 +271,11 @@ export function purchaseService() {
 		);
 
 		const updated = await repo.update(id, data);
-		await notificationService().notifyPurchaseEvent('approved', updated);
+		try {
+			await notificationService().notifyPurchaseEvent('approved', updated);
+		} catch (err) {
+			console.error(err);
+		}
 		return { success: true, data: updated };
 	}
 
@@ -314,7 +322,11 @@ export function purchaseService() {
 		};
 
 		const updated = await repo.update(id, data);
-		await notificationService().notifyPurchaseEvent('rejected', updated);
+		try {
+			await notificationService().notifyPurchaseEvent('rejected', updated);
+		} catch (err) {
+			console.error(err);
+		}
 		return { success: true, data: updated };
 	}
 

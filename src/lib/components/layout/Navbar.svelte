@@ -33,6 +33,11 @@
 	let open = $state(false);
 	let items = $state<NotificationItem[]>([]);
 	let loading = $state(false);
+	let badgeCount = $state(unreadCount);
+
+	$effect(() => {
+		badgeCount = unreadCount;
+	});
 
 	async function togglePanel() {
 		open = !open;
@@ -53,7 +58,15 @@
 	}
 
 	async function openNotification(item: NotificationItem) {
-		await fetch(`/api/notifications/${item.id}/read`, { method: 'POST' });
+		const res = await fetch(`/api/notifications/${item.id}/read`, { method: 'POST' });
+		if (res.ok) {
+			if (!item.readAt) {
+				badgeCount = Math.max(0, badgeCount - 1);
+			}
+			items = items.map((n) =>
+				n.id === item.id ? { ...n, readAt: n.readAt ?? new Date().toISOString() } : n
+			);
+		}
 		open = false;
 		await goto(item.href);
 	}
@@ -102,16 +115,16 @@
 			<button
 				type="button"
 				class="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-				aria-label="Notifications"
+				aria-label={t('notify.bell', localeStore.value)}
 				aria-expanded={open}
 				onclick={togglePanel}
 			>
 				<Bell class="h-5 w-5" />
-				{#if unreadCount > 0}
+				{#if badgeCount > 0}
 					<span
 						class="absolute top-0.5 right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger-500 px-1 text-[10px] font-semibold text-white"
 					>
-						{unreadCount}
+						{badgeCount}
 					</span>
 				{/if}
 			</button>

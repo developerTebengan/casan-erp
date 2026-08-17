@@ -12,6 +12,8 @@ describe('i18n', () => {
 	it('interpolates and falls back to id then key', () => {
 		expect(t('notify.waiting', 'id', { prNumber: 'PR-1' })).toContain('PR-1');
 		expect(t('notify.waiting', 'en', { prNumber: 'PR-1' })).toContain('PR-1');
+		expect(t('notify.bell', 'id')).toBe('Notifikasi');
+		expect(t('notify.bell', 'en')).toBe('Notifications');
 		expect(t('does.not.exist', 'en')).toBe('does.not.exist');
 	});
 

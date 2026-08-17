@@ -40,6 +40,7 @@ export const en: Record<string, string> = {
 	'dash.status.approved': 'Approved',
 	'dash.status.rejected': 'Rejected',
 	'dash.status.waiting': 'Waiting',
+	'notify.bell': 'Notifications',
 	'notify.empty': 'No notifications',
 	'notify.waiting': 'PR {prNumber} is waiting on you',
 	'notify.decided': 'PR {prNumber} was decided',

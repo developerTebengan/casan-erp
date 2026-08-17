@@ -40,6 +40,7 @@ export const id: Record<string, string> = {
 	'dash.status.approved': 'Disetujui',
 	'dash.status.rejected': 'Ditolak',
 	'dash.status.waiting': 'Menunggu',
+	'notify.bell': 'Notifikasi',
 	'notify.empty': 'Tidak ada notifikasi',
 	'notify.waiting': 'PR {prNumber} menunggu Anda',
 	'notify.decided': 'PR {prNumber} telah diputuskan',
