@@ -587,7 +587,7 @@
 				</div>
 			</Card>
 
-			{#if purchase.approvalStatus === 'APPROVED' && receipt}
+			{#if canReceive && purchase.approvalStatus === 'APPROVED' && receipt}
 				<Card padding="lg">
 					<div class="mb-4 flex items-center gap-3">
 						<div

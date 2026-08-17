@@ -16,9 +16,11 @@
 		StatusStatTabs
 	} from '$lib/components/ui';
 	import { toastStore } from '$lib/stores/toast.svelte';
+	import { hasPermission } from '$lib/permissions';
 	import type { Supplier } from '$lib/types';
 
 	let { data } = $props();
+	const canWrite = $derived(hasPermission(data.user.role, 'suppliers:write'));
 
 	let suppliers = $state<Supplier[]>(untrack(() => data.suppliers.data));
 	let pagination = $state(untrack(() => data.suppliers.pagination));
@@ -170,17 +172,22 @@
 	}
 
 	function actionsCell(s: Supplier) {
-		return `
-			<div class="flex items-center gap-2">
-				<button type="button" data-detail="${s.id}" class="inline-flex items-center rounded-lg p-2 text-slate-500 hover:bg-primary-50 hover:text-primary-600 dark:hover:bg-primary-900/20">
-					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-				</button>
+		const writeButtons = canWrite
+			? `
 				<button type="button" data-edit="${s.id}" class="inline-flex items-center rounded-lg p-2 text-slate-500 hover:bg-primary-50 hover:text-primary-600 dark:hover:bg-primary-900/20">
 					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
 				</button>
 				<button type="button" data-delete="${s.id}" class="inline-flex items-center rounded-lg p-2 text-slate-500 hover:bg-danger-50 hover:text-danger-600 dark:hover:bg-danger-900/20">
 					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
 				</button>
+			`
+			: '';
+		return `
+			<div class="flex items-center gap-2">
+				<button type="button" data-detail="${s.id}" class="inline-flex items-center rounded-lg p-2 text-slate-500 hover:bg-primary-50 hover:text-primary-600 dark:hover:bg-primary-900/20">
+					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+				</button>
+				${writeButtons}
 			</div>
 		`;
 	}
@@ -225,10 +232,12 @@
 			<h1 class="text-main text-2xl font-bold sm:text-3xl">Suppliers</h1>
 			<p class="text-muted">Manage your suppliers</p>
 		</div>
-		<Button variant="primary" onclick={openCreate}>
-			<Plus class="h-4 w-4" />
-			Add Supplier
-		</Button>
+		{#if canWrite}
+			<Button variant="primary" onclick={openCreate}>
+				<Plus class="h-4 w-4" />
+				Add Supplier
+			</Button>
+		{/if}
 	</div>
 
 	<StatusStatTabs tabs={typeTabs} active={typeTab} onchange={switchType} />
@@ -248,10 +257,12 @@
 		</div>
 	{:else if suppliers.length === 0}
 		<EmptyState title="No suppliers found" description="Start by adding a new supplier.">
-			<Button variant="primary" onclick={openCreate}>
-				<Plus class="h-4 w-4" />
-				Add Supplier
-			</Button>
+			{#if canWrite}
+				<Button variant="primary" onclick={openCreate}>
+					<Plus class="h-4 w-4" />
+					Add Supplier
+				</Button>
+			{/if}
 		</EmptyState>
 	{:else}
 		<DataTable {columns} rows={suppliers} {loading} onrowclick={handleRowClick} />
@@ -332,16 +343,18 @@
 
 	{#snippet footer()}
 		<Button variant="secondary" onclick={closeModal}>Close</Button>
-		<Button
-			variant="primary"
-			onclick={() => {
-				const supplierId = selectedSupplier.id;
-				closeModal();
-				if (supplierId) openEdit(suppliers.find((s) => s.id === supplierId)!);
-			}}
-		>
-			Edit
-		</Button>
+		{#if canWrite}
+			<Button
+				variant="primary"
+				onclick={() => {
+					const supplierId = selectedSupplier.id;
+					closeModal();
+					if (supplierId) openEdit(suppliers.find((s) => s.id === supplierId)!);
+				}}
+			>
+				Edit
+			</Button>
+		{/if}
 	{/snippet}
 </Modal>
 

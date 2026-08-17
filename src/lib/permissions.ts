@@ -45,14 +45,9 @@ const ROLE_PERMISSIONS: Record<UserRole, AppPermission[]> = {
 	USER: [
 		'dashboard:view',
 		'inventory:view',
-		'inventory:write',
-		'stock:view',
-		'stock:write',
 		'purchasing:view',
 		'purchasing:write',
-		'purchasing:receive',
 		'suppliers:view',
-		'suppliers:write',
 		'settings:view'
 	],
 	DEPARTMENT_HEAD: [
@@ -125,7 +120,10 @@ export const NAV_ITEMS: NavItem[] = [
 ];
 
 export function navItemsForRole(role: UserRole): NavItem[] {
-	return NAV_ITEMS.filter((item) => hasPermission(role, item.permission));
+	return NAV_ITEMS.filter((item) => {
+		if (item.href === '/suppliers' && role === 'USER') return false;
+		return hasPermission(role, item.permission);
+	});
 }
 
 export { ALL_ROLES, ROLE_PERMISSIONS };

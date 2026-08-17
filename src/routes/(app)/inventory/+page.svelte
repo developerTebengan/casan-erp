@@ -18,9 +18,11 @@
 	} from '$lib/components/ui';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatNumber } from '$lib/utils/format';
+	import { hasPermission } from '$lib/permissions';
 	import type { Product, Category } from '$lib/types';
 
 	let { data } = $props();
+	const canWrite = $derived(hasPermission(data.user.role, 'inventory:write'));
 
 	let products = $state<Product[]>(untrack(() => data.products.data));
 	let pagination = $state(untrack(() => data.products.pagination));
@@ -104,6 +106,7 @@
 	}
 
 	function actionsCell(p: Product) {
+		if (!canWrite) return '';
 		return `
 			<div class="flex items-center gap-2">
 				<a href="/inventory/${p.id}/edit" class="inline-flex items-center rounded-lg p-2 text-slate-500 hover:bg-primary-50 hover:text-primary-600 dark:hover:bg-primary-900/20">
@@ -123,15 +126,15 @@
 		return `<span class="inline-flex h-10 w-10 items-center justify-center rounded bg-slate-100 text-xs text-slate-400">N/A</span>`;
 	}
 
-	const columns = [
+	const columns = $derived([
 		{ key: 'photo', header: 'Photo', cell: photoCell },
 		{ key: 'code', header: 'Code' },
 		{ key: 'name', header: 'Product Name' },
 		{ key: 'category', header: 'Category / Type', cell: (p: Product) => p.category?.name ?? '-' },
 		{ key: 'stock', header: 'Stock', cell: stockBadge },
 		{ key: 'status', header: 'Status', cell: statusBadge },
-		{ key: 'actions', header: '', cell: actionsCell }
-	];
+		...(canWrite ? [{ key: 'actions', header: '', cell: actionsCell }] : [])
+	]);
 
 	function handleRowClick(row: Product, e: MouseEvent) {
 		const target = e.target as HTMLElement;
@@ -168,10 +171,12 @@
 					Create PR from low stock
 				</Button>
 			{/if}
-			<Button href="/inventory/new" variant="primary">
-				<Plus class="h-4 w-4" />
-				Add Product
-			</Button>
+			{#if canWrite}
+				<Button href="/inventory/new" variant="primary">
+					<Plus class="h-4 w-4" />
+					Add Product
+				</Button>
+			{/if}
 		</div>
 	</div>
 
@@ -220,10 +225,12 @@
 			title="No products found"
 			description="Try adjusting your search or add a new product."
 		>
-			<Button href="/inventory/new" variant="primary">
-				<Plus class="h-4 w-4" />
-				Add Product
-			</Button>
+			{#if canWrite}
+				<Button href="/inventory/new" variant="primary">
+					<Plus class="h-4 w-4" />
+					Add Product
+				</Button>
+			{/if}
 		</EmptyState>
 	{:else}
 		<DataTable {columns} rows={products} {loading} onrowclick={handleRowClick} />

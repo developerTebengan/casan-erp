@@ -2,11 +2,13 @@
 	import { ArrowLeft, Edit, Package, AlertTriangle } from '@lucide/svelte';
 	import { Card, Breadcrumb, Badge, Button, DataTable } from '$lib/components/ui';
 	import { formatDate, formatNumber, formatDateTime } from '$lib/utils/format';
+	import { hasPermission } from '$lib/permissions';
 	import type { StockTransaction } from '$lib/types';
 
 	let { data } = $props();
 	const product = $derived(data.product);
 	const history = $derived<StockTransaction[]>(data.history ?? []);
+	const canWrite = $derived(hasPermission(data.user.role, 'inventory:write'));
 
 	const isLowStock = $derived(product.stock <= product.minimumStock);
 
@@ -45,10 +47,12 @@
 				<ArrowLeft class="h-4 w-4" />
 				Back
 			</Button>
-			<Button variant="primary" href="/inventory/{product.id}/edit">
-				<Edit class="h-4 w-4" />
-				Edit
-			</Button>
+			{#if canWrite}
+				<Button variant="primary" href="/inventory/{product.id}/edit">
+					<Edit class="h-4 w-4" />
+					Edit
+				</Button>
+			{/if}
 		</div>
 	</div>
 
