@@ -7,6 +7,7 @@ export interface PurchaseFilters {
 	priority?: PurchasePriority;
 	approvalStatus?: ApprovalStatus;
 	awaitingApproverId?: string;
+	requesterId?: string;
 	/** History for a specific approver: waiting / approved / rejected by them */
 	myApproverId?: string;
 	myDecision?: 'PENDING' | 'APPROVED' | 'REJECTED';
@@ -50,6 +51,7 @@ export function purchaseRepository() {
 			priority,
 			approvalStatus,
 			awaitingApproverId,
+			requesterId,
 			myApproverId,
 			myDecision,
 			decidedAfter,
@@ -61,6 +63,7 @@ export function purchaseRepository() {
 		const where: Record<string, unknown> = { deletedAt: null };
 		if (search) where.prNumber = { contains: search, mode: 'insensitive' };
 		if (supplierId) where.supplierId = supplierId;
+		if (requesterId) where.requesterId = requesterId;
 		if (priority) where.priority = priority;
 		if (approvalStatus && !awaitingApproverId && !myApproverId) {
 			where.approvalStatus = approvalStatus;

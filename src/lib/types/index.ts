@@ -113,12 +113,12 @@ export interface StockTransactionFilters {
 	limit?: number;
 }
 
+export type DashboardHome = 'queue' | 'mine' | 'ops';
+
 export interface DashboardStats {
-	totalProducts: number;
-	totalPurchaseOrders: number;
-	totalSuppliers: number;
 	lowStockItems: number;
 	pendingApprovals: number;
+	pendingPurchases: number;
 }
 
 export interface CategoryStockStat {
@@ -154,11 +154,12 @@ export interface RecentActivity {
 }
 
 export interface DashboardData {
+	home: DashboardHome;
 	stats: DashboardStats;
-	monthlyPurchases: MonthlyPurchase[];
-	recentActivities: RecentActivity[];
-	categoryStock: CategoryStockStat[];
-	productsByCategory: DashboardProductRow[];
+	queue: Purchase[];
+	mine: Purchase[];
+	lowStockProducts: DashboardProductRow[];
+	recentPurchases: Purchase[];
 }
 
 export interface PaginatedResponse<T> {
