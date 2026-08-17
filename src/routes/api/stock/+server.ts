@@ -1,5 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import { stockTransactionService } from '$lib/server/services/stockTransaction.service';
+import { hasPermission } from '$lib/permissions';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ url }) => {
@@ -21,6 +22,10 @@ export const GET: RequestHandler = async ({ url }) => {
 
 export const POST: RequestHandler = async ({ request, locals }) => {
 	try {
+		if (!locals.user || !hasPermission(locals.user.role, 'stock:write')) {
+			return json({ message: 'Forbidden' }, { status: 403 });
+		}
+
 		const body = await request.json();
 		const service = stockTransactionService();
 		const result = await service.create(body, locals.user?.id ?? null);

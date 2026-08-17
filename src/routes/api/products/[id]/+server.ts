@@ -1,5 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import { productService } from '$lib/server/services/product.service';
+import { hasPermission } from '$lib/permissions';
 import type { RequestHandler } from './$types';
 
 export const GET: RequestHandler = async ({ params }) => {
@@ -15,8 +16,12 @@ export const GET: RequestHandler = async ({ params }) => {
 	}
 };
 
-export const PUT: RequestHandler = async ({ params, request }) => {
+export const PUT: RequestHandler = async ({ params, request, locals }) => {
 	try {
+		if (!locals.user || !hasPermission(locals.user.role, 'inventory:write')) {
+			return json({ message: 'Forbidden' }, { status: 403 });
+		}
+
 		const body = await request.json();
 		const service = productService();
 		const result = await service.update(params.id, body);
@@ -33,8 +38,12 @@ export const PUT: RequestHandler = async ({ params, request }) => {
 	}
 };
 
-export const DELETE: RequestHandler = async ({ params }) => {
+export const DELETE: RequestHandler = async ({ params, locals }) => {
 	try {
+		if (!locals.user || !hasPermission(locals.user.role, 'inventory:write')) {
+			return json({ message: 'Forbidden' }, { status: 403 });
+		}
+
 		const service = productService();
 		const result = await service.remove(params.id);
 
