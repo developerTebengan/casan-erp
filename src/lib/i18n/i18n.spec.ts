@@ -63,3 +63,22 @@ describe('i18n', () => {
 		expect(t('common.logout', 'en')).toBe('Log out');
 	});
 });
+
+describe('pageTitleKey', () => {
+	it('defaults to dashboard', () => {
+		expect(pageTitleKey('/dashboard')).toBe('page.dashboard');
+		expect(pageTitleKey('/')).toBe('page.dashboard');
+		expect(pageTitleKey('/unknown')).toBe('page.dashboard');
+	});
+
+	it('maps each app prefix', () => {
+		expect(pageTitleKey('/inventory')).toBe('page.inventory');
+		expect(pageTitleKey('/inventory/abc')).toBe('page.inventory');
+		expect(pageTitleKey('/stock')).toBe('page.stock');
+		expect(pageTitleKey('/approvals')).toBe('page.approvals');
+		expect(pageTitleKey('/purchasing')).toBe('page.purchasing');
+		expect(pageTitleKey('/suppliers')).toBe('page.suppliers');
+		expect(pageTitleKey('/users')).toBe('page.users');
+		expect(pageTitleKey('/settings')).toBe('page.settings');
+	});
+});
