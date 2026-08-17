@@ -35,7 +35,7 @@
 
 <div class="bg-body min-h-screen">
 	<div class="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-40 lg:block lg:w-64 print:hidden">
-		<Sidebar {user} onlogout={handleLogout} />
+		<Sidebar {user} {waitingCount} onlogout={handleLogout} />
 	</div>
 
 	<Drawer
@@ -46,6 +46,7 @@
 	>
 		<Sidebar
 			{user}
+			{waitingCount}
 			onlogout={() => {
 				sidebarStore.close();
 				handleLogout();

@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { Plus, Trash2 } from '@lucide/svelte';
+	import { Plus, Trash2, Eye, Printer } from '@lucide/svelte';
 	import {
 		Card,
 		Button,
@@ -12,8 +12,6 @@
 		Pagination,
 		Breadcrumb,
 		ConfirmDialog,
-		EmptyState,
-		Spinner,
 		StatusStatTabs
 	} from '$lib/components/ui';
 	import { toastStore } from '$lib/stores/toast.svelte';
@@ -35,6 +33,9 @@
 	let loading = $state(false);
 	let deleteId = $state<string | null>(null);
 	let deleting = $state(false);
+	let pageSize = $state(10);
+	let sortKey = $state<string | undefined>();
+	let sortDir = $state<'asc' | 'desc'>('asc');
 
 	const priorityOptions = [
 		{ value: '', label: 'All Priorities' },
@@ -76,6 +77,18 @@
 		}
 	]);
 
+	async function resolvePageSize() {
+		try {
+			const res = await fetch('/api/settings');
+			if (!res.ok) return;
+			const settings = await res.json();
+			const n = Number(settings.itemsPerPage);
+			if (Number.isFinite(n) && n > 0) pageSize = n;
+		} catch {
+			pageSize = 10;
+		}
+	}
+
 	async function loadPurchases(page = 1) {
 		loading = true;
 		try {
@@ -85,7 +98,11 @@
 			if (priority) params.set('priority', priority);
 			if (statusTab && statusTab !== 'ALL') params.set('approvalStatus', statusTab);
 			params.set('page', String(page));
-			params.set('limit', '10');
+			params.set('limit', String(pageSize));
+			if (sortKey) {
+				params.set('sort', sortKey);
+				params.set('order', sortDir);
+			}
 
 			const res = await fetch(`/api/purchases?${params.toString()}`);
 			if (res.ok) {
@@ -105,6 +122,12 @@
 
 	function switchStatus(id: string) {
 		statusTab = id;
+		loadPurchases(1);
+	}
+
+	function handleSort(key: string, nextDir: 'asc' | 'desc') {
+		sortKey = key;
+		sortDir = nextDir;
 		loadPurchases(1);
 	}
 
@@ -175,50 +198,30 @@
 		return `<span class="${classes}">${formatDate(d)}${suffix}</span>`;
 	}
 
-	function actionsCell(p: Purchase) {
-		return `
-			<div class="flex items-center gap-2">
-				<a href="/purchasing/${p.id}" class="inline-flex items-center rounded-lg p-2 text-slate-500 hover:bg-primary-50 hover:text-primary-600 dark:hover:bg-primary-900/20">
-					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>
-				</a>
-				<a href="/purchasing/${p.id}/print" class="inline-flex items-center rounded-lg p-2 text-slate-500 hover:bg-primary-50 hover:text-primary-600 dark:hover:bg-primary-900/20" title="Print PR">
-					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 20h6"/><path d="M18 9V5a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v4"/><path d="M6 17H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/><path d="M6 9h12"/></svg>
-				</a>
-				<button type="button" data-delete="${p.id}" class="inline-flex items-center rounded-lg p-2 text-slate-500 hover:bg-danger-50 hover:text-danger-600 dark:hover:bg-danger-900/20">
-					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-				</button>
-			</div>
-		`;
-	}
-
 	const columns = [
-		{ key: 'prNumber', header: 'PR Number' },
+		{ key: 'prNumber', header: 'PR Number', sortKey: 'prNumber' },
 		{ key: 'supplier', header: 'Supplier', cell: (p: Purchase) => p.supplier?.name ?? '-' },
 		{
 			key: 'dateOfRequest',
 			header: 'Date of Request',
+			sortKey: 'dateOfRequest',
 			cell: (p: Purchase) => formatDate(p.dateOfRequest)
 		},
-		{ key: 'deadline', header: 'Decision by', cell: deadlineCell },
+		{ key: 'deadline', header: 'Decision by', sortKey: 'decisionDeadline', cell: deadlineCell },
 		{ key: 'priority', header: 'Priority', cell: priorityBadge },
 		{ key: 'status', header: 'Status', cell: statusBadge },
-		{ key: 'total', header: 'Total', cell: (p: Purchase) => formatCurrency(p.total) },
-		{ key: 'actions', header: '', cell: actionsCell }
+		{ key: 'total', header: 'Total', cell: (p: Purchase) => formatCurrency(p.total) }
 	];
 
 	function handleRowClick(row: Purchase, e: MouseEvent) {
 		const target = e.target as HTMLElement;
-		if (target.closest('a')) return;
-		const deleteBtn = target.closest('[data-delete]') as HTMLElement | null;
-		if (deleteBtn) {
-			deleteId = deleteBtn.dataset.delete ?? null;
-			return;
-		}
+		if (target.closest('a, button')) return;
 		goto(`/purchasing/${row.id}`);
 	}
 
-	onMount(() => {
-		if (!purchases.length) loadPurchases();
+	onMount(async () => {
+		await resolvePageSize();
+		await loadPurchases(pagination.page);
 	});
 </script>
 
@@ -267,22 +270,66 @@
 		</div>
 	</Card>
 
-	{#if loading && purchases.length === 0}
-		<div class="flex h-64 items-center justify-center">
-			<Spinner size="lg" />
+	<div class="space-y-3 md:hidden print:hidden">
+		{#each purchases as p (p.id)}
+			<Card padding="md">
+				<div class="flex items-start justify-between gap-3">
+					<div class="min-w-0">
+						<p class="text-main font-semibold">{p.prNumber}</p>
+						<div class="mt-2">{@html statusBadge(p)}</div>
+					</div>
+					<a href="/purchasing/{p.id}" class="text-sm font-medium text-primary-600 hover:underline">
+						Open
+					</a>
+				</div>
+			</Card>
+		{/each}
+	</div>
+
+	{#snippet purchaseActions(p: Purchase)}
+		<div class="flex items-center gap-2">
+			<a
+				href="/purchasing/{p.id}"
+				class="inline-flex items-center rounded-lg p-2 text-slate-500 hover:bg-primary-50 hover:text-primary-600 dark:hover:bg-primary-900/20"
+			>
+				<Eye class="h-4 w-4" />
+			</a>
+			<a
+				href="/purchasing/{p.id}/print"
+				class="inline-flex items-center rounded-lg p-2 text-slate-500 hover:bg-primary-50 hover:text-primary-600 dark:hover:bg-primary-900/20"
+				title="Print PR"
+			>
+				<Printer class="h-4 w-4" />
+			</a>
+			<button
+				type="button"
+				class="dark:hover:bg-danger-900/20 inline-flex items-center rounded-lg p-2 text-slate-500 hover:bg-danger-50 hover:text-danger-600"
+				onclick={() => (deleteId = p.id)}
+			>
+				<Trash2 class="h-4 w-4" />
+			</button>
 		</div>
-	{:else if purchases.length === 0}
-		<EmptyState
-			title="No purchasing requests found"
-			description="Start by creating a new purchasing request."
+	{/snippet}
+
+	<div class={purchases.length === 0 ? '' : 'hidden md:block'}>
+		<DataTable
+			columns={[...columns, { key: 'actions', header: '', render: purchaseActions }]}
+			rows={purchases}
+			{loading}
+			{sortKey}
+			{sortDir}
+			onsort={handleSort}
+			onrowclick={handleRowClick}
 		>
-			<Button href="/purchasing/new" variant="primary">
-				<Plus class="h-4 w-4" />
-				Create PR
-			</Button>
-		</EmptyState>
-	{:else}
-		<DataTable {columns} rows={purchases} {loading} onrowclick={handleRowClick} />
+			{#snippet empty()}
+				<Button href="/purchasing/new" variant="primary">
+					<Plus class="h-4 w-4" />
+					Create PR
+				</Button>
+			{/snippet}
+		</DataTable>
+	</div>
+	{#if pagination.total > 0}
 		<Pagination {...pagination} onpagechange={loadPurchases} class="print:hidden" />
 	{/if}
 

@@ -18,3 +18,14 @@ export function t(key: string, locale: Locale, vars?: Record<string, string | nu
 export function roleLabel(role: UserRole, locale: Locale): string {
 	return t(`role.${role}`, locale);
 }
+
+export function pageTitleKey(pathname: string): string {
+	if (pathname.startsWith('/inventory')) return 'page.inventory';
+	if (pathname.startsWith('/stock')) return 'page.stock';
+	if (pathname.startsWith('/approvals')) return 'page.approvals';
+	if (pathname.startsWith('/purchasing')) return 'page.purchasing';
+	if (pathname.startsWith('/suppliers')) return 'page.suppliers';
+	if (pathname.startsWith('/users')) return 'page.users';
+	if (pathname.startsWith('/settings')) return 'page.settings';
+	return 'page.dashboard';
+}

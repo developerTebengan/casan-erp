@@ -1,4 +1,4 @@
-export const APP_VERSION = '0.4.0';
+export const APP_VERSION = '0.5.0';
 export const APP_NAME = 'Casan ERP';
 
 export type ChangelogChangeType = 'added' | 'changed' | 'fixed' | 'removed';
@@ -13,6 +13,26 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+	{
+		version: '0.5.0',
+		date: '2026-08-16',
+		changes: [
+			{
+				type: 'added',
+				items: [
+					'Indonesian/English chrome copy with locale cookie and role labels',
+					'Persisted company settings (items per page, settings:write)',
+					'Password change from the sidebar',
+					'USER role as requester with suppliers nav hidden',
+					'Role-based home dashboard',
+					'In-app notification inbox on the bell',
+					'Sortable purchasing and inventory tables',
+					'Mobile cards on purchasing, inventory, and approvals lists',
+					'Sidebar waiting-count badge and path-based navbar titles'
+				]
+			}
+		]
+	},
 	{
 		version: '0.4.0',
 		date: '2026-07-28',

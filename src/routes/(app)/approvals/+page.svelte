@@ -33,7 +33,12 @@
 	});
 
 	const tabs = $derived([
-		{ id: 'waiting' as const, label: 'Waiting', count: counts.waiting, variant: 'warning' as const },
+		{
+			id: 'waiting' as const,
+			label: 'Waiting',
+			count: counts.waiting,
+			variant: 'warning' as const
+		},
 		{
 			id: 'approved' as const,
 			label: 'Approved',
@@ -269,12 +274,32 @@
 				</EmptyState>
 			</div>
 		{:else}
-			<DataTable
-				columns={columns}
-				rows={purchases}
-				{loading}
-				onrowclick={(row) => goto(`/purchasing/${(row as Purchase).id}`)}
-			/>
+			<div class="space-y-3 p-4 md:hidden">
+				{#each purchases as p (p.id)}
+					<div class="border-theme rounded-xl border p-4">
+						<div class="flex items-start justify-between gap-3">
+							<div class="min-w-0">
+								<p class="text-main font-semibold">{p.prNumber}</p>
+								<div class="mt-2">{@html myDecisionBadge(p)}</div>
+							</div>
+							<a
+								href="/purchasing/{p.id}"
+								class="text-sm font-medium text-primary-600 hover:underline"
+							>
+								Open
+							</a>
+						</div>
+					</div>
+				{/each}
+			</div>
+			<div class="hidden md:block">
+				<DataTable
+					{columns}
+					rows={purchases}
+					{loading}
+					onrowclick={(row) => goto(`/purchasing/${(row as Purchase).id}`)}
+				/>
+			</div>
 		{/if}
 	</Card>
 </div>

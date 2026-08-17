@@ -17,6 +17,19 @@ export interface PurchaseFilters {
 	decidedBefore?: string;
 	page?: number;
 	limit?: number;
+	sort?: string;
+	order?: 'asc' | 'desc';
+}
+
+export const PURCHASE_SORT_FIELDS = ['prNumber', 'dateOfRequest', 'decisionDeadline'] as const;
+export type PurchaseSortField = (typeof PURCHASE_SORT_FIELDS)[number];
+
+function purchaseOrderBy(sort?: string, order?: string) {
+	if (!sort || !(PURCHASE_SORT_FIELDS as readonly string[]).includes(sort)) {
+		return [{ updatedAt: 'desc' as const }, { createdAt: 'desc' as const }];
+	}
+	const dir = order === 'desc' ? 'desc' : 'asc';
+	return { [sort]: dir };
 }
 
 export interface PurchaseItemInput {
@@ -57,7 +70,9 @@ export function purchaseRepository() {
 			decidedAfter,
 			decidedBefore,
 			page = 1,
-			limit = 10
+			limit = 10,
+			sort,
+			order
 		} = filters;
 
 		const where: Record<string, unknown> = { deletedAt: null };
@@ -154,7 +169,7 @@ export function purchaseRepository() {
 				where,
 				skip,
 				take: limit,
-				orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+				orderBy: purchaseOrderBy(sort, order),
 				include: {
 					supplier: { select: { id: true, name: true } },
 					requester: { select: { id: true, name: true, email: true, role: true } },

@@ -5,7 +5,8 @@
 	import { localeStore } from '$lib/stores/locale.svelte';
 	import { sidebarStore } from '$lib/stores/sidebar.svelte';
 	import { classNames } from '$lib/utils/format';
-	import { roleLabel, t } from '$lib/i18n';
+	import { page } from '$app/stores';
+	import { pageTitleKey, roleLabel, t } from '$lib/i18n';
 	import type { User } from '$lib/types';
 
 	interface NotificationItem {
@@ -87,7 +88,9 @@
 		>
 			<Menu class="h-5 w-5" />
 		</button>
-		<h1 class="text-main text-lg font-semibold sm:text-xl">Casan ERP</h1>
+		<h1 class="text-main text-lg font-semibold sm:text-xl">
+			{t(pageTitleKey($page.url.pathname), localeStore.value)}
+		</h1>
 	</div>
 
 	<div class="flex items-center gap-2 sm:gap-4">

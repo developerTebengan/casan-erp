@@ -1,5 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import { productService } from '$lib/server/services/product.service';
+import { PRODUCT_SORT_FIELDS } from '$lib/server/repositories/product.repository';
 import { hasPermission } from '$lib/permissions';
 import type { RequestHandler } from './$types';
 
@@ -15,9 +16,24 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		const lowStock = url.searchParams.get('lowStock') === '1';
 		const page = Math.max(1, Number(url.searchParams.get('page') ?? 1));
 		const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit') ?? 10)));
+		const sortParam = url.searchParams.get('sort');
+		const sort = (PRODUCT_SORT_FIELDS as readonly string[]).includes(sortParam ?? '')
+			? (sortParam ?? undefined)
+			: undefined;
+		const orderParam = url.searchParams.get('order');
+		const order = orderParam === 'asc' || orderParam === 'desc' ? orderParam : undefined;
 
 		const service = productService();
-		const result = await service.list({ search, categoryId, status, lowStock, page, limit });
+		const result = await service.list({
+			search,
+			categoryId,
+			status,
+			lowStock,
+			page,
+			limit,
+			sort,
+			order
+		});
 		return json(result);
 	} catch (e) {
 		console.error(e);

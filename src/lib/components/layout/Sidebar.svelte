@@ -24,10 +24,11 @@
 
 	interface Props {
 		user?: User | null;
+		waitingCount?: number;
 		onlogout?: () => void;
 	}
 
-	let { user, onlogout }: Props = $props();
+	let { user, waitingCount = 0, onlogout }: Props = $props();
 
 	const iconMap: Record<string, Component> = {
 		'/dashboard': LayoutDashboard,
@@ -119,6 +120,13 @@
 					<item.icon class="h-5 w-5" />
 				{/if}
 				{t(item.labelKey, localeStore.value)}
+				{#if item.href === '/approvals' && waitingCount > 0}
+					<span
+						class="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-primary-600 px-1.5 text-[10px] font-semibold text-white"
+					>
+						{waitingCount}
+					</span>
+				{/if}
 			</a>
 		{/each}
 	</nav>

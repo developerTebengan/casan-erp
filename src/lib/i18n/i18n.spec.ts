@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { NAV_ITEMS } from '../permissions';
-import { t, roleLabel, parseLocale } from './index';
+import { t, roleLabel, parseLocale, pageTitleKey } from './index';
 
 describe('i18n', () => {
 	it('parses locale with id default', () => {
@@ -61,5 +61,24 @@ describe('i18n', () => {
 		expect(t('auth.demoTitle', 'en')).toBe('Demo accounts');
 		expect(t('common.logout', 'id')).toBe('Keluar');
 		expect(t('common.logout', 'en')).toBe('Log out');
+	});
+});
+
+describe('pageTitleKey', () => {
+	it('defaults to dashboard', () => {
+		expect(pageTitleKey('/')).toBe('page.dashboard');
+		expect(pageTitleKey('/dashboard')).toBe('page.dashboard');
+		expect(pageTitleKey('/unknown')).toBe('page.dashboard');
+	});
+
+	it('maps each known prefix', () => {
+		expect(pageTitleKey('/inventory')).toBe('page.inventory');
+		expect(pageTitleKey('/inventory/abc')).toBe('page.inventory');
+		expect(pageTitleKey('/stock')).toBe('page.stock');
+		expect(pageTitleKey('/approvals')).toBe('page.approvals');
+		expect(pageTitleKey('/purchasing')).toBe('page.purchasing');
+		expect(pageTitleKey('/suppliers')).toBe('page.suppliers');
+		expect(pageTitleKey('/users')).toBe('page.users');
+		expect(pageTitleKey('/settings')).toBe('page.settings');
 	});
 });

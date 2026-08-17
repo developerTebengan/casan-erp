@@ -8,6 +8,19 @@ export interface ProductFilters {
 	lowStock?: boolean;
 	page?: number;
 	limit?: number;
+	sort?: string;
+	order?: 'asc' | 'desc';
+}
+
+export const PRODUCT_SORT_FIELDS = ['name', 'code', 'stock'] as const;
+export type ProductSortField = (typeof PRODUCT_SORT_FIELDS)[number];
+
+function productOrderBy(sort?: string, order?: string) {
+	if (!sort || !(PRODUCT_SORT_FIELDS as readonly string[]).includes(sort)) {
+		return { createdAt: 'desc' as const };
+	}
+	const dir = order === 'desc' ? 'desc' : 'asc';
+	return { [sort]: dir };
 }
 
 export interface ProductCreateInput {
@@ -26,7 +39,7 @@ export interface ProductUpdateInput extends Partial<ProductCreateInput> {}
 
 export function productRepository() {
 	async function findAll(filters: ProductFilters = {}) {
-		const { search, categoryId, status, lowStock, page = 1, limit = 10 } = filters;
+		const { search, categoryId, status, lowStock, page = 1, limit = 10, sort, order } = filters;
 		const skip = (page - 1) * limit;
 
 		const baseWhere: Record<string, unknown> = { deletedAt: null };
@@ -42,7 +55,7 @@ export function productRepository() {
 		if (lowStock) {
 			const all = await db.product.findMany({
 				where: baseWhere,
-				orderBy: { createdAt: 'desc' },
+				orderBy: productOrderBy(sort, order),
 				include: { category: { select: { id: true, name: true } } }
 			});
 			const filtered = all.filter((p) => p.stock <= p.minimumStock);
@@ -59,7 +72,7 @@ export function productRepository() {
 				where: baseWhere,
 				skip,
 				take: limit,
-				orderBy: { createdAt: 'desc' },
+				orderBy: productOrderBy(sort, order),
 				include: { category: { select: { id: true, name: true } } }
 			}),
 			db.product.count({ where: baseWhere })

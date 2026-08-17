@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { Search, Plus, Edit, Trash2, Package, Filter } from '@lucide/svelte';
+	import { Plus, Edit, Trash2 } from '@lucide/svelte';
 	import {
 		Card,
 		Button,
@@ -11,10 +11,7 @@
 		DataTable,
 		Pagination,
 		Breadcrumb,
-		Badge,
-		ConfirmDialog,
-		EmptyState,
-		Spinner
+		ConfirmDialog
 	} from '$lib/components/ui';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatNumber } from '$lib/utils/format';
@@ -34,6 +31,9 @@
 	let loading = $state(false);
 	let deleteId = $state<string | null>(null);
 	let deleting = $state(false);
+	let pageSize = $state(10);
+	let sortKey = $state<string | undefined>();
+	let sortDir = $state<'asc' | 'desc'>('asc');
 
 	const statusOptions = [
 		{ value: '', label: 'All Status' },
@@ -46,6 +46,18 @@
 		...categories.map((c) => ({ value: c.id, label: c.name }))
 	]);
 
+	async function resolvePageSize() {
+		try {
+			const res = await fetch('/api/settings');
+			if (!res.ok) return;
+			const settings = await res.json();
+			const n = Number(settings.itemsPerPage);
+			if (Number.isFinite(n) && n > 0) pageSize = n;
+		} catch {
+			pageSize = 10;
+		}
+	}
+
 	async function loadProducts(page = 1) {
 		loading = true;
 		try {
@@ -55,7 +67,11 @@
 			if (status) params.set('status', status);
 			if (stockFilter === '1') params.set('lowStock', '1');
 			params.set('page', String(page));
-			params.set('limit', '10');
+			params.set('limit', String(pageSize));
+			if (sortKey) {
+				params.set('sort', sortKey);
+				params.set('order', sortDir);
+			}
 
 			const res = await fetch(`/api/products?${params.toString()}`);
 			if (res.ok) {
@@ -69,6 +85,12 @@
 	}
 
 	function handleSearch() {
+		loadProducts(1);
+	}
+
+	function handleSort(key: string, nextDir: 'asc' | 'desc') {
+		sortKey = key;
+		sortDir = nextDir;
 		loadProducts(1);
 	}
 
@@ -105,20 +127,6 @@
 		return `<span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${classes}">${formatNumber(p.stock)} ${p.unit}</span>`;
 	}
 
-	function actionsCell(p: Product) {
-		if (!canWrite) return '';
-		return `
-			<div class="flex items-center gap-2">
-				<a href="/inventory/${p.id}/edit" class="inline-flex items-center rounded-lg p-2 text-slate-500 hover:bg-primary-50 hover:text-primary-600 dark:hover:bg-primary-900/20">
-					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
-				</a>
-				<button type="button" data-delete="${p.id}" class="inline-flex items-center rounded-lg p-2 text-slate-500 hover:bg-danger-50 hover:text-danger-600 dark:hover:bg-danger-900/20">
-					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-				</button>
-			</div>
-		`;
-	}
-
 	function photoCell(p: Product) {
 		if (p.imageUrl) {
 			return `<img src="${p.imageUrl}" alt="" class="h-10 w-10 rounded object-cover border border-slate-200" />`;
@@ -126,34 +134,30 @@
 		return `<span class="inline-flex h-10 w-10 items-center justify-center rounded bg-slate-100 text-xs text-slate-400">N/A</span>`;
 	}
 
-	const columns = $derived([
+	const columns = [
 		{ key: 'photo', header: 'Photo', cell: photoCell },
-		{ key: 'code', header: 'Code' },
-		{ key: 'name', header: 'Product Name' },
+		{ key: 'code', header: 'Code', sortKey: 'code' },
+		{ key: 'name', header: 'Product Name', sortKey: 'name' },
 		{ key: 'category', header: 'Category / Type', cell: (p: Product) => p.category?.name ?? '-' },
-		{ key: 'stock', header: 'Stock', cell: stockBadge },
-		{ key: 'status', header: 'Status', cell: statusBadge },
-		...(canWrite ? [{ key: 'actions', header: '', cell: actionsCell }] : [])
-	]);
+		{ key: 'stock', header: 'Stock', sortKey: 'stock', cell: stockBadge },
+		{ key: 'status', header: 'Status', cell: statusBadge }
+	];
 
 	function handleRowClick(row: Product, e: MouseEvent) {
 		const target = e.target as HTMLElement;
-		const deleteBtn = target.closest('[data-delete]') as HTMLElement | null;
-		if (deleteBtn) {
-			deleteId = deleteBtn.dataset.delete ?? null;
-			return;
-		}
+		if (target.closest('a, button')) return;
 		goto(`/inventory/${row.id}`);
 	}
 
-	onMount(() => {
+	onMount(async () => {
+		await resolvePageSize();
 		const params = new URLSearchParams(window.location.search);
 		if (params.get('lowStock') === '1') {
 			stockFilter = '1';
-			loadProducts(1);
+			await loadProducts(1);
 			return;
 		}
-		if (!categories.length) loadProducts();
+		await loadProducts(pagination.page);
 	});
 </script>
 
@@ -216,24 +220,66 @@
 		</div>
 	</Card>
 
-	{#if loading && products.length === 0}
-		<div class="flex h-64 items-center justify-center">
-			<Spinner size="lg" />
-		</div>
-	{:else if products.length === 0}
-		<EmptyState
-			title="No products found"
-			description="Try adjusting your search or add a new product."
+	<div class="space-y-3 md:hidden">
+		{#each products as p (p.id)}
+			<Card padding="md">
+				<div class="flex items-start justify-between gap-3">
+					<div class="min-w-0">
+						<p class="text-main font-semibold">{p.name}</p>
+						<div class="mt-2">{@html statusBadge(p)}</div>
+					</div>
+					<a href="/inventory/{p.id}" class="text-sm font-medium text-primary-600 hover:underline">
+						Open
+					</a>
+				</div>
+			</Card>
+		{/each}
+	</div>
+
+	{#snippet productActions(p: Product)}
+		{#if canWrite}
+			<div class="flex items-center gap-2">
+				<a
+					href="/inventory/{p.id}/edit"
+					class="inline-flex items-center rounded-lg p-2 text-slate-500 hover:bg-primary-50 hover:text-primary-600 dark:hover:bg-primary-900/20"
+				>
+					<Edit class="h-4 w-4" />
+				</a>
+				<button
+					type="button"
+					class="dark:hover:bg-danger-900/20 inline-flex items-center rounded-lg p-2 text-slate-500 hover:bg-danger-50 hover:text-danger-600"
+					onclick={() => (deleteId = p.id)}
+				>
+					<Trash2 class="h-4 w-4" />
+				</button>
+			</div>
+		{/if}
+	{/snippet}
+
+	<div class={products.length === 0 ? '' : 'hidden md:block'}>
+		<DataTable
+			columns={[
+				...columns,
+				...(canWrite ? [{ key: 'actions', header: '', render: productActions }] : [])
+			]}
+			rows={products}
+			{loading}
+			{sortKey}
+			{sortDir}
+			onsort={handleSort}
+			onrowclick={handleRowClick}
 		>
-			{#if canWrite}
-				<Button href="/inventory/new" variant="primary">
-					<Plus class="h-4 w-4" />
-					Add Product
-				</Button>
-			{/if}
-		</EmptyState>
-	{:else}
-		<DataTable {columns} rows={products} {loading} onrowclick={handleRowClick} />
+			{#snippet empty()}
+				{#if canWrite}
+					<Button href="/inventory/new" variant="primary">
+						<Plus class="h-4 w-4" />
+						Add Product
+					</Button>
+				{/if}
+			{/snippet}
+		</DataTable>
+	</div>
+	{#if pagination.total > 0}
 		<Pagination {...pagination} onpagechange={loadProducts} />
 	{/if}
 

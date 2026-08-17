@@ -1,5 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import { purchaseService } from '$lib/server/services/purchase.service';
+import { PURCHASE_SORT_FIELDS } from '$lib/server/repositories/purchase.repository';
 import { hasPermission } from '$lib/permissions';
 import type { RequestHandler } from './$types';
 
@@ -14,17 +15,19 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		const priority =
 			(url.searchParams.get('priority') as 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT') || undefined;
 		const approvalStatus =
-			(url.searchParams.get('approvalStatus') as 'PENDING' | 'APPROVED' | 'REJECTED') ||
-			undefined;
+			(url.searchParams.get('approvalStatus') as 'PENDING' | 'APPROVED' | 'REJECTED') || undefined;
 		const awaitingMe = url.searchParams.get('awaitingMe') === '1';
 		const myDecision = url.searchParams.get('myDecision') as
-			| 'PENDING'
-			| 'APPROVED'
-			| 'REJECTED'
-			| null;
+			'PENDING' | 'APPROVED' | 'REJECTED' | null;
 		const decidedAfter = url.searchParams.get('decidedAfter') || undefined;
 		const page = Math.max(1, Number(url.searchParams.get('page') ?? 1));
 		const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit') ?? 10)));
+		const sortParam = url.searchParams.get('sort');
+		const sort = (PURCHASE_SORT_FIELDS as readonly string[]).includes(sortParam ?? '')
+			? (sortParam ?? undefined)
+			: undefined;
+		const orderParam = url.searchParams.get('order');
+		const order = orderParam === 'asc' || orderParam === 'desc' ? orderParam : undefined;
 
 		const service = purchaseService();
 		const [result, statusCounts] = await Promise.all([
@@ -38,7 +41,9 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 				myDecision: myDecision || undefined,
 				decidedAfter,
 				page,
-				limit
+				limit,
+				sort,
+				order
 			}),
 			service.statusCounts()
 		]);
