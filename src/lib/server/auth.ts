@@ -5,8 +5,21 @@ import { db } from './db';
 import { hasPermission, type AppPermission } from '$lib/permissions';
 import type { User, UserRole } from '$lib/types';
 
-const SESSION_SECRET =
-	process.env.SESSION_SECRET ?? 'casan-erp-development-secret-change-in-production';
+export const DEV_SESSION_SECRET = 'casan-erp-development-secret-change-in-production';
+
+export function isSessionSecretSafe(
+	nodeEnv: string | undefined,
+	secret: string | undefined
+): boolean {
+	if (nodeEnv !== 'production') return true;
+	return Boolean(secret) && secret !== DEV_SESSION_SECRET;
+}
+
+if (!isSessionSecretSafe(process.env.NODE_ENV, process.env.SESSION_SECRET)) {
+	throw new Error('SESSION_SECRET must be set to a non-default value in production');
+}
+
+const SESSION_SECRET = process.env.SESSION_SECRET ?? DEV_SESSION_SECRET;
 const SESSION_COOKIE = 'casan-session';
 
 function sign(value: string): string {

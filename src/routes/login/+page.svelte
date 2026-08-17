@@ -4,8 +4,11 @@
 	import { themeStore } from '$lib/stores/theme.svelte';
 	import { localeStore } from '$lib/stores/locale.svelte';
 	import { t } from '$lib/i18n';
+	import { PUBLIC_SHOW_DEMO_LOGINS } from '$env/static/public';
 	import { onMount } from 'svelte';
 	import { untrack } from 'svelte';
+
+	const showDemo = PUBLIC_SHOW_DEMO_LOGINS === 'true';
 
 	interface LoginForm {
 		email?: string;
@@ -113,81 +116,83 @@
 				>
 			</form>
 
-			<div
-				class="border-theme mt-6 rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-			>
-				<p class="mb-2 font-semibold text-slate-900 dark:text-white">
-					{t('auth.demoTitle', localeStore.value)} — password:
-					<code class="rounded bg-slate-100 px-1.5 py-0.5 font-mono dark:bg-slate-700"
-						>password</code
-					>
-				</p>
-				<ul class="space-y-1.5 text-slate-700 dark:text-slate-200">
-					<li>
-						<button
-							type="button"
-							class="text-left hover:text-primary-600 hover:underline"
-							onclick={() => {
-								email = 'admin@casanerp.com';
-								password = 'password';
-							}}>admin@casanerp.com</button
-						> — Admin
-					</li>
-					<li>
-						<button
-							type="button"
-							class="text-left hover:text-primary-600 hover:underline"
-							onclick={() => {
-								email = 'user@casanerp.com';
-								password = 'password';
-							}}>user@casanerp.com</button
-						> — Requester
-					</li>
-					<li>
-						<button
-							type="button"
-							class="text-left hover:text-primary-600 hover:underline"
-							onclick={() => {
-								email = 'dept.head@casanerp.com';
-								password = 'password';
-							}}>dept.head@casanerp.com</button
-						> — Dept Head
-					</li>
-					<li>
-						<button
-							type="button"
-							class="text-left hover:text-primary-600 hover:underline"
-							onclick={() => {
-								email = 'finance@casanerp.com';
-								password = 'password';
-							}}>finance@casanerp.com</button
-						> — Finance
-					</li>
-					<li>
-						<button
-							type="button"
-							class="text-left hover:text-primary-600 hover:underline"
-							onclick={() => {
-								email = 'manager@casanerp.com';
-								password = 'password';
-							}}>manager@casanerp.com</button
-						> — Manager
-					</li>
-					<li>
-						<button
-							type="button"
-							class="text-left hover:text-primary-600 hover:underline"
-							onclick={() => {
-								email = 'director@casanerp.com';
-								password = 'password';
-							}}>director@casanerp.com</button
-						> — Director
-					</li>
-				</ul>
-				<p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
-					Click an email to fill the form.
-				</p>
-			</div>
+			{#if showDemo}
+				<div
+					class="border-theme mt-6 rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+				>
+					<p class="mb-2 font-semibold text-slate-900 dark:text-white">
+						{t('auth.demoTitle', localeStore.value)} — password:
+						<code class="rounded bg-slate-100 px-1.5 py-0.5 font-mono dark:bg-slate-700"
+							>password</code
+						>
+					</p>
+					<ul class="space-y-1.5 text-slate-700 dark:text-slate-200">
+						<li>
+							<button
+								type="button"
+								class="text-left hover:text-primary-600 hover:underline"
+								onclick={() => {
+									email = 'admin@casanerp.com';
+									password = 'password';
+								}}>admin@casanerp.com</button
+							> — Admin
+						</li>
+						<li>
+							<button
+								type="button"
+								class="text-left hover:text-primary-600 hover:underline"
+								onclick={() => {
+									email = 'user@casanerp.com';
+									password = 'password';
+								}}>user@casanerp.com</button
+							> — Requester
+						</li>
+						<li>
+							<button
+								type="button"
+								class="text-left hover:text-primary-600 hover:underline"
+								onclick={() => {
+									email = 'dept.head@casanerp.com';
+									password = 'password';
+								}}>dept.head@casanerp.com</button
+							> — Dept Head
+						</li>
+						<li>
+							<button
+								type="button"
+								class="text-left hover:text-primary-600 hover:underline"
+								onclick={() => {
+									email = 'finance@casanerp.com';
+									password = 'password';
+								}}>finance@casanerp.com</button
+							> — Finance
+						</li>
+						<li>
+							<button
+								type="button"
+								class="text-left hover:text-primary-600 hover:underline"
+								onclick={() => {
+									email = 'manager@casanerp.com';
+									password = 'password';
+								}}>manager@casanerp.com</button
+							> — Manager
+						</li>
+						<li>
+							<button
+								type="button"
+								class="text-left hover:text-primary-600 hover:underline"
+								onclick={() => {
+									email = 'director@casanerp.com';
+									password = 'password';
+								}}>director@casanerp.com</button
+							> — Director
+						</li>
+					</ul>
+					<p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+						Click an email to fill the form.
+					</p>
+				</div>
+			{/if}
 		</div>
 	</div>
 </div>
