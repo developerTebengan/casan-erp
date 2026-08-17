@@ -7,6 +7,7 @@
 		Settings,
 		Users,
 		LogOut,
+		KeyRound,
 		ArrowLeftRight,
 		ClipboardCheck
 	} from '@lucide/svelte';
@@ -16,6 +17,8 @@
 	import { navItemsForRole } from '$lib/permissions';
 	import { t, roleLabel } from '$lib/i18n';
 	import { localeStore } from '$lib/stores/locale.svelte';
+	import { toastStore } from '$lib/stores/toast.svelte';
+	import { Button, Input, Modal } from '$lib/components/ui';
 	import type { User } from '$lib/types';
 	import type { Component } from 'svelte';
 
@@ -42,6 +45,51 @@
 	);
 
 	let currentPath = $derived($page.url.pathname);
+
+	let passwordOpen = $state(false);
+	let passwordLoading = $state(false);
+	let currentPassword = $state('');
+	let newPassword = $state('');
+	let confirmPassword = $state('');
+	let passwordErrors = $state<Record<string, string>>({});
+
+	function closePasswordModal() {
+		passwordOpen = false;
+		passwordLoading = false;
+		currentPassword = '';
+		newPassword = '';
+		confirmPassword = '';
+		passwordErrors = {};
+	}
+
+	async function submitPasswordChange() {
+		passwordLoading = true;
+		passwordErrors = {};
+		try {
+			const res = await fetch('/api/me/password', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ currentPassword, newPassword, confirmPassword })
+			});
+			if (res.ok) {
+				toastStore.success(t('password.changed', localeStore.value));
+				closePasswordModal();
+				return;
+			}
+			const errorData = await res.json().catch(() => ({}));
+			passwordErrors = Object.fromEntries(
+				Object.entries(errorData.errors || {}).map(([k, v]) => [
+					k,
+					Array.isArray(v) ? v[0] : String(v)
+				])
+			);
+			if (errorData.message && Object.keys(passwordErrors).length === 0) {
+				passwordErrors = { currentPassword: errorData.message };
+			}
+		} finally {
+			passwordLoading = false;
+		}
+	}
 </script>
 
 <aside class="border-theme bg-card flex h-full w-64 flex-col border-r">
@@ -90,6 +138,14 @@
 			</div>
 			<button
 				type="button"
+				onclick={() => (passwordOpen = true)}
+				class="mb-1 flex w-full items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
+			>
+				<KeyRound class="h-4 w-4" />
+				{t('password.change', localeStore.value)}
+			</button>
+			<button
+				type="button"
 				onclick={onlogout}
 				class="dark:text-danger-400 dark:hover:bg-danger-900/20 flex w-full items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium text-danger-600 hover:bg-danger-50"
 			>
@@ -99,3 +155,41 @@
 		</div>
 	{/if}
 </aside>
+
+<Modal
+	open={passwordOpen}
+	title={t('password.change', localeStore.value)}
+	size="sm"
+	onclose={closePasswordModal}
+>
+	<div class="space-y-4">
+		<Input
+			label={t('password.current', localeStore.value)}
+			type="password"
+			bind:value={currentPassword}
+			required
+			error={passwordErrors.currentPassword}
+		/>
+		<Input
+			label={t('password.new', localeStore.value)}
+			type="password"
+			bind:value={newPassword}
+			required
+			error={passwordErrors.newPassword}
+		/>
+		<Input
+			label={t('password.confirm', localeStore.value)}
+			type="password"
+			bind:value={confirmPassword}
+			required
+			error={passwordErrors.confirmPassword}
+		/>
+	</div>
+
+	{#snippet footer()}
+		<Button variant="secondary" onclick={closePasswordModal}>Cancel</Button>
+		<Button variant="primary" loading={passwordLoading} onclick={submitPasswordChange}>
+			{t('password.change', localeStore.value)}
+		</Button>
+	{/snippet}
+</Modal>

@@ -1,15 +1,59 @@
 import { userRepository } from '$lib/server/repositories/user.repository';
-import { validateRequired, type ValidationResult } from '$lib/utils/validation';
-import { hashPassword } from '$lib/server/auth';
+import {
+	validateRequired,
+	type ValidationErrors,
+	type ValidationResult
+} from '$lib/utils/validation';
+import { hashPassword, verifyPassword } from '$lib/server/auth';
+import { db } from '$lib/server/db';
 import type { UserCreateInput, UserUpdateInput } from '$lib/server/repositories/user.repository';
 import type { UserRole } from '$lib/types';
 
-const validRoles: UserRole[] = ['ADMIN', 'USER', 'DEPARTMENT_HEAD', 'FINANCE', 'MANAGER', 'DIRECTOR'];
+const validRoles: UserRole[] = [
+	'ADMIN',
+	'USER',
+	'DEPARTMENT_HEAD',
+	'FINANCE',
+	'MANAGER',
+	'DIRECTOR'
+];
+
+export type PasswordChangeValidationResult =
+	{ valid: true } | { valid: false; errors: ValidationErrors };
+
+export function validatePasswordChange(
+	current: string,
+	next: string,
+	confirm: string
+): PasswordChangeValidationResult {
+	const errors: ValidationErrors = {};
+
+	if (!current) {
+		errors.currentPassword = ['Current password is required'];
+	}
+
+	if (next.length < 8) {
+		errors.newPassword = ['Password must be at least 8 characters'];
+	}
+
+	if (next !== confirm) {
+		errors.confirmPassword = ['Passwords do not match'];
+	}
+
+	if (Object.keys(errors).length > 0) {
+		return { valid: false, errors };
+	}
+
+	return { valid: true };
+}
 
 export function userService() {
 	const repo = userRepository();
 
-	function validate(input: Record<string, unknown>, requirePassword = true): ValidationResult<Omit<UserCreateInput, 'password'> & { password?: string }> {
+	function validate(
+		input: Record<string, unknown>,
+		requirePassword = true
+	): ValidationResult<Omit<UserCreateInput, 'password'> & { password?: string }> {
 		const requiredFields = requirePassword
 			? ['name', 'email', 'password', 'role']
 			: ['name', 'email', 'role'];
@@ -105,5 +149,23 @@ export function userService() {
 		return { success: true };
 	}
 
-	return { list, getById, create, update, remove, validate };
+	async function changePassword(userId: string, current: string, next: string) {
+		const user = await db.user.findFirst({
+			where: { id: userId, deletedAt: null }
+		});
+		if (!user || !(await verifyPassword(current, user.password))) {
+			return { success: false as const };
+		}
+
+		const password = await hashPassword(next);
+		await repo.update(userId, {
+			name: user.name,
+			email: user.email,
+			role: user.role as UserRole,
+			password
+		});
+		return { success: true as const };
+	}
+
+	return { list, getById, create, update, remove, validate, changePassword };
 }
