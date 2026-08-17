@@ -45,7 +45,7 @@
 
 	<div>
 		<h1 class="text-main text-2xl font-bold sm:text-3xl">Create Purchasing Request</h1>
-		<p class="text-muted">Create a new purchasing request for your supplier</p>
+		<p class="text-muted">Create a purchase request — one PR can cover several suppliers</p>
 	</div>
 
 	<Card padding="lg">

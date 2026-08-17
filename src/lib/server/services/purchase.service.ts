@@ -1,6 +1,7 @@
 import { purchaseRepository } from '$lib/server/repositories/purchase.repository';
 import { userRepository } from '$lib/server/repositories/user.repository';
 import { notificationService } from '$lib/server/services/notification.service';
+import { isDepartment, isPurpose } from '$lib/purchasing/catalog';
 import { validateRequired, type ValidationResult } from '$lib/utils/validation';
 import type { PurchaseCreateInput } from '$lib/server/repositories/purchase.repository';
 import type { PurchasePriority, ApprovalStatus, UserRole } from '$lib/types';
@@ -56,27 +57,44 @@ export function purchaseService() {
 	function validateItems(
 		items: unknown
 	):
-		| { valid: true; data: { productId: string; qty: number; price: number; notes?: string }[] }
+		| {
+				valid: true;
+				data: {
+					productId: string;
+					qty: number;
+					price: number;
+					notes?: string;
+					supplierId?: string | null;
+				}[];
+		  }
 		| { valid: false; errors: string } {
 		if (!Array.isArray(items) || items.length === 0) {
 			return { valid: false, errors: 'At least one item is required' };
 		}
-		const parsed: { productId: string; qty: number; price: number; notes?: string }[] = [];
+		const parsed: {
+			productId: string;
+			qty: number;
+			price: number;
+			notes?: string;
+			supplierId?: string | null;
+		}[] = [];
 		for (const item of items) {
-			if (!item.productId || !item.qty || item.price === undefined || item.price === null) {
+			const row = item as Record<string, unknown>;
+			if (!row.productId || !row.qty || row.price === undefined || row.price === null) {
 				return { valid: false, errors: 'Each item must have product, quantity, and price' };
 			}
-			const qty = Number(item.qty);
-			const price = Number(item.price);
+			const qty = Number(row.qty);
+			const price = Number(row.price);
 			if (Number.isNaN(qty) || qty <= 0)
 				return { valid: false, errors: 'Quantity must be a positive number' };
 			if (Number.isNaN(price) || price < 0)
 				return { valid: false, errors: 'Price must be a non-negative number' };
 			parsed.push({
-				productId: String(item.productId),
+				productId: String(row.productId),
 				qty,
 				price,
-				notes: item.notes ? String(item.notes) : undefined
+				notes: row.notes ? String(row.notes) : undefined,
+				supplierId: row.supplierId ? String(row.supplierId) : null
 			});
 		}
 		return { valid: true, data: parsed };
@@ -87,7 +105,6 @@ export function purchaseService() {
 		requesterId: string
 	): ValidationResult<PurchaseCreateInput> {
 		const requiredErrors = validateRequired(input, [
-			'prNumber',
 			'dateOfRequest',
 			'dateRequired',
 			'decisionDeadline',
@@ -95,6 +112,13 @@ export function purchaseService() {
 			'purpose'
 		]);
 		const errors: Record<string, string[]> = { ...requiredErrors };
+
+		if (!isDepartment(String(input.department ?? ''))) {
+			errors.department = ['Select a department'];
+		}
+		if (!isPurpose(String(input.purpose ?? ''))) {
+			errors.purpose = ['Select a purpose'];
+		}
 
 		const priority = input.priority as string;
 		const validPriorities: PurchasePriority[] = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
@@ -151,7 +175,6 @@ export function purchaseService() {
 		return {
 			valid: true,
 			data: {
-				prNumber: String(input.prNumber).trim(),
 				supplierId: input.supplierId ? String(input.supplierId) : null,
 				dateOfRequest: dateOfRequest!,
 				priority: (priority as PurchasePriority) || 'MEDIUM',
@@ -184,11 +207,6 @@ export function purchaseService() {
 	async function create(input: Record<string, unknown>, requesterId: string) {
 		const validation = validate(input, requesterId);
 		if (!validation.valid) return { success: false, errors: validation.errors };
-
-		const existing = await repo.findByPrNumber(validation.data!.prNumber);
-		if (existing) {
-			return { success: false, errors: { prNumber: ['PR number already exists'] } };
-		}
 
 		const purchase = await repo.create(validation.data!);
 		try {

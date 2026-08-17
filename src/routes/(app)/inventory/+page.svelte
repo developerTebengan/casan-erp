@@ -16,7 +16,7 @@
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { localeStore } from '$lib/stores/locale.svelte';
 	import { t } from '$lib/i18n';
-	import { formatNumber } from '$lib/utils/format';
+	import { formatNumber, formatDate } from '$lib/utils/format';
 	import { hasPermission } from '$lib/permissions';
 	import type { Product, Category } from '$lib/types';
 
@@ -136,12 +136,18 @@
 		return `<span class="inline-flex h-10 w-10 items-center justify-center rounded bg-slate-100 text-xs text-slate-400">N/A</span>`;
 	}
 
+	function lastInCell(p: Product) {
+		if (!p.lastInAt) return t('inventory.lastInNever', localeStore.value);
+		return formatDate(p.lastInAt);
+	}
+
 	const columns = [
 		{ key: 'photo', header: 'Photo', cell: photoCell },
 		{ key: 'code', header: 'Code', sortKey: 'code' },
 		{ key: 'name', header: 'Product Name', sortKey: 'name' },
 		{ key: 'category', header: 'Category / Type', cell: (p: Product) => p.category?.name ?? '-' },
 		{ key: 'stock', header: 'Stock', sortKey: 'stock', cell: stockBadge },
+		{ key: 'lastIn', header: 'Last in', cell: lastInCell },
 		{ key: 'status', header: 'Status', cell: statusBadge }
 	];
 
@@ -228,6 +234,10 @@
 				<div class="flex items-start justify-between gap-3">
 					<div class="min-w-0">
 						<p class="text-main font-semibold">{p.name}</p>
+						<p class="text-muted mt-1 text-xs">
+							{t('inventory.lastIn', localeStore.value)}:
+							{p.lastInAt ? formatDate(p.lastInAt) : t('inventory.lastInNever', localeStore.value)}
+						</p>
 						<div class="mt-2">{@html statusBadge(p)}</div>
 					</div>
 					<a href="/inventory/{p.id}" class="text-sm font-medium text-primary-600 hover:underline">

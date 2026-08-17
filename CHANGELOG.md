@@ -2,6 +2,15 @@
 
 All notable changes to Casan ERP are documented here.
 
+## [0.5.2] - 2026-08-18
+
+### Added
+- Department and purpose dropdowns on purchase request create
+- Automatic PR numbers (`PR-YYYY-NNN`)
+- Per-line suppliers on a purchase request
+- Inventory last-in date
+- Goods receipt status per PR line and per product type
+
 ## [0.5.1] - 2026-08-17
 
 ### Added

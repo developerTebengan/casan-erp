@@ -1,8 +1,10 @@
 import { db } from '$lib/server/db';
 import { purchaseRepository } from '$lib/server/repositories/purchase.repository';
 import { stockTransactionRepository } from '$lib/server/repositories/stockTransaction.repository';
+import { allocateReceivedQty, groupByProductType } from '$lib/purchasing/catalog';
 
 export type ReceiveLineInput = {
+	itemId?: string;
 	productId: string;
 	qty: number;
 };
@@ -34,27 +36,42 @@ export function goodsReceiptService() {
 		if (!purchase) return null;
 
 		const receivedMap = await getReceivedByProduct(purchaseId);
-		const lines = (purchase.items ?? []).map((item) => {
-			const receivedQty = receivedMap[item.productId] ?? 0;
-			const remainingQty = Math.max(0, item.qty - receivedQty);
-			return {
+		const allocated = allocateReceivedQty(
+			(purchase.items ?? []).map((item) => ({
 				itemId: item.id,
 				productId: item.productId,
+				qty: item.qty,
 				productName: item.product?.name ?? '-',
 				productCode: item.product?.code ?? '-',
 				unit: item.product?.unit ?? '',
-				orderedQty: item.qty,
-				receivedQty,
-				remainingQty
-			};
-		});
+				categoryName: item.product?.category?.name ?? null,
+				supplierName: item.supplier?.name ?? purchase.supplier?.name ?? null
+			})),
+			receivedMap
+		);
 
+		const lines = allocated.map((item) => ({
+			itemId: item.itemId,
+			productId: item.productId,
+			productName: item.productName,
+			productCode: item.productCode,
+			unit: item.unit,
+			categoryName: item.categoryName,
+			supplierName: item.supplierName,
+			orderedQty: item.qty,
+			receivedQty: item.receivedQty,
+			remainingQty: item.remainingQty,
+			status: item.status
+		}));
+
+		const groups = groupByProductType(lines);
 		const fullyReceived = lines.every((l) => l.remainingQty === 0);
 		const partiallyReceived = lines.some((l) => l.receivedQty > 0) && !fullyReceived;
 
 		return {
 			purchase,
 			lines,
+			groups,
 			fullyReceived,
 			partiallyReceived,
 			canReceive: purchase.approvalStatus === 'APPROVED' && !fullyReceived
@@ -84,9 +101,12 @@ export function goodsReceiptService() {
 			return { success: false as const, errors: { form: ['At least one receive line is required'] } };
 		}
 
-		const remainingByProduct = Object.fromEntries(
-			summary.lines.map((l) => [l.productId, l.remainingQty])
-		);
+		const remainingByItem = Object.fromEntries(summary.lines.map((l) => [l.itemId, l.remainingQty]));
+		const productRemaining: Record<string, number> = {};
+		for (const line of summary.lines) {
+			productRemaining[line.productId] =
+				(productRemaining[line.productId] ?? 0) + line.remainingQty;
+		}
 
 		const parsed: { productId: string; qty: number }[] = [];
 		for (const line of lines) {
@@ -98,20 +118,42 @@ export function goodsReceiptService() {
 					errors: { form: ['Each line needs a product and positive quantity'] }
 				};
 			}
-			const remaining = remainingByProduct[productId];
-			if (remaining === undefined) {
-				return {
-					success: false as const,
-					errors: { form: ['Product is not on this purchasing request'] }
-				};
-			}
-			if (qty > remaining) {
-				return {
-					success: false as const,
-					errors: {
-						form: [`Cannot receive more than remaining qty for product (${remaining} left)`]
-					}
-				};
+
+			const itemId = line.itemId ? String(line.itemId) : '';
+			if (itemId) {
+				const remaining = remainingByItem[itemId];
+				if (remaining === undefined) {
+					return {
+						success: false as const,
+						errors: { form: ['Item is not on this purchasing request'] }
+					};
+				}
+				if (qty > remaining) {
+					return {
+						success: false as const,
+						errors: {
+							form: [`Cannot receive more than remaining qty for this item (${remaining} left)`]
+						}
+					};
+				}
+				remainingByItem[itemId] = remaining - qty;
+			} else {
+				const remaining = productRemaining[productId];
+				if (remaining === undefined) {
+					return {
+						success: false as const,
+						errors: { form: ['Product is not on this purchasing request'] }
+					};
+				}
+				if (qty > remaining) {
+					return {
+						success: false as const,
+						errors: {
+							form: [`Cannot receive more than remaining qty for product (${remaining} left)`]
+						}
+					};
+				}
+				productRemaining[productId] = remaining - qty;
 			}
 			parsed.push({ productId, qty });
 		}

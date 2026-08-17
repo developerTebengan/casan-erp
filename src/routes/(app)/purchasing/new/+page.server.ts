@@ -42,7 +42,7 @@ export const load: PageServerLoad = async ({ url }) => {
 		fromLowStock,
 		initialPurchase: initialItems?.length
 			? {
-					purpose: 'Replenish low stock materials',
+					purpose: 'Restock',
 					department: '',
 					items: initialItems
 				}

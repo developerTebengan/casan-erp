@@ -1,4 +1,4 @@
-export const APP_VERSION = '0.5.1';
+export const APP_VERSION = '0.5.2';
 export const APP_NAME = 'Casan ERP';
 
 export type ChangelogChangeType = 'added' | 'changed' | 'fixed' | 'removed';
@@ -13,6 +13,22 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+	{
+		version: '0.5.2',
+		date: '2026-08-18',
+		changes: [
+			{
+				type: 'added',
+				items: [
+					'Department and purpose dropdowns on purchase request create',
+					'Automatic PR numbers (PR-YYYY-NNN)',
+					'Per-line suppliers on a purchase request',
+					'Inventory last-in date',
+					'Goods receipt status per PR line and per product type'
+				]
+			}
+		]
+	},
 	{
 		version: '0.5.1',
 		date: '2026-08-17',

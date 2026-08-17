@@ -17,6 +17,7 @@
 	import { Card, Breadcrumb, Badge, Button, DataTable, Modal, Textarea, Input, Select } from '$lib/components/ui';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatCurrency, formatDate } from '$lib/utils/format';
+	import { supplierNames } from '$lib/purchasing/catalog';
 	import type { PurchaseItem, ApprovalStatus, User as UserType, UserRole } from '$lib/types';
 
 	let { data } = $props();
@@ -37,7 +38,7 @@
 		receipt = data.receipt;
 		const next: Record<string, number> = {};
 		for (const line of data.receipt?.lines ?? []) {
-			next[line.productId] = line.remainingQty;
+			next[line.itemId] = line.remainingQty;
 		}
 		receiveQtys = next;
 	});
@@ -48,12 +49,30 @@
 	let rejectReason = $state('');
 	let rejectError = $state('');
 
-	const itemColumns = [
+	const itemColumns = $derived([
 		{ key: 'product', header: 'Product', cell: (item: PurchaseItem) => item.product?.name ?? '-' },
+		{
+			key: 'type',
+			header: 'Type',
+			cell: (item: PurchaseItem) => item.product?.category?.name ?? '-'
+		},
+		{
+			key: 'supplier',
+			header: 'Supplier',
+			cell: (item: PurchaseItem) => item.supplier?.name ?? purchase.supplier?.name ?? '-'
+		},
 		{
 			key: 'qty',
 			header: 'Quantity',
 			cell: (item: PurchaseItem) => `${item.qty} ${item.product?.unit ?? ''}`
+		},
+		{
+			key: 'status',
+			header: 'Receive status',
+			cell: (item: PurchaseItem) => {
+				const line = receipt?.lines?.find((l) => l.itemId === item.id);
+				return receiveStatusBadge(line?.status ?? 'WAITING');
+			}
 		},
 		{ key: 'price', header: 'Price', cell: (item: PurchaseItem) => formatCurrency(item.price) },
 		{
@@ -66,7 +85,23 @@
 			header: 'Notes',
 			cell: (item: PurchaseItem) => item.notes || '-'
 		}
-	];
+	]);
+
+	function receiveStatusBadge(status: string) {
+		if (status === 'STOCK_IN') {
+			return '<span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-success-100 text-success-700 dark:bg-success-900/30 dark:text-success-600">Stock in</span>';
+		}
+		if (status === 'PARTIAL') {
+			return '<span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">Partial</span>';
+		}
+		return '<span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium bg-warning-100 text-warning-700 dark:bg-warning-900/30 dark:text-warning-600">Waiting</span>';
+	}
+
+	function receiveStatusLabel(status: string) {
+		if (status === 'STOCK_IN') return 'Stock in';
+		if (status === 'PARTIAL') return 'Partial';
+		return 'Waiting';
+	}
 
 	const priorityVariant = $derived(
 		purchase.priority === 'URGENT'
@@ -251,8 +286,9 @@
 		try {
 			const lines = receipt.lines
 				.map((line) => ({
+					itemId: line.itemId,
 					productId: line.productId,
-					qty: Number(receiveQtys[line.productId] ?? 0)
+					qty: Number(receiveQtys[line.itemId] ?? 0)
 				}))
 				.filter((line) => line.qty > 0);
 
@@ -328,7 +364,7 @@
 					</div>
 					<div>
 						<p class="text-muted text-sm">Supplier</p>
-						<p class="text-main font-semibold">{purchase.supplier?.name ?? 'Not specified'}</p>
+						<p class="text-main font-semibold">{supplierNames(purchase)}</p>
 					</div>
 				</div>
 				<div class="bg-card-secondary flex items-center gap-3 rounded-lg p-4">
@@ -431,7 +467,7 @@
 					</div>
 					<div class="flex justify-between">
 						<span class="text-muted">Supplier</span>
-						<span class="text-main font-medium">{purchase.supplier?.name ?? 'Not specified'}</span>
+						<span class="text-main font-medium">{supplierNames(purchase)}</span>
 					</div>
 					<div class="flex justify-between">
 						<span class="text-muted">Priority</span>
@@ -609,37 +645,64 @@
 						</div>
 					</div>
 
-					<div class="space-y-3">
-						{#each receipt.lines as line}
+					<div class="space-y-4">
+						{#each receipt.groups ?? [{ category: 'Items', lines: receipt.lines, status: receipt.fullyReceived ? 'STOCK_IN' : receipt.partiallyReceived ? 'PARTIAL' : 'WAITING' }] as group}
 							<div class="border-theme rounded-lg border p-3">
-								<div class="mb-2 flex flex-wrap items-center justify-between gap-2">
-									<div>
-										<p class="text-main text-sm font-medium">
-											{line.productCode} — {line.productName}
-										</p>
-										<p class="text-muted text-xs">
-											Ordered {line.orderedQty} {line.unit} · Received {line.receivedQty} ·
-											Remaining {line.remainingQty}
-										</p>
-									</div>
-									{#if line.remainingQty === 0}
-										<Badge variant="success">Complete</Badge>
-									{/if}
+								<div class="mb-3 flex items-center justify-between gap-2">
+									<p class="text-main text-sm font-semibold">{group.category}</p>
+									<Badge
+										variant={group.status === 'STOCK_IN'
+											? 'success'
+											: group.status === 'PARTIAL'
+												? 'primary'
+												: 'warning'}
+									>
+										{receiveStatusLabel(group.status)}
+									</Badge>
 								</div>
-								{#if canReceive && line.remainingQty > 0}
-									<Input
-										label="Receive qty"
-										type="number"
-										value={String(receiveQtys[line.productId] ?? 0)}
-										oninput={(e) => {
-											const v = Number((e.target as HTMLInputElement).value);
-											receiveQtys = {
-												...receiveQtys,
-												[line.productId]: Number.isNaN(v) ? 0 : v
-											};
-										}}
-									/>
-								{/if}
+								<div class="space-y-3">
+									{#each group.lines as line}
+										<div class="rounded-md bg-slate-50 p-3 dark:bg-slate-800/40">
+											<div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+												<div>
+													<p class="text-main text-sm font-medium">
+														{line.productCode} — {line.productName}
+													</p>
+													<p class="text-muted text-xs">
+														{#if line.supplierName}
+															{line.supplierName} ·
+														{/if}
+														Ordered {line.orderedQty}
+														{line.unit} · Received {line.receivedQty} · Remaining {line.remainingQty}
+													</p>
+												</div>
+												<Badge
+													variant={line.status === 'STOCK_IN'
+														? 'success'
+														: line.status === 'PARTIAL'
+															? 'primary'
+															: 'warning'}
+												>
+													{receiveStatusLabel(line.status)}
+												</Badge>
+											</div>
+											{#if canReceive && line.remainingQty > 0}
+												<Input
+													label="Receive qty"
+													type="number"
+													value={String(receiveQtys[line.itemId] ?? 0)}
+													oninput={(e) => {
+														const v = Number((e.target as HTMLInputElement).value);
+														receiveQtys = {
+															...receiveQtys,
+															[line.itemId]: Number.isNaN(v) ? 0 : v
+														};
+													}}
+												/>
+											{/if}
+										</div>
+									{/each}
+								</div>
 							</div>
 						{/each}
 					</div>

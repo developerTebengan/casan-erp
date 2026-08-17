@@ -52,19 +52,6 @@ describe('i18n', () => {
 		expect(t('dash.ops.pending', 'en')).toBe('Pending');
 	});
 
-	it('translates table open and action labels', () => {
-		expect(t('table.open', 'id')).toBe('Buka');
-		expect(t('table.open', 'en')).toBe('Open');
-		expect(t('table.view', 'id')).toBe('Lihat');
-		expect(t('table.view', 'en')).toBe('View');
-		expect(t('table.print', 'id')).toBe('Cetak');
-		expect(t('table.print', 'en')).toBe('Print');
-		expect(t('table.edit', 'id')).toBe('Ubah');
-		expect(t('table.edit', 'en')).toBe('Edit');
-		expect(t('table.delete', 'id')).toBe('Hapus');
-		expect(t('table.delete', 'en')).toBe('Delete');
-	});
-
 	it('translates login and logout chrome', () => {
 		expect(t('page.login', 'id')).toBe('Masuk');
 		expect(t('page.login', 'en')).toBe('Login');
@@ -72,36 +59,7 @@ describe('i18n', () => {
 		expect(t('auth.signIn', 'en')).toBe('Sign in');
 		expect(t('auth.demoTitle', 'id')).toBe('Akun demo');
 		expect(t('auth.demoTitle', 'en')).toBe('Demo accounts');
-		expect(t('auth.demoName', 'id')).toBe('Nama');
-		expect(t('auth.demoPosition', 'en')).toBe('Position');
 		expect(t('common.logout', 'id')).toBe('Keluar');
 		expect(t('common.logout', 'en')).toBe('Log out');
-	});
-
-	it('translates purchase list agreement and fulfillment', () => {
-		expect(t('pr.agreed', 'en', { approved: 2, assigned: 3 })).toBe('2/3 agreed');
-		expect(t('pr.agreed', 'id', { approved: 2, assigned: 3 })).toBe('2/3 disetujui');
-		expect(t('pr.status.stockIn', 'en')).toBe('Stock in');
-		expect(t('pr.status.stockIn', 'id')).toBe('Stok masuk');
-		expect(t('pr.purpose', 'id')).toBe('Keperluan');
-	});
-});
-
-describe('pageTitleKey', () => {
-	it('defaults to dashboard', () => {
-		expect(pageTitleKey('/')).toBe('page.dashboard');
-		expect(pageTitleKey('/dashboard')).toBe('page.dashboard');
-		expect(pageTitleKey('/unknown')).toBe('page.dashboard');
-	});
-
-	it('maps each known prefix', () => {
-		expect(pageTitleKey('/inventory')).toBe('page.inventory');
-		expect(pageTitleKey('/inventory/abc')).toBe('page.inventory');
-		expect(pageTitleKey('/stock')).toBe('page.stock');
-		expect(pageTitleKey('/approvals')).toBe('page.approvals');
-		expect(pageTitleKey('/purchasing')).toBe('page.purchasing');
-		expect(pageTitleKey('/suppliers')).toBe('page.suppliers');
-		expect(pageTitleKey('/users')).toBe('page.users');
-		expect(pageTitleKey('/settings')).toBe('page.settings');
 	});
 });

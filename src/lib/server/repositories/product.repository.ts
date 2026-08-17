@@ -62,7 +62,7 @@ export function productRepository() {
 			const total = filtered.length;
 			const data = filtered.slice(skip, skip + limit);
 			return {
-				data: data.map(mapProduct),
+				data: await attachLastIn(data.map(mapProduct)),
 				pagination: { page, limit, total, totalPages: Math.ceil(total / limit) || 1 }
 			};
 		}
@@ -79,7 +79,7 @@ export function productRepository() {
 		]);
 
 		return {
-			data: data.map(mapProduct),
+			data: await attachLastIn(data.map(mapProduct)),
 			pagination: { page, limit, total, totalPages: Math.ceil(total / limit) || 1 }
 		};
 	}
@@ -89,7 +89,7 @@ export function productRepository() {
 			where: { id, deletedAt: null },
 			include: { category: { select: { id: true, name: true } } }
 		});
-		return product ? mapProduct(product) : null;
+		return product ? (await attachLastIn([mapProduct(product)]))[0] : null;
 	}
 
 	async function findByCode(code: string) {
@@ -119,6 +119,26 @@ export function productRepository() {
 	}
 
 	return { findAll, findById, findByCode, create, update, remove };
+}
+
+async function attachLastIn(products: Product[]): Promise<Product[]> {
+	if (products.length === 0) return products;
+	const grouped = await db.stockTransaction.groupBy({
+		by: ['productId'],
+		where: {
+			productId: { in: products.map((p) => p.id) },
+			type: 'IN',
+			deletedAt: null
+		},
+		_max: { createdAt: true }
+	});
+	const lastIn = new Map(
+		grouped.map((row) => [row.productId, row._max.createdAt?.toISOString() ?? null])
+	);
+	return products.map((product) => ({
+		...product,
+		lastInAt: lastIn.get(product.id) ?? null
+	}));
 }
 
 function mapProduct(p: {

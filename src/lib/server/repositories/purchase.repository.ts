@@ -1,5 +1,6 @@
 import { db } from '$lib/server/db';
 import { applyFulfillment } from '$lib/purchasing/list-status';
+import { nextPrNumberFromLatest } from '$lib/purchasing/catalog';
 import type { Purchase, PurchasePriority, ApprovalStatus, UserRole } from '$lib/types';
 
 export interface PurchaseFilters {
@@ -38,10 +39,11 @@ export interface PurchaseItemInput {
 	qty: number;
 	price: number;
 	notes?: string;
+	supplierId?: string | null;
 }
 
 export interface PurchaseCreateInput {
-	prNumber: string;
+	prNumber?: string;
 	supplierId?: string | null;
 	dateOfRequest: Date;
 	priority: PurchasePriority;
@@ -78,7 +80,13 @@ export function purchaseRepository() {
 
 		const where: Record<string, unknown> = { deletedAt: null };
 		if (search) where.prNumber = { contains: search, mode: 'insensitive' };
-		if (supplierId) where.supplierId = supplierId;
+		if (supplierId) {
+			where.AND = [
+				{
+					OR: [{ supplierId }, { items: { some: { supplierId } } }]
+				}
+			];
+		}
 		if (requesterId) where.requesterId = requesterId;
 		if (priority) where.priority = priority;
 		if (approvalStatus && !awaitingApproverId && !myApproverId) {
@@ -176,7 +184,20 @@ export function purchaseRepository() {
 					requester: { select: { id: true, name: true, email: true, role: true } },
 					departmentHead: { select: { id: true, name: true, email: true, role: true } },
 					financeApprover: { select: { id: true, name: true, email: true, role: true } },
-					finalApprover: { select: { id: true, name: true, email: true, role: true } }
+					finalApprover: { select: { id: true, name: true, email: true, role: true } },
+					items: {
+						select: {
+							id: true,
+							purchaseId: true,
+							productId: true,
+							qty: true,
+							price: true,
+							subtotal: true,
+							notes: true,
+							supplierId: true,
+							supplier: { select: { id: true, name: true } }
+						}
+					}
 				}
 			}),
 			db.purchase.count({ where })
@@ -231,7 +252,10 @@ export function purchaseRepository() {
 				financeApprover: { select: { id: true, name: true, email: true, role: true } },
 				finalApprover: { select: { id: true, name: true, email: true, role: true } },
 				items: {
-					include: { product: { include: { category: { select: { name: true } } } } }
+					include: {
+						product: { include: { category: { select: { name: true } } } },
+						supplier: { select: { id: true, name: true } }
+					}
 				}
 			}
 		});
@@ -242,12 +266,24 @@ export function purchaseRepository() {
 		return db.purchase.findFirst({ where: { prNumber, deletedAt: null } });
 	}
 
+	async function nextPrNumber(now = new Date()) {
+		const year = now.getFullYear();
+		const prefix = `PR-${year}-`;
+		const last = await db.purchase.findFirst({
+			where: { prNumber: { startsWith: prefix } },
+			orderBy: { prNumber: 'desc' },
+			select: { prNumber: true }
+		});
+		return nextPrNumberFromLatest(last?.prNumber ?? null, year);
+	}
+
 	async function create(input: PurchaseCreateInput) {
 		const total = input.items.reduce((sum, item) => sum + item.qty * item.price, 0);
+		const prNumber = input.prNumber?.trim() || (await nextPrNumber());
 
 		const purchase = await db.purchase.create({
 			data: {
-				prNumber: input.prNumber,
+				prNumber,
 				supplierId: input.supplierId,
 				dateOfRequest: input.dateOfRequest,
 				priority: input.priority,
@@ -264,6 +300,7 @@ export function purchaseRepository() {
 				items: {
 					create: input.items.map((item) => ({
 						productId: item.productId,
+						supplierId: item.supplierId || input.supplierId || null,
 						qty: item.qty,
 						price: item.price,
 						subtotal: item.qty * item.price,
@@ -278,7 +315,10 @@ export function purchaseRepository() {
 				financeApprover: { select: { id: true, name: true, email: true, role: true } },
 				finalApprover: { select: { id: true, name: true, email: true, role: true } },
 				items: {
-					include: { product: { include: { category: { select: { name: true } } } } }
+					include: {
+						product: { include: { category: { select: { name: true } } } },
+						supplier: { select: { id: true, name: true } }
+					}
 				}
 			}
 		});
@@ -331,14 +371,17 @@ export function purchaseRepository() {
 				financeApprover: { select: { id: true, name: true, email: true, role: true } },
 				finalApprover: { select: { id: true, name: true, email: true, role: true } },
 				items: {
-					include: { product: { include: { category: { select: { name: true } } } } }
+					include: {
+						product: { include: { category: { select: { name: true } } } },
+						supplier: { select: { id: true, name: true } }
+					}
 				}
 			}
 		});
 		return mapPurchase(purchase);
 	}
 
-	return { findAll, findById, findByPrNumber, create, remove, update, countByApprovalStatus };
+	return { findAll, findById, findByPrNumber, nextPrNumber, create, remove, update, countByApprovalStatus };
 }
 
 function mapUser(
@@ -384,7 +427,7 @@ function mapPurchase(p: {
 	total: unknown;
 	createdAt: Date;
 	updatedAt: Date;
-	items?: Array<{
+		items?: Array<{
 		id: string;
 		purchaseId: string;
 		productId: string;
@@ -392,6 +435,8 @@ function mapPurchase(p: {
 		price: unknown;
 		subtotal: unknown;
 		notes: string | null;
+		supplierId?: string | null;
+		supplier?: { id: string; name: string } | null;
 		product?: {
 			id: string;
 			code: string;
@@ -457,7 +502,9 @@ function mapPurchase(p: {
 			qty: item.qty,
 			price: Number(item.price),
 			subtotal: Number(item.subtotal),
-			notes: item.notes
+			notes: item.notes,
+			supplierId: item.supplierId ?? null,
+			supplier: item.supplier ?? undefined
 		}))
 	};
 }

@@ -73,7 +73,8 @@ model Supplier {
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
   deletedAt DateTime?
-  purchases Purchase[]
+  purchases     Purchase[]
+  purchaseItems PurchaseItem[]
 
   @@map("suppliers")
 }
@@ -219,6 +220,7 @@ model PurchaseItem {
   id         String  @id @default(uuid())
   purchaseId String
   productId  String
+  supplierId String?
   qty        Int
   price      Decimal
   subtotal   Decimal
@@ -226,7 +228,9 @@ model PurchaseItem {
 
   purchase Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
   product  Product  @relation(fields: [productId], references: [id])
+  supplier Supplier? @relation(fields: [supplierId], references: [id])
 
+  @@index([supplierId])
   @@map("purchase_items")
 }
 

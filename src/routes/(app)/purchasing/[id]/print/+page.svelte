@@ -2,6 +2,7 @@
 	import { ArrowLeft, Printer } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui';
 	import { formatCurrency, formatDate } from '$lib/utils/format';
+	import { supplierNames } from '$lib/purchasing/catalog';
 	import type { Purchase, PurchaseItem, ApprovalStatus, User } from '$lib/types';
 
 	let { data } = $props();
@@ -136,7 +137,7 @@
 				Supplier Name
 			</div>
 			<div class="border-b border-slate-300 p-2 md:col-span-2">
-				{purchase.supplier?.name ?? 'Not specified'}
+				{supplierNames(purchase)}
 			</div>
 
 			<div class="border-r border-b border-slate-300 bg-slate-50 p-2 font-semibold">Phone</div>
@@ -157,6 +158,8 @@
 				<tr class="bg-slate-50">
 					<th class="border border-slate-300 px-2 py-2 text-left">No</th>
 					<th class="border border-slate-300 px-2 py-2 text-left">Product</th>
+					<th class="border border-slate-300 px-2 py-2 text-left">Type</th>
+					<th class="border border-slate-300 px-2 py-2 text-left">Supplier</th>
 					<th class="border border-slate-300 px-2 py-2 text-left">Qty</th>
 					<th class="border border-slate-300 px-2 py-2 text-left">Unit</th>
 					<th class="border border-slate-300 px-2 py-2 text-right">Price</th>
@@ -171,6 +174,12 @@
 						<td class="border border-slate-300 px-2 py-2">
 							{item.product?.name ?? '-'}
 						</td>
+						<td class="border border-slate-300 px-2 py-2">
+							{item.product?.category?.name ?? '-'}
+						</td>
+						<td class="border border-slate-300 px-2 py-2">
+							{item.supplier?.name ?? purchase.supplier?.name ?? '-'}
+						</td>
 						<td class="border border-slate-300 px-2 py-2 text-right">{item.qty}</td>
 						<td class="border border-slate-300 px-2 py-2">{item.product?.unit ?? '-'}</td>
 						<td class="border border-slate-300 px-2 py-2 text-right">
@@ -183,7 +192,7 @@
 					</tr>
 				{:else}
 					<tr>
-						<td colspan="7" class="border border-slate-300 px-2 py-4 text-center text-slate-500">
+						<td colspan="9" class="border border-slate-300 px-2 py-4 text-center text-slate-500">
 							No items
 						</td>
 					</tr>
@@ -191,7 +200,7 @@
 			</tbody>
 			<tfoot>
 				<tr class="bg-slate-50 font-semibold">
-					<td colspan="5" class="border border-slate-300 px-2 py-2 text-right">Total</td>
+					<td colspan="7" class="border border-slate-300 px-2 py-2 text-right">Total</td>
 					<td colspan="2" class="border border-slate-300 px-2 py-2">
 						{formatCurrency(purchase.total)}
 					</td>

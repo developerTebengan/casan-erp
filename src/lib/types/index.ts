@@ -34,6 +34,7 @@ export interface Product {
 	price: number;
 	imageUrl?: string | null;
 	status: ProductStatus;
+	lastInAt?: string | null;
 	createdAt: string;
 	updatedAt: string;
 }
@@ -46,6 +47,8 @@ export interface PurchaseItem {
 	purchaseId: string;
 	productId: string;
 	product?: Product;
+	supplierId?: string | null;
+	supplier?: Supplier | null;
 	qty: number;
 	price: number;
 	subtotal: number;

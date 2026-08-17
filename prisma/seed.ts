@@ -232,7 +232,7 @@ async function main() {
 		PurchasePriority.HIGH,
 		PurchasePriority.URGENT
 	];
-	const departments = ['Operations', 'IT', 'Finance', 'HR', 'Sales'];
+	const departments = ['Operations', 'Warehouse', 'Purchasing', 'IT', 'Finance', 'HR', 'Sales'];
 
 	for (let i = 1; i <= 20; i++) {
 		const supplier = suppliers[i % suppliers.length];

@@ -19,6 +19,7 @@
 	import { t } from '$lib/i18n';
 	import { formatCurrency, formatDate } from '$lib/utils/format';
 	import { agreementProgress, purchaseListStatus } from '$lib/purchasing/list-status';
+	import { supplierNames } from '$lib/purchasing/catalog';
 	import type { Purchase, Supplier } from '$lib/types';
 
 	let { data } = $props();
@@ -202,7 +203,7 @@
 	const columns = $derived([
 		{ key: 'prNumber', header: 'PR Number', sortKey: 'prNumber' },
 		{ key: 'purpose', header: t('pr.purpose', localeStore.value), cell: purposeCell },
-		{ key: 'supplier', header: 'Supplier', cell: (p: Purchase) => p.supplier?.name ?? '-' },
+		{ key: 'supplier', header: 'Supplier', cell: (p: Purchase) => supplierNames(p) },
 		{
 			key: 'dateOfRequest',
 			header: 'Date of Request',
@@ -273,6 +274,7 @@
 					<div class="min-w-0">
 						<p class="text-main font-semibold">{p.prNumber}</p>
 						<p class="text-muted mt-1 line-clamp-2 text-sm">{p.purpose || '—'}</p>
+						<p class="text-muted mt-1 text-xs">{supplierNames(p)}</p>
 						<p class="text-muted mt-1 text-xs">
 							{t('pr.agreed', localeStore.value, {
 								approved: agreementProgress(p).approved,
