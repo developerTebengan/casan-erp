@@ -2,6 +2,28 @@
 
 All notable changes to Casan ERP are documented here.
 
+## [0.5.0] - 2026-08-17
+
+### Added
+- Indonesian/English chrome copy with locale cookie and role labels
+- Persisted company settings (items per page, settings:write)
+- Password change from the sidebar
+- USER role as requester with suppliers nav hidden
+- Role-based home dashboard
+- In-app notification inbox on the bell
+- Sortable purchasing and inventory tables
+- Mobile cards on purchasing, inventory, and approvals lists
+- Sidebar waiting-count badge and path-based navbar titles
+
+### Changed
+- Demo logins show only when PUBLIC_SHOW_DEMO_LOGINS is the string `true`
+- Production build runs `prisma migrate deploy` so settings and notifications tables exist
+
+### Fixed
+- Stock ledger GET requires `stock:view`
+- Purchase delete requires write permission and ADMIN or requester ownership
+- Change-password updates only the password column
+
 ## [0.4.0] - 2026-07-28
 
 ### Added

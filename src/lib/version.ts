@@ -15,7 +15,7 @@ export interface ChangelogEntry {
 export const CHANGELOG: ChangelogEntry[] = [
 	{
 		version: '0.5.0',
-		date: '2026-08-16',
+		date: '2026-08-17',
 		changes: [
 			{
 				type: 'added',
@@ -29,6 +29,21 @@ export const CHANGELOG: ChangelogEntry[] = [
 					'Sortable purchasing and inventory tables',
 					'Mobile cards on purchasing, inventory, and approvals lists',
 					'Sidebar waiting-count badge and path-based navbar titles'
+				]
+			},
+			{
+				type: 'changed',
+				items: [
+					'Demo logins show only when PUBLIC_SHOW_DEMO_LOGINS is the string true',
+					'Production build runs prisma migrate deploy so settings and notifications tables exist'
+				]
+			},
+			{
+				type: 'fixed',
+				items: [
+					'Stock ledger GET requires stock:view',
+					'Purchase delete requires write permission and ADMIN or requester ownership',
+					'Change-password updates only the password column'
 				]
 			}
 		]
