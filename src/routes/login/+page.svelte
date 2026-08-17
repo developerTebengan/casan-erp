@@ -2,6 +2,7 @@
 	import { Package, Eye, EyeOff } from '@lucide/svelte';
 	import { Button, Input } from '$lib/components/ui';
 	import { themeStore } from '$lib/stores/theme.svelte';
+	import { localeStore } from '$lib/stores/locale.svelte';
 	import { onMount } from 'svelte';
 	import { untrack } from 'svelte';
 
@@ -26,7 +27,31 @@
 	}
 </script>
 
-<div class="bg-body flex min-h-screen items-center justify-center px-4 py-12 sm:px-6 lg:px-8">
+<div
+	class="bg-body relative flex min-h-screen items-center justify-center px-4 py-12 sm:px-6 lg:px-8"
+>
+	<div class="absolute top-4 right-4">
+		<div class="border-theme flex rounded-lg border text-xs font-semibold">
+			<button
+				type="button"
+				class={localeStore.value === 'id'
+					? 'bg-primary-50 px-2 py-1 text-primary-700'
+					: 'text-muted px-2 py-1'}
+				onclick={() => localeStore.set('id')}
+			>
+				ID
+			</button>
+			<button
+				type="button"
+				class={localeStore.value === 'en'
+					? 'bg-primary-50 px-2 py-1 text-primary-700'
+					: 'text-muted px-2 py-1'}
+				onclick={() => localeStore.set('en')}
+			>
+				EN
+			</button>
+		</div>
+	</div>
 	<div class="w-full max-w-md space-y-8">
 		<div class="text-center">
 			<div

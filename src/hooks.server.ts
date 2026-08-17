@@ -2,6 +2,7 @@ import { error, redirect, type Handle } from '@sveltejs/kit';
 import { sequence } from '@sveltejs/kit/hooks';
 import { getCurrentUser } from '$lib/server/auth';
 import { canAccessPath } from '$lib/permissions';
+import { parseLocale } from '$lib/i18n';
 
 const PUBLIC_ROUTES = ['/login', '/api/auth/login'];
 
@@ -9,6 +10,7 @@ const authHandle: Handle = async ({ event, resolve }) => {
 	const { cookies, url } = event;
 	const user = await getCurrentUser(cookies);
 	event.locals.user = user;
+	event.locals.locale = parseLocale(event.cookies.get('casan-locale'));
 
 	const isPublic =
 		PUBLIC_ROUTES.some((route) => url.pathname.startsWith(route)) ||

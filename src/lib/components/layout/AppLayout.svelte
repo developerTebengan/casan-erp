@@ -6,6 +6,7 @@
 	import { authStore } from '$lib/stores/auth.svelte';
 	import { goto } from '$app/navigation';
 	import { themeStore } from '$lib/stores/theme.svelte';
+	import { localeStore } from '$lib/stores/locale.svelte';
 	import { onMount } from 'svelte';
 
 	import type { User } from '$lib/types';
@@ -19,6 +20,7 @@
 
 	onMount(() => {
 		themeStore.init();
+		localeStore.init();
 		if (user) authStore.set(user);
 	});
 

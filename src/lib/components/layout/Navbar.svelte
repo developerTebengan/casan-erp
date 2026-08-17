@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { Menu, Sun, Moon, Bell } from '@lucide/svelte';
 	import { themeStore } from '$lib/stores/theme.svelte';
+	import { localeStore } from '$lib/stores/locale.svelte';
 	import { sidebarStore } from '$lib/stores/sidebar.svelte';
 	import { classNames } from '$lib/utils/format';
 	import type { User } from '$lib/types';
@@ -32,6 +33,26 @@
 	</div>
 
 	<div class="flex items-center gap-2 sm:gap-4">
+		<div class="border-theme flex rounded-lg border text-xs font-semibold">
+			<button
+				type="button"
+				class={localeStore.value === 'id'
+					? 'bg-primary-50 px-2 py-1 text-primary-700'
+					: 'text-muted px-2 py-1'}
+				onclick={() => localeStore.set('id')}
+			>
+				ID
+			</button>
+			<button
+				type="button"
+				class={localeStore.value === 'en'
+					? 'bg-primary-50 px-2 py-1 text-primary-700'
+					: 'text-muted px-2 py-1'}
+				onclick={() => localeStore.set('en')}
+			>
+				EN
+			</button>
+		</div>
 		<button
 			type="button"
 			class="relative rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"

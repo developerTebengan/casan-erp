@@ -11,6 +11,7 @@ declare global {
 		interface Locals {
 			user: User | null;
 			theme: 'light' | 'dark';
+			locale: import('$lib/i18n').Locale;
 		}
 		// interface PageData {}
 		// interface PageState {}
