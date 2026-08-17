@@ -4,6 +4,7 @@
 	import { localeStore } from '$lib/stores/locale.svelte';
 	import { sidebarStore } from '$lib/stores/sidebar.svelte';
 	import { classNames } from '$lib/utils/format';
+	import { roleLabel } from '$lib/i18n';
 	import type { User } from '$lib/types';
 
 	interface Props {
@@ -82,7 +83,7 @@
 				</div>
 				<div class="hidden md:block">
 					<p class="text-main text-sm font-medium">{user.name}</p>
-					<p class="text-muted text-xs">{user.role}</p>
+					<p class="text-muted text-xs">{roleLabel(user.role, localeStore.value)}</p>
 				</div>
 			</div>
 		{/if}

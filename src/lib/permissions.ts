@@ -106,20 +106,20 @@ export function canAccessPath(role: UserRole, pathname: string): boolean {
 }
 
 export type NavItem = {
-	label: string;
+	labelKey: string;
 	href: string;
 	permission: AppPermission;
 };
 
 export const NAV_ITEMS: NavItem[] = [
-	{ label: 'Dashboard', href: '/dashboard', permission: 'dashboard:view' },
-	{ label: 'Inventory', href: '/inventory', permission: 'inventory:view' },
-	{ label: 'Stock Movement', href: '/stock', permission: 'stock:view' },
-	{ label: 'My Approvals', href: '/approvals', permission: 'approvals:view' },
-	{ label: 'Purchasing Request', href: '/purchasing', permission: 'purchasing:view' },
-	{ label: 'Suppliers', href: '/suppliers', permission: 'suppliers:view' },
-	{ label: 'Users', href: '/users', permission: 'users:manage' },
-	{ label: 'Settings', href: '/settings', permission: 'settings:view' }
+	{ labelKey: 'nav.dashboard', href: '/dashboard', permission: 'dashboard:view' },
+	{ labelKey: 'nav.inventory', href: '/inventory', permission: 'inventory:view' },
+	{ labelKey: 'nav.stock', href: '/stock', permission: 'stock:view' },
+	{ labelKey: 'nav.approvals', href: '/approvals', permission: 'approvals:view' },
+	{ labelKey: 'nav.purchasing', href: '/purchasing', permission: 'purchasing:view' },
+	{ labelKey: 'nav.suppliers', href: '/suppliers', permission: 'suppliers:view' },
+	{ labelKey: 'nav.users', href: '/users', permission: 'users:manage' },
+	{ labelKey: 'nav.settings', href: '/settings', permission: 'settings:view' }
 ];
 
 export function navItemsForRole(role: UserRole): NavItem[] {

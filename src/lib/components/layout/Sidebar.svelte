@@ -14,6 +14,8 @@
 	import { classNames } from '$lib/utils/format';
 	import { APP_VERSION } from '$lib/version';
 	import { navItemsForRole } from '$lib/permissions';
+	import { t, roleLabel } from '$lib/i18n';
+	import { localeStore } from '$lib/stores/locale.svelte';
 	import type { User } from '$lib/types';
 	import type { Component } from 'svelte';
 
@@ -68,7 +70,7 @@
 				{#if item.icon}
 					<item.icon class="h-5 w-5" />
 				{/if}
-				{item.label}
+				{t(item.labelKey, localeStore.value)}
 			</a>
 		{/each}
 	</nav>
@@ -83,7 +85,7 @@
 				</div>
 				<div class="min-w-0 flex-1">
 					<p class="text-main truncate text-sm font-medium">{user.name}</p>
-					<p class="text-muted truncate text-xs">{user.role.replaceAll('_', ' ')}</p>
+					<p class="text-muted truncate text-xs">{roleLabel(user.role, localeStore.value)}</p>
 				</div>
 			</div>
 			<button
@@ -92,7 +94,7 @@
 				class="dark:text-danger-400 dark:hover:bg-danger-900/20 flex w-full items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium text-danger-600 hover:bg-danger-50"
 			>
 				<LogOut class="h-4 w-4" />
-				Logout
+				{t('common.logout', localeStore.value)}
 			</button>
 		</div>
 	{/if}

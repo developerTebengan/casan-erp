@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { NAV_ITEMS } from '../permissions';
 import { t, roleLabel, parseLocale } from './index';
 
 describe('i18n', () => {
@@ -18,5 +19,34 @@ describe('i18n', () => {
 		expect(roleLabel('DEPARTMENT_HEAD', 'id')).toBe('Kepala Departemen');
 		expect(roleLabel('DEPARTMENT_HEAD', 'en')).toBe('Department Head');
 		expect(roleLabel('USER', 'id')).toBe('Pemohon');
+		expect(roleLabel('USER', 'en')).toBe('Requester');
+	});
+
+	it('resolves every nav labelKey', () => {
+		expect(NAV_ITEMS.map((item) => item.labelKey)).toEqual([
+			'nav.dashboard',
+			'nav.inventory',
+			'nav.stock',
+			'nav.approvals',
+			'nav.purchasing',
+			'nav.suppliers',
+			'nav.users',
+			'nav.settings'
+		]);
+		for (const item of NAV_ITEMS) {
+			expect(t(item.labelKey, 'id')).not.toBe(item.labelKey);
+			expect(t(item.labelKey, 'en')).not.toBe(item.labelKey);
+		}
+	});
+
+	it('translates login and logout chrome', () => {
+		expect(t('page.login', 'id')).toBe('Masuk');
+		expect(t('page.login', 'en')).toBe('Login');
+		expect(t('auth.signIn', 'id')).toBe('Masuk');
+		expect(t('auth.signIn', 'en')).toBe('Sign in');
+		expect(t('auth.demoTitle', 'id')).toBe('Akun demo');
+		expect(t('auth.demoTitle', 'en')).toBe('Demo accounts');
+		expect(t('common.logout', 'id')).toBe('Keluar');
+		expect(t('common.logout', 'en')).toBe('Log out');
 	});
 });

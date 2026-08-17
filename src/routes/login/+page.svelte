@@ -3,6 +3,7 @@
 	import { Button, Input } from '$lib/components/ui';
 	import { themeStore } from '$lib/stores/theme.svelte';
 	import { localeStore } from '$lib/stores/locale.svelte';
+	import { t } from '$lib/i18n';
 	import { onMount } from 'svelte';
 	import { untrack } from 'svelte';
 
@@ -60,16 +61,16 @@
 				<Package class="h-8 w-8" />
 			</div>
 			<h1 class="text-main mt-6 text-3xl font-bold tracking-tight">Casan ERP</h1>
-			<p class="text-muted mt-2 text-sm">Sign in to your account to continue</p>
+			<p class="text-muted mt-2 text-sm">{t('page.login', localeStore.value)}</p>
 		</div>
 
 		<div class="border-theme bg-card rounded-2xl border p-8 shadow-xl">
 			<form method="POST" class="space-y-6" onsubmit={handleSubmit}>
 				<Input
-					label="Email"
+					label={t('auth.email', localeStore.value)}
 					type="email"
 					name="email"
-					placeholder="Insert email"
+					placeholder={t('auth.email', localeStore.value)}
 					required
 					bind:value={email}
 					error={form?.errors?.email ?? ''}
@@ -77,10 +78,10 @@
 
 				<div class="relative">
 					<Input
-						label="Password"
+						label={t('auth.password', localeStore.value)}
 						type={showPassword ? 'text' : 'password'}
 						name="password"
-						placeholder="Insert password"
+						placeholder={t('auth.password', localeStore.value)}
 						required
 						bind:value={password}
 						error={form?.errors?.password ?? ''}
@@ -107,24 +108,85 @@
 					</p>
 				{/if}
 
-				<Button type="submit" variant="primary" size="lg" class="w-full" {loading}>Sign in</Button>
+				<Button type="submit" variant="primary" size="lg" class="w-full" {loading}
+					>{t('auth.signIn', localeStore.value)}</Button
+				>
 			</form>
 
 			<div
 				class="border-theme mt-6 rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
 			>
 				<p class="mb-2 font-semibold text-slate-900 dark:text-white">
-					Demo accounts — password: <code class="rounded bg-slate-100 px-1.5 py-0.5 font-mono dark:bg-slate-700">password</code>
+					{t('auth.demoTitle', localeStore.value)} — password:
+					<code class="rounded bg-slate-100 px-1.5 py-0.5 font-mono dark:bg-slate-700"
+						>password</code
+					>
 				</p>
 				<ul class="space-y-1.5 text-slate-700 dark:text-slate-200">
-					<li><button type="button" class="text-left hover:text-primary-600 hover:underline" onclick={() => { email = 'admin@casanerp.com'; password = 'password'; }}>admin@casanerp.com</button> — Admin</li>
-					<li><button type="button" class="text-left hover:text-primary-600 hover:underline" onclick={() => { email = 'user@casanerp.com'; password = 'password'; }}>user@casanerp.com</button> — Requester</li>
-					<li><button type="button" class="text-left hover:text-primary-600 hover:underline" onclick={() => { email = 'dept.head@casanerp.com'; password = 'password'; }}>dept.head@casanerp.com</button> — Dept Head</li>
-					<li><button type="button" class="text-left hover:text-primary-600 hover:underline" onclick={() => { email = 'finance@casanerp.com'; password = 'password'; }}>finance@casanerp.com</button> — Finance</li>
-					<li><button type="button" class="text-left hover:text-primary-600 hover:underline" onclick={() => { email = 'manager@casanerp.com'; password = 'password'; }}>manager@casanerp.com</button> — Manager</li>
-					<li><button type="button" class="text-left hover:text-primary-600 hover:underline" onclick={() => { email = 'director@casanerp.com'; password = 'password'; }}>director@casanerp.com</button> — Director</li>
+					<li>
+						<button
+							type="button"
+							class="text-left hover:text-primary-600 hover:underline"
+							onclick={() => {
+								email = 'admin@casanerp.com';
+								password = 'password';
+							}}>admin@casanerp.com</button
+						> — Admin
+					</li>
+					<li>
+						<button
+							type="button"
+							class="text-left hover:text-primary-600 hover:underline"
+							onclick={() => {
+								email = 'user@casanerp.com';
+								password = 'password';
+							}}>user@casanerp.com</button
+						> — Requester
+					</li>
+					<li>
+						<button
+							type="button"
+							class="text-left hover:text-primary-600 hover:underline"
+							onclick={() => {
+								email = 'dept.head@casanerp.com';
+								password = 'password';
+							}}>dept.head@casanerp.com</button
+						> — Dept Head
+					</li>
+					<li>
+						<button
+							type="button"
+							class="text-left hover:text-primary-600 hover:underline"
+							onclick={() => {
+								email = 'finance@casanerp.com';
+								password = 'password';
+							}}>finance@casanerp.com</button
+						> — Finance
+					</li>
+					<li>
+						<button
+							type="button"
+							class="text-left hover:text-primary-600 hover:underline"
+							onclick={() => {
+								email = 'manager@casanerp.com';
+								password = 'password';
+							}}>manager@casanerp.com</button
+						> — Manager
+					</li>
+					<li>
+						<button
+							type="button"
+							class="text-left hover:text-primary-600 hover:underline"
+							onclick={() => {
+								email = 'director@casanerp.com';
+								password = 'password';
+							}}>director@casanerp.com</button
+						> — Director
+					</li>
 				</ul>
-				<p class="mt-2 text-xs text-slate-500 dark:text-slate-400">Click an email to fill the form.</p>
+				<p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+					Click an email to fill the form.
+				</p>
 			</div>
 		</div>
 	</div>
