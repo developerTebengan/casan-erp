@@ -24,9 +24,9 @@
 	});
 
 	function statusLabel(status: Purchase['approvalStatus']) {
-		if (status === 'APPROVED') return 'Approved';
-		if (status === 'REJECTED') return 'Unapproved';
-		return 'Waiting';
+		if (status === 'APPROVED') return t('dash.status.approved', locale);
+		if (status === 'REJECTED') return t('dash.status.rejected', locale);
+		return t('dash.status.waiting', locale);
 	}
 
 	function statusVariant(status: Purchase['approvalStatus']) {
@@ -180,7 +180,7 @@
 			</a>
 			<a href="/purchasing" class="block transition hover:opacity-90">
 				<Card padding="md">
-					<p class="text-muted text-sm font-medium">PENDING</p>
+					<p class="text-muted text-sm font-medium">{t('dash.ops.pending', locale)}</p>
 					<p class="text-main mt-1 text-2xl font-bold">{data.stats.pendingPurchases}</p>
 				</Card>
 			</a>

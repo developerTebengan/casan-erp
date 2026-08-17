@@ -39,6 +39,17 @@ describe('i18n', () => {
 		}
 	});
 
+	it('translates dashboard status and ops labels', () => {
+		expect(t('dash.status.approved', 'id')).toBe('Disetujui');
+		expect(t('dash.status.approved', 'en')).toBe('Approved');
+		expect(t('dash.status.rejected', 'id')).toBe('Ditolak');
+		expect(t('dash.status.rejected', 'en')).toBe('Rejected');
+		expect(t('dash.status.waiting', 'id')).toBe('Menunggu');
+		expect(t('dash.status.waiting', 'en')).toBe('Waiting');
+		expect(t('dash.ops.pending', 'id')).toBe('Menunggu');
+		expect(t('dash.ops.pending', 'en')).toBe('Pending');
+	});
+
 	it('translates login and logout chrome', () => {
 		expect(t('page.login', 'id')).toBe('Masuk');
 		expect(t('page.login', 'en')).toBe('Login');
