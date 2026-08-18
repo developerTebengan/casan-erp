@@ -20,9 +20,9 @@ export const CHANGELOG: ChangelogEntry[] = [
 			{
 				type: 'added',
 				items: [
-					'Petty cash ledger date/type filter and CSV export',
-					'Buy with petty cash from the petty cash page',
-					'Amount paid defaults to catalog total'
+					'Petty cash ledger date/type filter and CSV export of the current view',
+					'Buy with petty cash button on Kas kecil (Admin; needs stock:write)',
+					'Amount paid on a petty-cash buy starts at catalog total; a custom amount is kept if you already typed one'
 				]
 			}
 		]
@@ -34,9 +34,9 @@ export const CHANGELOG: ChangelogEntry[] = [
 			{
 				type: 'added',
 				items: [
-					'Stock CSV export filtered by date and type',
-					'Edit a petty-cash top-up (amount and note)',
-					'Link products to a supplier and suppliers to a product'
+					'Stock movement CSV filtered by date and type (same filters as the list)',
+					'Edit a posted petty-cash top-up (amount and note); later spends cannot overdraw',
+					'Link products a supplier sells and suppliers of a product'
 				]
 			}
 		]
@@ -48,10 +48,10 @@ export const CHANGELOG: ChangelogEntry[] = [
 			{
 				type: 'added',
 				items: [
-					'Petty cash box with Admin/Finance top-up',
-					'Buy stock with petty cash (amount paid vs catalog)',
-					'Refund list when paid is less than catalog',
-					'Excel export for stock movement and refunds'
+					'Petty cash box with Admin/Finance top-up (one account, running balance)',
+					'Buy stock with petty cash (amount paid vs catalog; extra spend comes from the box)',
+					'Refund list when paid is less than catalog (does not change the balance)',
+					'CSV export for stock movement and the refund list'
 				]
 			}
 		]

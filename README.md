@@ -1,8 +1,8 @@
 # Casan ERP
 
-Procurement and inventory for PT CASAN Energi Indonesia: purchase requests, sequential approval, goods receipt, and stock.
+Procurement and inventory for PT CASAN Energi Indonesia: purchase requests, sequential approval, goods receipt, stock, and a petty cash box for small cash buys.
 
-Not a full finance or sales suite. Product definition: [docs/CASAN_ERP_prd_v1.md](docs/CASAN_ERP_prd_v1.md). Releases: [CHANGELOG.md](CHANGELOG.md).
+Not a full finance or sales suite. Product definition: [docs/CASAN_ERP_prd_v1.md](docs/CASAN_ERP_prd_v1.md) (through v0.6.2). Releases: [CHANGELOG.md](CHANGELOG.md).
 
 Stack: SvelteKit, TypeScript, Tailwind CSS, Prisma, PostgreSQL.
 
@@ -10,8 +10,10 @@ Stack: SvelteKit, TypeScript, Tailwind CSS, Prisma, PostgreSQL.
 
 - **Authentication**: Session login, role permissions, optional demo accounts
 - **Dashboard**: Role home (approval queue, my PRs, or ops counts)
-- **Inventory**: Products, low stock, last-in date; stock moves via receipt or ledger
+- **Inventory**: Products, low stock, last-in date; stock moves via receipt, petty cash, or ledger; suppliers per product
 - **Purchasing**: Purchase requests, three-level approval, per-item goods receipt
+- **Petty cash**: One cash box (Admin/Finance top-up; Admin buys stock); refund audit vs catalog; CSV
+- **Suppliers**: Directory plus products each supplier sells
 - **Settings**: Persisted company profile and application defaults; in-app changelog
 - **Responsive Design**: Mobile-first with collapsible sidebar drawer
 - **Dark/Light Mode**: Theme switching with persistence
@@ -103,6 +105,9 @@ The application uses the following Prisma models:
 - `Product`
 - `Purchase`
 - `PurchaseItem`
+- `StockTransaction`
+- `PettyCashAccount` / `PettyCashTransaction`
+- `ProductSupplier`
 
 ## License
 
