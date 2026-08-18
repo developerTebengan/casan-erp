@@ -1,14 +1,18 @@
 # Casan ERP
 
-A modern, full-stack ERP application built with SvelteKit, TypeScript, Tailwind CSS, Prisma, and SQLite.
+Procurement and inventory for PT CASAN Energi Indonesia: purchase requests, sequential approval, goods receipt, and stock.
+
+Not a full finance or sales suite. Product definition: [docs/CASAN_ERP_prd_v1.md](docs/CASAN_ERP_prd_v1.md). Releases: [CHANGELOG.md](CHANGELOG.md).
+
+Stack: SvelteKit, TypeScript, Tailwind CSS, Prisma, PostgreSQL.
 
 ## Features
 
-- **Authentication**: Session-based login with protected routes
-- **Dashboard**: Statistics cards, monthly purchase chart, recent activity
-- **Inventory**: Product management with CRUD operations and stock tracking
-- **Purchasing**: Purchase order management with items and suppliers
-- **Settings**: Company profile, user/role management, application settings
+- **Authentication**: Session login, role permissions, optional demo accounts
+- **Dashboard**: Role home (approval queue, my PRs, or ops counts)
+- **Inventory**: Products, low stock, last-in date; stock moves via receipt or ledger
+- **Purchasing**: Purchase requests, three-level approval, per-item goods receipt
+- **Settings**: Persisted company profile and application defaults; in-app changelog
 - **Responsive Design**: Mobile-first with collapsible sidebar drawer
 - **Dark/Light Mode**: Theme switching with persistence
 

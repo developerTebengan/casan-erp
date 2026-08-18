@@ -63,6 +63,30 @@ export function stockTransactionRepository() {
 		};
 	}
 
+	async function listForExport(filters: Omit<StockTransactionFilters, 'page' | 'limit'> = {}) {
+		const { search, productId, type } = filters;
+		const where: Record<string, unknown> = { deletedAt: null };
+		if (productId) where.productId = productId;
+		if (type) where.type = type;
+		if (search) {
+			where.OR = [
+				{ product: { name: { contains: search, mode: 'insensitive' } } },
+				{ product: { code: { contains: search, mode: 'insensitive' } } }
+			];
+		}
+		const data = await db.stockTransaction.findMany({
+			where,
+			take: 5000,
+			orderBy: { createdAt: 'desc' },
+			include: {
+				product: {
+					include: { category: { select: { id: true, name: true } } }
+				}
+			}
+		});
+		return data.map(mapStockTransaction);
+	}
+
 	async function findById(id: string): Promise<IStockTransaction | null> {
 		const tx = await db.stockTransaction.findFirst({
 			where: { id, deletedAt: null },
@@ -97,7 +121,7 @@ export function stockTransactionRepository() {
 		return mapStockTransaction(tx);
 	}
 
-	return { findAll, findById, create };
+	return { findAll, listForExport, findById, create };
 }
 
 function mapStockTransaction(tx: {

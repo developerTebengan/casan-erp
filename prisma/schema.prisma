@@ -107,8 +107,9 @@ model Product {
   deletedAt    DateTime?
 
   category          Category           @relation(fields: [categoryId], references: [id])
-  purchaseItems     PurchaseItem[]
-  stockTransactions StockTransaction[]
+  purchaseItems          PurchaseItem[]
+  stockTransactions      StockTransaction[]
+  pettyCashTransactions  PettyCashTransaction[]
 
   @@unique([code], where: raw("\"deletedAt\" IS NULL"))
   @@map("products")
@@ -134,6 +135,7 @@ enum StockTransactionSource {
   PURCHASE
   SALES
   ADJUSTMENT
+  PETTY_CASH
 
   @@map("stock_transaction_source")
 }
@@ -232,6 +234,45 @@ model PurchaseItem {
 
   @@index([supplierId])
   @@map("purchase_items")
+}
+
+enum PettyCashType {
+  TOP_UP
+  SPEND
+  REFUND
+
+  @@map("petty_cash_type")
+}
+
+model PettyCashAccount {
+  id        String   @id @default("default")
+  balance   Decimal  @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@map("petty_cash_accounts")
+}
+
+model PettyCashTransaction {
+  id                  String        @id @default(uuid())
+  type                PettyCashType
+  amount              Decimal
+  balanceAfter        Decimal
+  expectedAmount      Decimal?
+  paidAmount          Decimal?
+  catalogUnitPrice    Decimal?
+  actualUnitPrice     Decimal?
+  qty                 Int?
+  productId           String?
+  stockTransactionId  String?
+  note                String?
+  createdBy           String?
+  createdAt           DateTime      @default(now())
+
+  product Product? @relation(fields: [productId], references: [id])
+
+  @@index([type])
+  @@index([createdAt])
+  @@map("petty_cash_transactions")
 }
 
 model CompanySettings {

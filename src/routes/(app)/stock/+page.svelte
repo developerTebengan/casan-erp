@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { Plus } from '@lucide/svelte';
+	import { Plus, Download, Wallet } from '@lucide/svelte';
 	import {
 		Card,
 		Button,
@@ -15,6 +15,7 @@
 	} from '$lib/components/ui';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatDateTime, formatNumber } from '$lib/utils/format';
+	import { hasPermission } from '$lib/permissions';
 	import type { StockTransaction, Product, StockTransactionType } from '$lib/types';
 
 	let { data } = $props();
@@ -26,6 +27,16 @@
 	let productId = $state('');
 	let type = $state<StockTransactionType | ''>('');
 	let loading = $state(false);
+	const canWrite = $derived(hasPermission(data.user.role, 'stock:write'));
+
+	function exportHref() {
+		const params = new URLSearchParams();
+		if (search) params.set('search', search);
+		if (productId) params.set('productId', productId);
+		if (type) params.set('type', type);
+		const q = params.toString();
+		return `/api/stock/export${q ? `?${q}` : ''}`;
+	}
 
 	const typeOptions = [
 		{ value: '', label: 'All Types' },
@@ -54,6 +65,7 @@
 	}
 
 	function sourceCell(tx: StockTransaction) {
+		if (tx.source === 'PETTY_CASH') return 'Petty cash';
 		if (tx.source === 'PURCHASE' && tx.referenceId) {
 			return `<a href="/purchasing/${tx.referenceId}" class="text-primary-600 hover:underline" onclick="event.stopPropagation()">PR</a>`;
 		}
@@ -123,10 +135,22 @@
 			<h1 class="text-main text-2xl font-bold sm:text-3xl">Stock Movement</h1>
 			<p class="text-muted">Track stock in, stock out, and adjustments. Click a row for detail / reverse.</p>
 		</div>
-		<Button href="/stock/new" variant="primary">
-			<Plus class="h-4 w-4" />
-			New Transaction
-		</Button>
+		<div class="flex flex-wrap gap-3">
+			<Button href={exportHref()} variant="secondary">
+				<Download class="h-4 w-4" />
+				Export Excel
+			</Button>
+			{#if canWrite}
+				<Button href="/stock/petty-cash" variant="secondary">
+					<Wallet class="h-4 w-4" />
+					Buy with petty cash
+				</Button>
+				<Button href="/stock/new" variant="primary">
+					<Plus class="h-4 w-4" />
+					New Transaction
+				</Button>
+			{/if}
+		</div>
 	</div>
 
 	<Card padding="md">

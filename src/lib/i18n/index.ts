@@ -26,6 +26,7 @@ export function pageTitleKey(pathname: string): string {
 	if (pathname.startsWith('/purchasing')) return 'page.purchasing';
 	if (pathname.startsWith('/suppliers')) return 'page.suppliers';
 	if (pathname.startsWith('/users')) return 'page.users';
+	if (pathname.startsWith('/petty-cash')) return 'page.pettyCash';
 	if (pathname.startsWith('/settings')) return 'page.settings';
 	return 'page.dashboard';
 }

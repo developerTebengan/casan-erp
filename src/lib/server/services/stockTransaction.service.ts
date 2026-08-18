@@ -51,6 +51,10 @@ export function stockTransactionService() {
 		return repo.findAll(filters);
 	}
 
+	async function listForExport(filters: Parameters<typeof repo.listForExport>[0]) {
+		return repo.listForExport(filters);
+	}
+
 	async function getById(id: string) {
 		return repo.findById(id);
 	}
@@ -179,5 +183,5 @@ export function stockTransactionService() {
 		return { success: true, data: reverseTx };
 	}
 
-	return { list, getById, create, reverse, validate };
+	return { list, listForExport, getById, create, reverse, validate };
 }

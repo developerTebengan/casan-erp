@@ -14,7 +14,9 @@ export type AppPermission =
 	| 'suppliers:write'
 	| 'users:manage'
 	| 'settings:view'
-	| 'settings:write';
+	| 'settings:write'
+	| 'pettyCash:view'
+	| 'pettyCash:write';
 
 const ALL_ROLES: UserRole[] = [
 	'ADMIN',
@@ -40,7 +42,9 @@ const ROLE_PERMISSIONS: Record<UserRole, AppPermission[]> = {
 		'suppliers:write',
 		'users:manage',
 		'settings:view',
-		'settings:write'
+		'settings:write',
+		'pettyCash:view',
+		'pettyCash:write'
 	],
 	USER: [
 		'dashboard:view',
@@ -66,7 +70,9 @@ const ROLE_PERMISSIONS: Record<UserRole, AppPermission[]> = {
 		'approvals:view',
 		'suppliers:view',
 		'suppliers:write',
-		'settings:view'
+		'settings:view',
+		'pettyCash:view',
+		'pettyCash:write'
 	],
 	MANAGER: [
 		'dashboard:view',
@@ -99,6 +105,7 @@ export function canAccessPath(role: UserRole, pathname: string): boolean {
 	if (pathname.startsWith('/suppliers')) return hasPermission(role, 'suppliers:view');
 	if (pathname.startsWith('/users')) return hasPermission(role, 'users:manage');
 	if (pathname.startsWith('/settings')) return hasPermission(role, 'settings:view');
+	if (pathname.startsWith('/petty-cash')) return hasPermission(role, 'pettyCash:view');
 	return true;
 }
 
@@ -112,6 +119,7 @@ export const NAV_ITEMS: NavItem[] = [
 	{ labelKey: 'nav.dashboard', href: '/dashboard', permission: 'dashboard:view' },
 	{ labelKey: 'nav.inventory', href: '/inventory', permission: 'inventory:view' },
 	{ labelKey: 'nav.stock', href: '/stock', permission: 'stock:view' },
+	{ labelKey: 'nav.pettyCash', href: '/petty-cash', permission: 'pettyCash:view' },
 	{ labelKey: 'nav.approvals', href: '/approvals', permission: 'approvals:view' },
 	{ labelKey: 'nav.purchasing', href: '/purchasing', permission: 'purchasing:view' },
 	{ labelKey: 'nav.suppliers', href: '/suppliers', permission: 'suppliers:view' },

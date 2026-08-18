@@ -1,4 +1,4 @@
-export const APP_VERSION = '0.5.4';
+export const APP_VERSION = '0.6.0';
 export const APP_NAME = 'Casan ERP';
 
 export type ChangelogChangeType = 'added' | 'changed' | 'fixed' | 'removed';
@@ -13,6 +13,21 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+	{
+		version: '0.6.0',
+		date: '2026-08-18',
+		changes: [
+			{
+				type: 'added',
+				items: [
+					'Petty cash box with Admin/Finance top-up',
+					'Buy stock with petty cash (amount paid vs catalog)',
+					'Refund list when paid is less than catalog',
+					'Excel export for stock movement and refunds'
+				]
+			}
+		]
+	},
 	{
 		version: '0.5.4',
 		date: '2026-08-18',

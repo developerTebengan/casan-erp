@@ -93,7 +93,7 @@ export interface Purchase {
 
 export type StockTransactionType = 'IN' | 'OUT' | 'ADJUSTMENT';
 
-export type StockTransactionSource = 'MANUAL' | 'PURCHASE' | 'SALES' | 'ADJUSTMENT';
+export type StockTransactionSource = 'MANUAL' | 'PURCHASE' | 'SALES' | 'ADJUSTMENT' | 'PETTY_CASH';
 
 export interface StockTransaction {
 	id: string;
@@ -116,6 +116,37 @@ export interface StockTransactionFilters {
 	type?: StockTransactionType;
 	page?: number;
 	limit?: number;
+}
+
+export type PettyCashType = 'TOP_UP' | 'SPEND' | 'REFUND';
+
+export interface PettyCashTransaction {
+	id: string;
+	type: PettyCashType;
+	amount: number;
+	balanceAfter: number;
+	expectedAmount?: number | null;
+	paidAmount?: number | null;
+	catalogUnitPrice?: number | null;
+	actualUnitPrice?: number | null;
+	qty?: number | null;
+	productId?: string | null;
+	product?: { id: string; code: string; name: string } | null;
+	stockTransactionId?: string | null;
+	note?: string | null;
+	createdBy?: string | null;
+	createdAt: string;
+}
+
+export interface PettyCashSummary {
+	balance: number;
+	transactions: PettyCashTransaction[];
+	pagination: {
+		page: number;
+		limit: number;
+		total: number;
+		totalPages: number;
+	};
 }
 
 export type DashboardHome = 'queue' | 'mine' | 'ops';

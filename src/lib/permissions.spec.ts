@@ -20,7 +20,11 @@ describe('USER permissions', () => {
 		expect(hrefs).toContain('/inventory');
 	});
 
-	it('blocks /stock for USER', () => {
-		expect(canAccessPath('USER', '/stock')).toBe(false);
+	it('hides petty cash from USER', () => {
+		expect(hasPermission('USER', 'pettyCash:view')).toBe(false);
+		expect(canAccessPath('USER', '/petty-cash')).toBe(false);
+		expect(canAccessPath('FINANCE', '/petty-cash')).toBe(true);
+		expect(hasPermission('FINANCE', 'pettyCash:write')).toBe(true);
+		expect(hasPermission('ADMIN', 'pettyCash:write')).toBe(true);
 	});
 });

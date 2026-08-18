@@ -29,6 +29,7 @@ describe('i18n', () => {
 			'nav.dashboard',
 			'nav.inventory',
 			'nav.stock',
+			'nav.pettyCash',
 			'nav.approvals',
 			'nav.purchasing',
 			'nav.suppliers',
@@ -80,5 +81,7 @@ describe('pageTitleKey', () => {
 		expect(pageTitleKey('/suppliers')).toBe('page.suppliers');
 		expect(pageTitleKey('/users')).toBe('page.users');
 		expect(pageTitleKey('/settings')).toBe('page.settings');
+		expect(pageTitleKey('/petty-cash')).toBe('page.pettyCash');
+		expect(pageTitleKey('/petty-cash/refunds')).toBe('page.pettyCash');
 	});
 });
