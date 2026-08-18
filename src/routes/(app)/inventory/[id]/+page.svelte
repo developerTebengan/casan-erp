@@ -1,16 +1,52 @@
 <script lang="ts">
+	import { untrack } from 'svelte';
 	import { ArrowLeft, Edit, Package, AlertTriangle } from '@lucide/svelte';
 	import { Card, Breadcrumb, Badge, Button, DataTable } from '$lib/components/ui';
+	import CatalogLinks from '$lib/components/CatalogLinks.svelte';
+	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatDate, formatNumber, formatDateTime } from '$lib/utils/format';
 	import { hasPermission } from '$lib/permissions';
-	import type { StockTransaction } from '$lib/types';
+	import type { StockTransaction, Supplier } from '$lib/types';
 
 	let { data } = $props();
 	const product = $derived(data.product);
 	const history = $derived<StockTransaction[]>(data.history ?? []);
 	const canWrite = $derived(hasPermission(data.user.role, 'inventory:write'));
+	let linkedSuppliers = $state<Supplier[]>(untrack(() => data.product.suppliers ?? []));
 
 	const isLowStock = $derived(product.stock <= product.minimumStock);
+	const supplierOptions = $derived(
+		(data.suppliers ?? []).map((s: Supplier) => ({ id: s.id, label: s.name }))
+	);
+	const linkedItems = $derived(
+		linkedSuppliers.map((s) => ({ id: s.id, label: s.name }))
+	);
+
+	async function addSupplier(supplierId: string) {
+		const res = await fetch(`/api/products/${product.id}/suppliers`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ supplierId })
+		});
+		if (res.ok) {
+			linkedSuppliers = await res.json();
+			toastStore.success('Supplier added');
+		} else {
+			toastStore.error('Failed to add supplier');
+		}
+	}
+
+	async function removeSupplier(supplierId: string) {
+		const res = await fetch(`/api/products/${product.id}/suppliers/${supplierId}`, {
+			method: 'DELETE'
+		});
+		if (res.ok) {
+			linkedSuppliers = linkedSuppliers.filter((s) => s.id !== supplierId);
+			toastStore.success('Supplier removed');
+		} else {
+			toastStore.error('Failed to remove supplier');
+		}
+	}
 
 	const historyColumns = [
 		{ key: 'type', header: 'Type', cell: (tx: StockTransaction) => tx.type },
@@ -122,6 +158,19 @@
 			</div>
 		</Card>
 	</div>
+
+	<Card padding="lg">
+		<h3 class="text-main mb-4 text-lg font-semibold">Suppliers</h3>
+		<CatalogLinks
+			items={linkedItems}
+			options={supplierOptions}
+			canWrite={canWrite}
+			emptyLabel="No suppliers linked yet."
+			addLabel="Add supplier"
+			onadd={addSupplier}
+			onremove={removeSupplier}
+		/>
+	</Card>
 
 	<Card padding="lg">
 		<h3 class="text-main mb-4 text-lg font-semibold">Recent Stock History</h3>

@@ -17,6 +17,7 @@
 	} from '$lib/components/ui';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { hasPermission } from '$lib/permissions';
+	import CatalogLinks from '$lib/components/CatalogLinks.svelte';
 	import type { Supplier } from '$lib/types';
 
 	let { data } = $props();
@@ -36,6 +37,16 @@
 
 	let deleteId = $state<string | null>(null);
 	let deleting = $state(false);
+	let linkedProducts = $state<Array<{ id: string; code: string; name: string }>>([]);
+	const productOptions = $derived(
+		(data.products ?? []).map((p: { id: string; code: string; name: string }) => ({
+			id: p.id,
+			label: `${p.code} — ${p.name}`
+		}))
+	);
+	const linkedProductItems = $derived(
+		linkedProducts.map((p) => ({ id: p.id, label: `${p.code} — ${p.name}` }))
+	);
 
 	async function loadSuppliers(page = 1) {
 		loading = true;
@@ -88,8 +99,14 @@
 
 	function openCreate() {
 		selectedSupplier = { name: '', type: 'GENERAL', phone: '', address: '' };
+		linkedProducts = [];
 		modalErrors = {};
 		modalMode = 'create';
+	}
+
+	async function loadLinkedProducts(supplierId: string) {
+		const res = await fetch(`/api/suppliers/${supplierId}/products`);
+		linkedProducts = res.ok ? await res.json() : [];
 	}
 
 	function openEdit(supplier: Supplier) {
@@ -101,17 +118,48 @@
 		};
 		modalErrors = {};
 		modalMode = 'edit';
+		loadLinkedProducts(supplier.id);
 	}
 
 	function openDetail(supplier: Supplier) {
 		selectedSupplier = { ...supplier };
 		modalMode = 'detail';
+		loadLinkedProducts(supplier.id);
 	}
 
 	function closeModal() {
 		modalMode = null;
 		selectedSupplier = {};
 		modalErrors = {};
+		linkedProducts = [];
+	}
+
+	async function addProduct(productId: string) {
+		if (!selectedSupplier.id) return;
+		const res = await fetch(`/api/suppliers/${selectedSupplier.id}/products`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify({ productId })
+		});
+		if (res.ok) {
+			linkedProducts = await res.json();
+			toastStore.success('Product added');
+		} else {
+			toastStore.error('Failed to add product');
+		}
+	}
+
+	async function removeProduct(productId: string) {
+		if (!selectedSupplier.id) return;
+		const res = await fetch(`/api/suppliers/${selectedSupplier.id}/products/${productId}`, {
+			method: 'DELETE'
+		});
+		if (res.ok) {
+			linkedProducts = linkedProducts.filter((p) => p.id !== productId);
+			toastStore.success('Product removed');
+		} else {
+			toastStore.error('Failed to remove product');
+		}
 	}
 
 	async function handleSave() {
@@ -273,6 +321,7 @@
 <Modal
 	open={modalMode === 'create' || modalMode === 'edit'}
 	title={modalMode === 'create' ? 'Add Supplier' : 'Edit Supplier'}
+	size="lg"
 	onclose={closeModal}
 >
 	<div class="space-y-4">
@@ -300,6 +349,20 @@
 			bind:value={() => selectedSupplier.address ?? '', (v) => (selectedSupplier.address = v)}
 			error={modalErrors.address}
 		/>
+		{#if modalMode === 'edit' && selectedSupplier.id}
+			<div>
+				<p class="text-main mb-2 text-sm font-medium">Products</p>
+				<CatalogLinks
+					items={linkedProductItems}
+					options={productOptions}
+					canWrite={canWrite}
+					emptyLabel="No products linked yet."
+					addLabel="Add product"
+					onadd={addProduct}
+					onremove={removeProduct}
+				/>
+			</div>
+		{/if}
 	</div>
 
 	{#snippet footer()}
@@ -310,7 +373,7 @@
 	{/snippet}
 </Modal>
 
-<Modal open={modalMode === 'detail'} title="Supplier Details" onclose={closeModal}>
+<Modal open={modalMode === 'detail'} title="Supplier Details" size="lg" onclose={closeModal}>
 	<div class="space-y-4">
 		<div class="flex items-center gap-3">
 			<div class="rounded-lg bg-primary-100 p-2 text-primary-700 dark:bg-primary-900/30">
@@ -339,6 +402,18 @@
 				</div>
 			</div>
 		{/if}
+		<div>
+			<p class="text-main mb-2 text-sm font-medium">Products</p>
+			<CatalogLinks
+				items={linkedProductItems}
+				options={productOptions}
+				canWrite={canWrite}
+				emptyLabel="No products linked yet."
+				addLabel="Add product"
+				onadd={addProduct}
+				onremove={removeProduct}
+			/>
+		</div>
 	</div>
 
 	{#snippet footer()}

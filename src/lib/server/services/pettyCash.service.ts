@@ -1,5 +1,7 @@
 import { db } from '$lib/server/db';
 import { catalogTotal, varianceRefund } from '$lib/petty-cash/variance';
+import { applyTopUpEdit } from '$lib/petty-cash/ledger';
+import { dayRange } from '$lib/utils/dayRange';
 import type { PettyCashSummary, PettyCashTransaction, PettyCashType } from '$lib/types';
 
 const ACCOUNT_ID = 'default';
@@ -70,16 +72,8 @@ export function pettyCashService() {
 		const { type, page = 1, limit = 20, from, to } = filters;
 		const where: Record<string, unknown> = {};
 		if (type) where.type = type;
-		if (from || to) {
-			const createdAt: Record<string, Date> = {};
-			if (from) createdAt.gte = new Date(from);
-			if (to) {
-				const end = new Date(to);
-				end.setHours(23, 59, 59, 999);
-				createdAt.lte = end;
-			}
-			where.createdAt = createdAt;
-		}
+		const createdAt = dayRange(from, to);
+		if (createdAt) where.createdAt = createdAt;
 		const skip = (page - 1) * limit;
 		const [rows, total, balance] = await Promise.all([
 			db.pettyCashTransaction.findMany({
@@ -135,6 +129,82 @@ export function pettyCashService() {
 		});
 
 		return { success: true as const, data: mapTx(result) };
+	}
+
+	async function editTopUp(
+		id: string,
+		input: { amount?: unknown; note?: unknown }
+	) {
+		const noteProvided = 'note' in input;
+		const note = noteProvided ? (input.note ? String(input.note) : null) : undefined;
+
+		try {
+			const result = await db.$transaction(async (tx) => {
+				const existing = await tx.pettyCashTransaction.findUnique({ where: { id } });
+				if (!existing) throw new Error('NOT_FOUND');
+				if (existing.type !== 'TOP_UP') throw new Error('NOT_TOP_UP');
+
+				const nextAmount =
+					input.amount === undefined || input.amount === ''
+						? money(existing.amount)
+						: money(input.amount);
+
+				const all = await tx.pettyCashTransaction.findMany({
+					orderBy: [{ createdAt: 'asc' }, { id: 'asc' }]
+				});
+				const replay = applyTopUpEdit(
+					all.map((row) => ({
+						id: row.id,
+						type: row.type as PettyCashType,
+						amount: money(row.amount)
+					})),
+					id,
+					nextAmount
+				);
+				if (!replay.ok) throw new Error(`REPLAY:${replay.error}`);
+
+				for (const row of replay.rows) {
+					const data: { amount?: number; balanceAfter: number; note?: string | null } = {
+						balanceAfter: row.balanceAfter
+					};
+					if (row.id === id) {
+						data.amount = row.amount;
+						if (noteProvided) data.note = note ?? null;
+					}
+					await tx.pettyCashTransaction.update({
+						where: { id: row.id },
+						data
+					});
+				}
+
+				await tx.pettyCashAccount.update({
+					where: { id: ACCOUNT_ID },
+					data: { balance: replay.balance }
+				});
+
+				const updated = await tx.pettyCashTransaction.findUniqueOrThrow({
+					where: { id },
+					include: txInclude
+				});
+				return { row: updated, balance: replay.balance };
+			});
+
+			return { success: true as const, data: mapTx(result.row), balance: result.balance };
+		} catch (err) {
+			if (err instanceof Error && err.message === 'NOT_FOUND') {
+				return { success: false as const, errors: { form: ['Top-up not found'] } };
+			}
+			if (err instanceof Error && err.message === 'NOT_TOP_UP') {
+				return { success: false as const, errors: { form: ['Only a top-up can be edited'] } };
+			}
+			if (err instanceof Error && err.message.startsWith('REPLAY:')) {
+				return {
+					success: false as const,
+					errors: { amount: [err.message.slice('REPLAY:'.length)] }
+				};
+			}
+			throw err;
+		}
 	}
 
 	async function buyStock(
@@ -284,5 +354,5 @@ export function pettyCashService() {
 		}
 	}
 
-	return { getBalance, list, listForExport, topUp, buyStock };
+	return { getBalance, list, listForExport, topUp, editTopUp, buyStock };
 }

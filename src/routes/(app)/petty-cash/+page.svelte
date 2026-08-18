@@ -7,7 +7,8 @@
 		Input,
 		DataTable,
 		Pagination,
-		Breadcrumb
+		Breadcrumb,
+		Modal
 	} from '$lib/components/ui';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatCurrency, formatDateTime } from '$lib/utils/format';
@@ -22,6 +23,11 @@
 	let note = $state('');
 	let loading = $state(false);
 	let errors = $state<Record<string, string>>({});
+	let editing = $state<PettyCashTransaction | null>(null);
+	let editAmount = $state('');
+	let editNote = $state('');
+	let editLoading = $state(false);
+	let editErrors = $state<Record<string, string>>({});
 
 	function typeLabel(row: PettyCashTransaction) {
 		if (row.type === 'TOP_UP') return 'Top up';
@@ -29,7 +35,7 @@
 		return 'Refund';
 	}
 
-	const columns = [
+	const columns = $derived([
 		{
 			key: 'createdAt',
 			header: 'Date',
@@ -52,12 +58,65 @@
 			cell: (row: PettyCashTransaction) =>
 				row.product ? `${row.product.code} — ${row.product.name}` : '—'
 		},
-		{ key: 'note', header: 'Note', cell: (row: PettyCashTransaction) => row.note || '—' }
-	];
+		{ key: 'note', header: 'Note', cell: (row: PettyCashTransaction) => row.note || '—' },
+		{
+			key: 'actions',
+			header: '',
+			cell: (row: PettyCashTransaction) =>
+				canWrite && row.type === 'TOP_UP'
+					? `<button type="button" class="text-primary-600 hover:underline" data-edit="${row.id}">Edit</button>`
+					: '—'
+		}
+	]);
+
+	function openEdit(id: string) {
+		const row = summary.transactions.find((tx) => tx.id === id);
+		if (!row || row.type !== 'TOP_UP') return;
+		editing = row;
+		editAmount = String(row.amount);
+		editNote = row.note ?? '';
+		editErrors = {};
+	}
+
+	function handleLedgerClick(e: MouseEvent) {
+		const btn = (e.target as HTMLElement).closest('[data-edit]');
+		if (!btn) return;
+		e.preventDefault();
+		openEdit(btn.getAttribute('data-edit') ?? '');
+	}
 
 	async function loadPage(page = 1) {
 		const res = await fetch(`/api/petty-cash?page=${page}&limit=20`);
 		if (res.ok) summary = await res.json();
+	}
+
+	async function saveEdit() {
+		if (!editing) return;
+		editLoading = true;
+		editErrors = {};
+		try {
+			const res = await fetch(`/api/petty-cash/${editing.id}`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ amount: Number(editAmount), note: editNote || null })
+			});
+			if (res.ok) {
+				toastStore.success('Top-up updated');
+				editing = null;
+				await loadPage(summary.pagination.page);
+			} else {
+				const err = await res.json().catch(() => ({}));
+				editErrors = Object.fromEntries(
+					Object.entries(err.errors || {}).map(([k, v]) => [
+						k,
+						Array.isArray(v) ? v[0] : String(v)
+					])
+				);
+				toastStore.error(err.errors?.amount?.[0] || err.message || 'Failed to update top-up');
+			}
+		} finally {
+			editLoading = false;
+		}
 	}
 
 	async function handleTopUp(e: Event) {
@@ -98,7 +157,7 @@
 	<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 		<div>
 			<h1 class="text-main text-2xl font-bold sm:text-3xl">Petty cash</h1>
-			<p class="text-muted">Cash box for manual stock buys. Admin and Finance can top up.</p>
+			<p class="text-muted">Cash box for manual stock buys. Admin and Finance can top up or fix a top-up.</p>
 		</div>
 		<Button href="/petty-cash/refunds" variant="secondary">Refund list</Button>
 	</div>
@@ -134,8 +193,28 @@
 		</Card>
 	{/if}
 
-	<DataTable columns={columns} rows={summary.transactions} />
+	<div onclick={handleLedgerClick} role="presentation">
+		<DataTable columns={columns} rows={summary.transactions} />
+	</div>
 	{#if summary.pagination.total > 0}
 		<Pagination {...summary.pagination} onpagechange={loadPage} />
 	{/if}
 </div>
+
+<Modal open={!!editing} title="Edit top-up" onclose={() => (editing = null)}>
+	<div class="space-y-4">
+		<Input
+			label="Amount"
+			type="number"
+			min="1"
+			bind:value={editAmount}
+			required
+			error={editErrors.amount || editErrors.form}
+		/>
+		<Input label="Note" bind:value={editNote} placeholder="Source of cash..." />
+	</div>
+	{#snippet footer()}
+		<Button variant="secondary" onclick={() => (editing = null)}>Cancel</Button>
+		<Button variant="primary" loading={editLoading} onclick={saveEdit}>Save</Button>
+	{/snippet}
+</Modal>

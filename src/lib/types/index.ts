@@ -18,6 +18,7 @@ export interface Supplier {
 	type?: string | null;
 	phone?: string | null;
 	address?: string | null;
+	products?: { id: string; code: string; name: string }[];
 }
 
 export type ProductStatus = 'ACTIVE' | 'INACTIVE';
@@ -35,6 +36,7 @@ export interface Product {
 	imageUrl?: string | null;
 	status: ProductStatus;
 	lastInAt?: string | null;
+	suppliers?: Supplier[];
 	createdAt: string;
 	updatedAt: string;
 }
@@ -114,6 +116,8 @@ export interface StockTransactionFilters {
 	search?: string;
 	productId?: string;
 	type?: StockTransactionType;
+	from?: string;
+	to?: string;
 	page?: number;
 	limit?: number;
 }

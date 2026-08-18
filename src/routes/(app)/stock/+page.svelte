@@ -26,6 +26,8 @@
 	let search = $state('');
 	let productId = $state('');
 	let type = $state<StockTransactionType | ''>('');
+	let from = $state('');
+	let to = $state('');
 	let loading = $state(false);
 	const canWrite = $derived(hasPermission(data.user.role, 'stock:write'));
 
@@ -34,6 +36,8 @@
 		if (search) params.set('search', search);
 		if (productId) params.set('productId', productId);
 		if (type) params.set('type', type);
+		if (from) params.set('from', from);
+		if (to) params.set('to', to);
 		const q = params.toString();
 		return `/api/stock/export${q ? `?${q}` : ''}`;
 	}
@@ -79,6 +83,8 @@
 			if (search) params.push(`search=${encodeURIComponent(search)}`);
 			if (productId) params.push(`productId=${encodeURIComponent(productId)}`);
 			if (type) params.push(`type=${encodeURIComponent(type)}`);
+			if (from) params.push(`from=${encodeURIComponent(from)}`);
+			if (to) params.push(`to=${encodeURIComponent(to)}`);
 			params.push(`page=${page}`, 'limit=10');
 
 			const res = await fetch(`/api/stock?${params.join('&')}`);
@@ -138,7 +144,7 @@
 		<div class="flex flex-wrap gap-3">
 			<Button href={exportHref()} variant="secondary">
 				<Download class="h-4 w-4" />
-				Export Excel
+				Export CSV
 			</Button>
 			{#if canWrite}
 				<Button href="/stock/petty-cash" variant="secondary">
@@ -163,7 +169,9 @@
 					oninput={handleSearch}
 				/>
 			</div>
-			<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:w-[500px]">
+			<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:w-[720px] lg:grid-cols-4">
+				<Input label="From" type="date" bind:value={from} onchange={handleSearch} />
+				<Input label="To" type="date" bind:value={to} onchange={handleSearch} />
 				<Select
 					label="Product"
 					options={productOptions}

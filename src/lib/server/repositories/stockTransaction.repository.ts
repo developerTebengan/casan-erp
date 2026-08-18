@@ -1,4 +1,5 @@
 import { db } from '$lib/server/db';
+import { dayRange } from '$lib/utils/dayRange';
 import type {
 	StockTransaction as IStockTransaction,
 	StockTransactionType,
@@ -10,6 +11,8 @@ export interface StockTransactionFilters {
 	search?: string;
 	productId?: string;
 	type?: StockTransactionType;
+	from?: string;
+	to?: string;
 	page?: number;
 	limit?: number;
 }
@@ -28,11 +31,13 @@ export interface StockTransactionCreateInput {
 
 export function stockTransactionRepository() {
 	async function findAll(filters: StockTransactionFilters = {}) {
-		const { search, productId, type, page = 1, limit = 10 } = filters;
+		const { search, productId, type, from, to, page = 1, limit = 10 } = filters;
 
 		const where: Record<string, unknown> = { deletedAt: null };
 		if (productId) where.productId = productId;
 		if (type) where.type = type;
+		const createdAt = dayRange(from, to);
+		if (createdAt) where.createdAt = createdAt;
 		if (search) {
 			where.OR = [
 				{ product: { name: { contains: search, mode: 'insensitive' } } },
@@ -64,10 +69,12 @@ export function stockTransactionRepository() {
 	}
 
 	async function listForExport(filters: Omit<StockTransactionFilters, 'page' | 'limit'> = {}) {
-		const { search, productId, type } = filters;
+		const { search, productId, type, from, to } = filters;
 		const where: Record<string, unknown> = { deletedAt: null };
 		if (productId) where.productId = productId;
 		if (type) where.type = type;
+		const createdAt = dayRange(from, to);
+		if (createdAt) where.createdAt = createdAt;
 		if (search) {
 			where.OR = [
 				{ product: { name: { contains: search, mode: 'insensitive' } } },

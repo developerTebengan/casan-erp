@@ -9,6 +9,13 @@ In-app Settings → Changelog reads the same history from `src/lib/version.ts`. 
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-08-18
+
+### Added
+- Stock CSV export filtered by date and type
+- Edit a petty-cash top-up (amount and note)
+- Link products to a supplier and suppliers to a product
+
 ## [0.6.0] - 2026-08-18
 
 ### Added

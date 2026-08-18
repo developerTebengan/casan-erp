@@ -73,10 +73,24 @@ model Supplier {
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
   deletedAt DateTime?
-  purchases     Purchase[]
-  purchaseItems PurchaseItem[]
+  purchases         Purchase[]
+  purchaseItems     PurchaseItem[]
+  productSuppliers  ProductSupplier[]
 
   @@map("suppliers")
+}
+
+model ProductSupplier {
+  productId  String
+  supplierId String
+  createdAt  DateTime @default(now())
+
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@id([productId, supplierId])
+  @@index([supplierId])
+  @@map("product_suppliers")
 }
 
 model Category {
@@ -110,6 +124,7 @@ model Product {
   purchaseItems          PurchaseItem[]
   stockTransactions      StockTransaction[]
   pettyCashTransactions  PettyCashTransaction[]
+  productSuppliers       ProductSupplier[]
 
   @@unique([code], where: raw("\"deletedAt\" IS NULL"))
   @@map("products")

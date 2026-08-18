@@ -159,10 +159,15 @@
 	function updatePrice(index: number) {
 		const item = items[index];
 		const product = products.find((p) => p.id === item.productId);
+		const next = { ...item };
 		if (product && !item.price) {
-			items[index] = { ...item, price: product.price };
+			next.price = product.price;
 			priceInputs[index] = formatNumber(product.price);
 		}
+		if (!item.supplierId && product?.suppliers?.[0]) {
+			next.supplierId = product.suppliers[0].id;
+		}
+		items[index] = next;
 	}
 
 	function handlePriceInput(index: number, raw: string) {

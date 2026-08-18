@@ -12,11 +12,13 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		const search = url.searchParams.get('search') || undefined;
 		const productId = url.searchParams.get('productId') || undefined;
 		const type = (url.searchParams.get('type') as 'IN' | 'OUT' | 'ADJUSTMENT') || undefined;
+		const from = url.searchParams.get('from') || undefined;
+		const to = url.searchParams.get('to') || undefined;
 		const page = Math.max(1, Number(url.searchParams.get('page') ?? 1));
 		const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit') ?? 10)));
 
 		const service = stockTransactionService();
-		const result = await service.list({ search, productId, type, page, limit });
+		const result = await service.list({ search, productId, type, from, to, page, limit });
 		return json(result);
 	} catch (e) {
 		console.error(e);

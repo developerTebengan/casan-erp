@@ -13,7 +13,9 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		const search = url.searchParams.get('search') || undefined;
 		const productId = url.searchParams.get('productId') || undefined;
 		const type = (url.searchParams.get('type') as 'IN' | 'OUT' | 'ADJUSTMENT') || undefined;
-		const rows = await stockTransactionService().listForExport({ search, productId, type });
+		const from = url.searchParams.get('from') || undefined;
+		const to = url.searchParams.get('to') || undefined;
+		const rows = await stockTransactionService().listForExport({ search, productId, type, from, to });
 		return csvFileResponse(
 			'stock-movement.csv',
 			['Date', 'Product code', 'Product', 'Type', 'Source', 'Qty', 'Before', 'After', 'Note'],

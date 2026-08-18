@@ -79,7 +79,7 @@
 			variant="secondary"
 		>
 			<Download class="h-4 w-4" />
-			Export Excel
+			Export CSV
 		</Button>
 	</div>
 

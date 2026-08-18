@@ -41,6 +41,7 @@ export function productRepository() {
 	async function findAll(filters: ProductFilters = {}) {
 		const { search, categoryId, status, lowStock, page = 1, limit = 10, sort, order } = filters;
 		const skip = (page - 1) * limit;
+		const include = productInclude();
 
 		const baseWhere: Record<string, unknown> = { deletedAt: null };
 		if (search) {
@@ -56,7 +57,7 @@ export function productRepository() {
 			const all = await db.product.findMany({
 				where: baseWhere,
 				orderBy: productOrderBy(sort, order),
-				include: { category: { select: { id: true, name: true } } }
+				include
 			});
 			const filtered = all.filter((p) => p.stock <= p.minimumStock);
 			const total = filtered.length;
@@ -73,7 +74,7 @@ export function productRepository() {
 				skip,
 				take: limit,
 				orderBy: productOrderBy(sort, order),
-				include: { category: { select: { id: true, name: true } } }
+				include
 			}),
 			db.product.count({ where: baseWhere })
 		]);
@@ -87,7 +88,7 @@ export function productRepository() {
 	async function findById(id: string) {
 		const product = await db.product.findFirst({
 			where: { id, deletedAt: null },
-			include: { category: { select: { id: true, name: true } } }
+			include: productInclude()
 		});
 		return product ? (await attachLastIn([mapProduct(product)]))[0] : null;
 	}
@@ -119,6 +120,16 @@ export function productRepository() {
 	}
 
 	return { findAll, findById, findByCode, create, update, remove };
+}
+
+function productInclude() {
+	return {
+		category: { select: { id: true, name: true } },
+		productSuppliers: {
+			where: { supplier: { deletedAt: null } },
+			include: { supplier: true }
+		}
+	};
 }
 
 async function attachLastIn(products: Product[]): Promise<Product[]> {
@@ -155,6 +166,15 @@ function mapProduct(p: {
 	status: string;
 	createdAt: Date;
 	updatedAt: Date;
+	productSuppliers?: Array<{
+		supplier: {
+			id: string;
+			name: string;
+			type: string | null;
+			phone: string | null;
+			address: string | null;
+		};
+	}>;
 }): Product {
 	return {
 		id: p.id,
@@ -169,6 +189,15 @@ function mapProduct(p: {
 		imageUrl: p.imageUrl ?? null,
 		status: p.status as ProductStatus,
 		createdAt: p.createdAt.toISOString(),
-		updatedAt: p.updatedAt.toISOString()
+		updatedAt: p.updatedAt.toISOString(),
+		suppliers: p.productSuppliers
+			?.map((row) => ({
+				id: row.supplier.id,
+				name: row.supplier.name,
+				type: row.supplier.type ?? 'GENERAL',
+				phone: row.supplier.phone,
+				address: row.supplier.address
+			}))
+			.sort((a, b) => a.name.localeCompare(b.name))
 	};
 }
