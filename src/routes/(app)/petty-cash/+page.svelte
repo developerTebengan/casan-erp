@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { Wallet } from '@lucide/svelte';
+	import { Download, Wallet } from '@lucide/svelte';
 	import {
 		Card,
 		Button,
 		Input,
+		Select,
 		DataTable,
 		Pagination,
 		Breadcrumb,
@@ -13,14 +14,18 @@
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatCurrency, formatDateTime } from '$lib/utils/format';
 	import { hasPermission } from '$lib/permissions';
-	import type { PettyCashTransaction } from '$lib/types';
+	import type { PettyCashTransaction, PettyCashType } from '$lib/types';
 
 	let { data } = $props();
 	const canWrite = $derived(hasPermission(data.user.role, 'pettyCash:write'));
+	const canBuy = $derived(hasPermission(data.user.role, 'stock:write'));
 
 	let summary = $state(untrack(() => data.summary));
 	let amount = $state('');
 	let note = $state('');
+	let from = $state('');
+	let to = $state('');
+	let type = $state<PettyCashType | ''>('');
 	let loading = $state(false);
 	let errors = $state<Record<string, string>>({});
 	let editing = $state<PettyCashTransaction | null>(null);
@@ -29,10 +34,39 @@
 	let editLoading = $state(false);
 	let editErrors = $state<Record<string, string>>({});
 
+	const typeOptions = [
+		{ value: '', label: 'All types' },
+		{ value: 'TOP_UP', label: 'Top up' },
+		{ value: 'SPEND', label: 'Spend' },
+		{ value: 'REFUND', label: 'Refund' }
+	];
+
 	function typeLabel(row: PettyCashTransaction) {
 		if (row.type === 'TOP_UP') return 'Top up';
 		if (row.type === 'SPEND') return 'Spend';
 		return 'Refund';
+	}
+
+	function typeBadge(row: PettyCashTransaction) {
+		const variants: Record<PettyCashType, string> = {
+			TOP_UP: 'bg-success-100 text-success-700 dark:bg-success-900/30 dark:text-success-600',
+			SPEND: 'bg-danger-100 text-danger-700 dark:bg-danger-900/30 dark:text-danger-600',
+			REFUND: 'bg-warning-100 text-warning-700 dark:bg-warning-900/30 dark:text-warning-500'
+		};
+		return `<span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${variants[row.type]}">${typeLabel(row)}</span>`;
+	}
+
+	function query() {
+		const params = new URLSearchParams();
+		if (from) params.set('from', from);
+		if (to) params.set('to', to);
+		if (type) params.set('type', type);
+		return params.toString();
+	}
+
+	function exportHref() {
+		const extra = query();
+		return `/api/petty-cash?export=1${extra ? `&${extra}` : ''}`;
 	}
 
 	const columns = $derived([
@@ -41,7 +75,7 @@
 			header: 'Date',
 			cell: (row: PettyCashTransaction) => formatDateTime(row.createdAt)
 		},
-		{ key: 'type', header: 'Type', cell: typeLabel },
+		{ key: 'type', header: 'Type', cell: typeBadge },
 		{
 			key: 'amount',
 			header: 'Amount',
@@ -86,7 +120,10 @@
 	}
 
 	async function loadPage(page = 1) {
-		const res = await fetch(`/api/petty-cash?page=${page}&limit=20`);
+		const extra = query();
+		const res = await fetch(
+			`/api/petty-cash?page=${page}&limit=20${extra ? `&${extra}` : ''}`
+		);
 		if (res.ok) summary = await res.json();
 	}
 
@@ -157,9 +194,21 @@
 	<div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 		<div>
 			<h1 class="text-main text-2xl font-bold sm:text-3xl">Petty cash</h1>
-			<p class="text-muted">Cash box for manual stock buys. Admin and Finance can top up or fix a top-up.</p>
+			<p class="text-muted">Cash box for manual stock buys. Filter the ledger, export CSV, or top up.</p>
 		</div>
-		<Button href="/petty-cash/refunds" variant="secondary">Refund list</Button>
+		<div class="flex flex-wrap gap-3">
+			<Button href={exportHref()} variant="secondary">
+				<Download class="h-4 w-4" />
+				Export CSV
+			</Button>
+			<Button href="/petty-cash/refunds" variant="secondary">Refund list</Button>
+			{#if canBuy}
+				<Button href="/stock/petty-cash" variant="primary">
+					<Wallet class="h-4 w-4" />
+					Buy with petty cash
+				</Button>
+			{/if}
+		</div>
 	</div>
 
 	<Card padding="lg">
@@ -192,6 +241,20 @@
 			</form>
 		</Card>
 	{/if}
+
+	<Card padding="md">
+		<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">
+			<Input label="From" type="date" bind:value={from} onchange={() => loadPage(1)} />
+			<Input label="To" type="date" bind:value={to} onchange={() => loadPage(1)} />
+			<Select
+				label="Type"
+				options={typeOptions}
+				bind:value={type}
+				onchange={() => loadPage(1)}
+			/>
+			<Button variant="secondary" onclick={() => loadPage(1)}>Filter</Button>
+		</div>
+	</Card>
 
 	<div onclick={handleLedgerClick} role="presentation">
 		<DataTable columns={columns} rows={summary.transactions} />

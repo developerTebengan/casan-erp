@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { untrack } from 'svelte';
 	import { Card, Breadcrumb, Button, Input, Select } from '$lib/components/ui';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatCurrency } from '$lib/utils/format';
 	import { catalogTotal, extraSpend, varianceRefund } from '$lib/petty-cash/variance';
+	import { nextPaidDefault } from '$lib/petty-cash/paid-default';
 
 	let { data } = $props();
 
@@ -25,6 +27,14 @@
 	const paidN = $derived(Number(paidAmount) || 0);
 	const refund = $derived(varianceRefund(expected, paidN));
 	const extra = $derived(extraSpend(expected, paidN));
+	let previousExpected = $state(0);
+
+	$effect(() => {
+		const exp = expected;
+		const next = nextPaidDefault(untrack(() => paidAmount), exp, untrack(() => previousExpected));
+		if (next !== untrack(() => paidAmount)) paidAmount = next;
+		previousExpected = exp;
+	});
 
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
@@ -65,7 +75,7 @@
 <div class="space-y-6">
 	<Breadcrumb
 		items={[
-			{ label: 'Stock Movement', href: '/stock' },
+			{ label: 'Petty cash', href: '/petty-cash' },
 			{ label: 'Buy with petty cash' }
 		]}
 	/>
@@ -73,8 +83,8 @@
 	<div>
 		<h1 class="text-main text-2xl font-bold sm:text-3xl">Buy with petty cash</h1>
 		<p class="text-muted">
-			Balance {formatCurrency(data.balance)}. Amount paid leaves the box. If you pay less than
-			catalog, the unused amount is listed as a refund.
+			Balance {formatCurrency(data.balance)}. Amount paid starts at catalog total — change it if
+			the shop price is different. Unused catalog budget is listed as a refund.
 		</p>
 	</div>
 
@@ -96,6 +106,7 @@
 					bind:value={paidAmount}
 					required
 					error={errors.paidAmount}
+					placeholder={expected ? String(expected) : ''}
 				/>
 				<Input
 					label="Actual unit price (optional)"
@@ -129,7 +140,7 @@
 			</div>
 
 			<div class="flex gap-3">
-				<Button variant="secondary" href="/stock">Cancel</Button>
+				<Button variant="secondary" href="/petty-cash">Cancel</Button>
 				<Button type="submit" variant="primary" {loading}>Receive into stock</Button>
 			</div>
 		</form>

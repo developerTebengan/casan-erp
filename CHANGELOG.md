@@ -9,6 +9,13 @@ In-app Settings → Changelog reads the same history from `src/lib/version.ts`. 
 
 ## [Unreleased]
 
+## [0.6.2] - 2026-08-19
+
+### Added
+- Petty cash ledger date/type filter and CSV export
+- Buy with petty cash from the petty cash page
+- Amount paid defaults to catalog total
+
 ## [0.6.1] - 2026-08-18
 
 ### Added
