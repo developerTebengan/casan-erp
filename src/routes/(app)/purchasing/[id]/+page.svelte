@@ -15,6 +15,7 @@
 		PackagePlus
 	} from '@lucide/svelte';
 	import { Card, Breadcrumb, Badge, Button, DataTable, Modal, Textarea, Input, Select } from '$lib/components/ui';
+	import PurchaseSettlement from '$lib/components/PurchaseSettlement.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatCurrency, formatDate } from '$lib/utils/format';
 	import { supplierNames } from '$lib/purchasing/catalog';
@@ -71,7 +72,7 @@
 			key: 'status',
 			header: 'Receive status',
 			cell: (item: PurchaseItem) => {
-				const line = receipt?.lines?.find((l) => l.itemId === item.id);
+				const line = receipt?.lines?.find((l: { itemId: string }) => l.itemId === item.id);
 				return receiveStatusBadge(line?.status ?? 'WAITING');
 			}
 		},
@@ -283,7 +284,7 @@
 
 	async function handleReceive(itemId: string) {
 		if (!receipt) return;
-		const line = receipt.lines.find((row) => row.itemId === itemId);
+		const line = receipt.lines.find((row: { itemId: string; remainingQty: number }) => row.itemId === itemId);
 		if (!line || line.remainingQty <= 0) return;
 		const qty = Math.min(Number(receiveQtys[itemId] ?? 0), line.remainingQty);
 		if (qty <= 0) {
@@ -759,6 +760,13 @@
 					{/if}
 				</Card>
 			{/if}
+
+			<PurchaseSettlement
+				purchase={purchase}
+				settlements={data.settlements}
+				requests={data.refundRequests}
+				canReceive={canReceive}
+			/>
 		</div>
 	</div>
 </div>

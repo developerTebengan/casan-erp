@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { Input, Select, Button } from '$lib/components/ui';
+	import { Input, Select, Button, Combobox } from '$lib/components/ui';
 	import type { Product } from '$lib/types';
 
 	interface Props {
@@ -56,12 +56,13 @@
 
 <form onsubmit={handleSubmit} class="space-y-6">
 	<div class="grid gap-6 sm:grid-cols-2">
-		<Select
+		<Combobox
 			label="Product"
 			name="productId"
 			options={productOptions}
 			bind:value={productId}
 			required
+			placeholder="Search product"
 			error={errors.productId}
 		/>
 		<Select

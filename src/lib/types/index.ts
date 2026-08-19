@@ -122,7 +122,14 @@ export interface StockTransactionFilters {
 	limit?: number;
 }
 
-export type PettyCashType = 'TOP_UP' | 'SPEND' | 'REFUND';
+export type PettyCashType = 'TOP_UP' | 'SPEND' | 'REFUND' | 'TRANSFER';
+export type SourceOfFund =
+	| 'CASH'
+	| 'BANK_TRANSFER'
+	| 'DIRECTOR'
+	| 'REVENUE'
+	| 'OTHER'
+	| 'PR_LEFTOVER';
 
 export interface PettyCashTransaction {
 	id: string;
@@ -136,6 +143,9 @@ export interface PettyCashTransaction {
 	qty?: number | null;
 	productId?: string | null;
 	product?: { id: string; code: string; name: string } | null;
+	supplierId?: string | null;
+	supplier?: { id: string; name: string } | null;
+	sourceOfFund?: SourceOfFund | null;
 	stockTransactionId?: string | null;
 	note?: string | null;
 	createdBy?: string | null;

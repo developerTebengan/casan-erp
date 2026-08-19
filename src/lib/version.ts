@@ -1,4 +1,4 @@
-export const APP_VERSION = '0.6.2';
+export const APP_VERSION = '0.7.0';
 export const APP_NAME = 'Casan ERP';
 
 export type ChangelogChangeType = 'added' | 'changed' | 'fixed' | 'removed';
@@ -13,6 +13,25 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+	{
+		version: '0.7.0',
+		date: '2026-08-19',
+		changes: [
+			{
+				type: 'added',
+				items: [
+					'Searchable product and supplier fields on stock in, PR lines, and petty-cash buy',
+					'Per-supplier PR settlement (actual goods, tax, delivery, other) and leftover refund requests',
+					'Approve leftover to kas kecil or mark return to the office bank account',
+					'Source of fund on petty-cash top-up; ledger In/Out columns'
+				]
+			},
+			{
+				type: 'removed',
+				items: ['Header default supplier on the PR form — each line has its own supplier']
+			}
+		]
+	},
 	{
 		version: '0.6.2',
 		date: '2026-08-19',

@@ -2,6 +2,7 @@ export { default as Badge } from './Badge.svelte';
 export { default as Breadcrumb } from './Breadcrumb.svelte';
 export { default as Button } from './Button.svelte';
 export { default as Card } from './Card.svelte';
+export { default as Combobox } from './Combobox.svelte';
 export { default as ConfirmDialog } from './ConfirmDialog.svelte';
 export { default as DataTable } from './DataTable.svelte';
 export { default as Drawer } from './Drawer.svelte';

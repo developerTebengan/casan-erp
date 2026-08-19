@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { untrack } from 'svelte';
-	import { Card, Breadcrumb, Button, Input, Select } from '$lib/components/ui';
+	import { Card, Breadcrumb, Button, Input, Combobox } from '$lib/components/ui';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatCurrency } from '$lib/utils/format';
 	import { catalogTotal, extraSpend, varianceRefund } from '$lib/petty-cash/variance';
@@ -10,6 +10,7 @@
 	let { data } = $props();
 
 	let productId = $state(data.products[0]?.id ?? '');
+	let supplierId = $state('');
 	let qty = $state('1');
 	let paidAmount = $state('');
 	let actualUnitPrice = $state('');
@@ -19,7 +20,10 @@
 	let errors = $state<Record<string, string>>({});
 
 	const productOptions = $derived(
-		data.products.map((p) => ({ value: p.id, label: `${p.code} - ${p.name}` }))
+		data.products.map((p) => ({ value: p.id, label: `${p.code} — ${p.name}` }))
+	);
+	const supplierOptions = $derived(
+		data.suppliers.map((s) => ({ value: s.id, label: s.name }))
 	);
 	const selected = $derived(data.products.find((p) => p.id === productId));
 	const qtyN = $derived(Number(qty) || 0);
@@ -46,6 +50,7 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					productId,
+					supplierId,
 					qty: qtyN,
 					paidAmount: paidN,
 					actualUnitPrice: actualUnitPrice === '' ? null : Number(actualUnitPrice),
@@ -91,12 +96,31 @@
 	<Card padding="lg">
 		<form onsubmit={handleSubmit} class="space-y-6">
 			<div class="grid gap-6 sm:grid-cols-2">
-				<Select
-					label="Product"
-					options={productOptions}
-					bind:value={productId}
+				<div class="space-y-3">
+					<Combobox
+						label="Product"
+						options={productOptions}
+						bind:value={productId}
+						required
+						placeholder="Search product"
+						error={errors.productId}
+					/>
+					{#if selected}
+						<div class="bg-card-secondary rounded-lg p-4 text-sm">
+							<p class="text-muted">Product detail</p>
+							<p class="text-main font-semibold">{selected.code} — {selected.name}</p>
+							<p>Stock {selected.stock.toLocaleString('id-ID')} {selected.unit}</p>
+							<p>Catalog unit {formatCurrency(selected.price)}</p>
+						</div>
+					{/if}
+				</div>
+				<Combobox
+					label="Supplier"
+					options={supplierOptions}
+					bind:value={supplierId}
 					required
-					error={errors.productId}
+					placeholder="Search supplier"
+					error={errors.supplierId}
 				/>
 				<Input label="Qty" type="number" min="1" bind:value={qty} required error={errors.qty} />
 				<Input

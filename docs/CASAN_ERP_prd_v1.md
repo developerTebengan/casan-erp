@@ -5,9 +5,9 @@
 **Audience:** Internal Casan staff (pemohon, approver, admin gudang, keuangan)  
 **Platform:** SvelteKit web app (desktop + phone), Bahasa-first  
 **Owner:** PT CASAN Energi Indonesia  
-**Status:** Describes shipped product through **v0.6.2** (2026-08-19)  
+**Status:** Describes shipped product through **v0.7.0** (2026-08-19)  
 **Live:** https://casan-erp.vercel.app  
-**Document version:** 1.1  
+**Document version:** 1.2  
 **Date:** 19 August 2026
 
 This document is the product definition. Release history lives in [CHANGELOG.md](../CHANGELOG.md). Implementation notes for individual drops live under `docs/superpowers/specs/`.
@@ -98,12 +98,12 @@ Required on create:
 - Department (catalog): Operations, Warehouse, Purchasing, IT, Finance, HR, Sales
 - Purpose (catalog): Restock, Operations, Project, Maintenance, New equipment, Event, Office supplies, Other
 - Date required, decision deadline (latest date to approve or reject)
-- At least one line: product, qty, price; **supplier per line** (header supplier optional)
+- At least one line: product, qty, price; **supplier required per line**
 - Three named approvers (department head, finance, final)
 
 System assigns `PR-YYYY-NNN` on save (year from request date, sequence per year). Users do not type PR numbers.
 
-If the product has linked suppliers and the line supplier is empty, the form defaults to the **first linked supplier**. The dropdown still lists every supplier.
+If the product has linked suppliers, the line supplier defaults to the **first linked supplier** when the product is chosen. Product and supplier fields are searchable. Header default supplier does not exist.
 
 Priority exists on the data model (`LOW` … `URGENT`) but is **not** a list column or filter. Do not resurrect it on the list without a product reason.
 
@@ -157,6 +157,7 @@ One account (`petty_cash_accounts.id = default`) with a running `balance`. First
 | `TOP_UP` | Increases by amount | Admin, Finance | Cash put into the box |
 | `SPEND` | Decreases by **amount paid** | Admin (stock buy) | Fail if balance too low |
 | `REFUND` | **Does not change balance** | System | Paid **less** than catalog unit × qty |
+| `TRANSFER` | **Does not change balance** | Finance/Admin | Approved PR leftover returned to rekening kantor |
 
 Refunds are unused catalog budget: that money never left the box. The refund list is the audit of “we budgeted more than the shop charged.” Extra spend (shop more expensive than catalog) comes from petty cash; there is no refund row.
 

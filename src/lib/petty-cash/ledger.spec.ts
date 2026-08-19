@@ -5,6 +5,7 @@ const rows = [
 	{ id: 't1', type: 'TOP_UP' as const, amount: 1_000_000 },
 	{ id: 's1', type: 'SPEND' as const, amount: 800_000 },
 	{ id: 'r1', type: 'REFUND' as const, amount: 20_000 },
+	{ id: 'x1', type: 'TRANSFER' as const, amount: 50_000 },
 	{ id: 't2', type: 'TOP_UP' as const, amount: 100_000 }
 ];
 
@@ -17,6 +18,7 @@ describe('applyTopUpEdit', () => {
 		expect(result.rows.find((r) => r.id === 't1')?.balanceAfter).toBe(900_000);
 		expect(result.rows.find((r) => r.id === 's1')?.balanceAfter).toBe(100_000);
 		expect(result.rows.find((r) => r.id === 'r1')?.balanceAfter).toBe(100_000);
+		expect(result.rows.find((r) => r.id === 'x1')?.balanceAfter).toBe(100_000);
 		expect(result.rows.find((r) => r.id === 't2')?.balanceAfter).toBe(200_000);
 	});
 

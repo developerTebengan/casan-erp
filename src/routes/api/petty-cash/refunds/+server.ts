@@ -1,5 +1,5 @@
 import { json, error } from '@sveltejs/kit';
-import { pettyCashService } from '$lib/server/services/pettyCash.service';
+import { refundRequestService } from '$lib/server/services/refundRequest.service';
 import { hasPermission } from '$lib/permissions';
 import { csvFileResponse } from '$lib/utils/csv';
 import { formatDateTime } from '$lib/utils/format';
@@ -10,41 +10,58 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		if (!locals.user || !hasPermission(locals.user.role, 'pettyCash:view')) {
 			return json({ message: 'Forbidden' }, { status: 403 });
 		}
+		const tab = url.searchParams.get('tab') === 'posted' ? 'posted' : 'pending';
+		const kind = url.searchParams.get('kind') || undefined;
+		const destination = url.searchParams.get('destination') || undefined;
 		const from = url.searchParams.get('from') || undefined;
 		const to = url.searchParams.get('to') || undefined;
 		const exportCsv = url.searchParams.get('export') === '1';
 		const page = Math.max(1, Number(url.searchParams.get('page') ?? 1));
-		const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit') ?? 20)));
-		const service = pettyCashService();
+		const limit = exportCsv
+			? 5000
+			: Math.min(100, Math.max(1, Number(url.searchParams.get('limit') ?? 20)));
+		const result = await refundRequestService().listQueue({
+			tab,
+			kind,
+			destination,
+			from,
+			to,
+			page,
+			limit
+		});
 
 		if (exportCsv) {
-			const rows = await service.listForExport({ type: 'REFUND', from, to });
 			return csvFileResponse(
 				'petty-cash-refunds.csv',
 				[
 					'Date',
+					'Kind',
+					'Status',
+					'PR',
+					'Supplier',
 					'Product',
-					'Qty',
-					'Catalog unit',
-					'Catalog total',
-					'Paid',
-					'Refund',
+					'Amount',
+					'Destination',
 					'Note'
 				],
-				rows.map((row) => [
+				result.rows.map((row) => [
 					formatDateTime(row.createdAt),
-					row.product ? `${row.product.code} — ${row.product.name}` : '',
-					row.qty ?? '',
-					row.catalogUnitPrice ?? '',
-					row.expectedAmount ?? '',
-					row.paidAmount ?? '',
+					row.kind === 'PR_LEFTOVER' ? 'PR leftover' : 'Catalog variance',
+					row.status,
+					'prNumber' in row ? row.prNumber : '',
+					'supplierName' in row ? row.supplierName : '',
+					'product' in row && row.product ? `${row.product.code} — ${row.product.name}` : '',
 					row.amount,
-					row.note ?? ''
+					'destination' in row && row.destination
+						? row.destination === 'KAS_KECIL'
+							? 'Kas kecil'
+							: 'Bank'
+						: '',
+					'note' in row ? (row.note ?? '') : (row.rejectReason ?? '')
 				])
 			);
 		}
 
-		const result = await service.list({ type: 'REFUND', page, limit, from, to });
 		return json(result);
 	} catch (e) {
 		console.error(e);

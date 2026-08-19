@@ -2,7 +2,8 @@ import { db } from '$lib/server/db';
 import { catalogTotal, varianceRefund } from '$lib/petty-cash/variance';
 import { applyTopUpEdit } from '$lib/petty-cash/ledger';
 import { dayRange } from '$lib/utils/dayRange';
-import type { PettyCashSummary, PettyCashTransaction, PettyCashType } from '$lib/types';
+import type { PettyCashSummary, PettyCashTransaction, PettyCashType, SourceOfFund } from '$lib/types';
+import { isManualSourceOfFund } from '$lib/petty-cash/sourceOfFund';
 
 const ACCOUNT_ID = 'default';
 
@@ -22,6 +23,9 @@ function mapTx(row: {
 	qty: number | null;
 	productId: string | null;
 	product?: { id: string; code: string; name: string } | null;
+	supplierId?: string | null;
+	supplier?: { id: string; name: string } | null;
+	sourceOfFund?: string | null;
 	stockTransactionId: string | null;
 	note: string | null;
 	createdBy: string | null;
@@ -39,6 +43,9 @@ function mapTx(row: {
 		qty: row.qty,
 		productId: row.productId,
 		product: row.product ?? null,
+		supplierId: row.supplierId ?? null,
+		supplier: row.supplier ?? null,
+		sourceOfFund: (row.sourceOfFund as PettyCashTransaction['sourceOfFund']) ?? null,
 		stockTransactionId: row.stockTransactionId,
 		note: row.note,
 		createdBy: row.createdBy,
@@ -46,7 +53,10 @@ function mapTx(row: {
 	};
 }
 
-const txInclude = { product: { select: { id: true, code: true, name: true } } };
+const txInclude = {
+	product: { select: { id: true, code: true, name: true } },
+	supplier: { select: { id: true, name: true } }
+};
 
 export function pettyCashService() {
 	async function ensureAccount() {
@@ -64,14 +74,16 @@ export function pettyCashService() {
 
 	async function list(filters: {
 		type?: PettyCashType;
+		sourceOfFund?: SourceOfFund;
 		page?: number;
 		limit?: number;
 		from?: string;
 		to?: string;
 	} = {}): Promise<PettyCashSummary> {
-		const { type, page = 1, limit = 20, from, to } = filters;
+		const { type, sourceOfFund, page = 1, limit = 20, from, to } = filters;
 		const where: Record<string, unknown> = {};
 		if (type) where.type = type;
+		if (sourceOfFund) where.sourceOfFund = sourceOfFund;
 		const createdAt = dayRange(from, to);
 		if (createdAt) where.createdAt = createdAt;
 		const skip = (page - 1) * limit;
@@ -93,15 +105,23 @@ export function pettyCashService() {
 		};
 	}
 
-	async function listForExport(filters: { type?: PettyCashType; from?: string; to?: string } = {}) {
+	async function listForExport(
+		filters: { type?: PettyCashType; sourceOfFund?: SourceOfFund; from?: string; to?: string } = {}
+	) {
 		const result = await list({ ...filters, page: 1, limit: 5000 });
 		return result.transactions;
 	}
 
-	async function topUp(input: { amount: unknown; note?: unknown }, createdBy?: string | null) {
+	async function topUp(
+		input: { amount?: unknown; note?: unknown; sourceOfFund?: unknown },
+		createdBy?: string | null
+	) {
 		const amount = money(input.amount);
 		if (amount <= 0) {
 			return { success: false as const, errors: { amount: ['Amount must be greater than 0'] } };
+		}
+		if (!isManualSourceOfFund(input.sourceOfFund)) {
+			return { success: false as const, errors: { sourceOfFund: ['Source of fund is required'] } };
 		}
 		const note = input.note ? String(input.note) : null;
 
@@ -121,6 +141,7 @@ export function pettyCashService() {
 					type: 'TOP_UP',
 					amount,
 					balanceAfter: next,
+					sourceOfFund: input.sourceOfFund as SourceOfFund,
 					note,
 					createdBy
 				},
@@ -133,10 +154,14 @@ export function pettyCashService() {
 
 	async function editTopUp(
 		id: string,
-		input: { amount?: unknown; note?: unknown }
+		input: { amount?: unknown; note?: unknown; sourceOfFund?: unknown }
 	) {
 		const noteProvided = 'note' in input;
 		const note = noteProvided ? (input.note ? String(input.note) : null) : undefined;
+		const sourceProvided = 'sourceOfFund' in input;
+		if (sourceProvided && input.sourceOfFund != null && input.sourceOfFund !== '' && !isManualSourceOfFund(input.sourceOfFund) && input.sourceOfFund !== 'PR_LEFTOVER') {
+			return { success: false as const, errors: { sourceOfFund: ['Invalid source of fund'] } };
+		}
 
 		try {
 			const result = await db.$transaction(async (tx) => {
@@ -164,12 +189,22 @@ export function pettyCashService() {
 				if (!replay.ok) throw new Error(`REPLAY:${replay.error}`);
 
 				for (const row of replay.rows) {
-					const data: { amount?: number; balanceAfter: number; note?: string | null } = {
+					const data: {
+						amount?: number;
+						balanceAfter: number;
+						note?: string | null;
+						sourceOfFund?: SourceOfFund | null;
+					} = {
 						balanceAfter: row.balanceAfter
 					};
 					if (row.id === id) {
 						data.amount = row.amount;
 						if (noteProvided) data.note = note ?? null;
+						if (sourceProvided) {
+							data.sourceOfFund = input.sourceOfFund
+								? (String(input.sourceOfFund) as SourceOfFund)
+								: null;
+						}
 					}
 					await tx.pettyCashTransaction.update({
 						where: { id: row.id },
@@ -210,6 +245,7 @@ export function pettyCashService() {
 	async function buyStock(
 		input: {
 			productId?: unknown;
+			supplierId?: unknown;
 			qty?: unknown;
 			paidAmount?: unknown;
 			actualUnitPrice?: unknown;
@@ -219,6 +255,7 @@ export function pettyCashService() {
 		createdBy?: string | null
 	) {
 		const productId = String(input.productId ?? '');
+		const supplierId = String(input.supplierId ?? '');
 		const qty = Number(input.qty);
 		const paidAmount = money(input.paidAmount);
 		const actualUnitPrice =
@@ -230,6 +267,9 @@ export function pettyCashService() {
 
 		if (!productId) {
 			return { success: false as const, errors: { productId: ['Product is required'] } };
+		}
+		if (!supplierId) {
+			return { success: false as const, errors: { supplierId: ['Supplier is required'] } };
 		}
 		if (!Number.isFinite(qty) || qty <= 0) {
 			return { success: false as const, errors: { qty: ['Quantity must be greater than 0'] } };
@@ -244,6 +284,10 @@ export function pettyCashService() {
 					where: { id: productId, deletedAt: null }
 				});
 				if (!product) throw new Error('PRODUCT_NOT_FOUND');
+				const supplier = await tx.supplier.findFirst({
+					where: { id: supplierId, deletedAt: null }
+				});
+				if (!supplier) throw new Error('SUPPLIER_NOT_FOUND');
 
 				const catalogUnitPrice = money(product.price);
 				const expectedAmount = catalogTotal(catalogUnitPrice, qty);
@@ -300,6 +344,7 @@ export function pettyCashService() {
 						actualUnitPrice: unitPrice,
 						qty,
 						productId: product.id,
+						supplierId: supplier.id,
 						stockTransactionId: stockTx.id,
 						note,
 						createdBy
@@ -320,6 +365,7 @@ export function pettyCashService() {
 							actualUnitPrice: unitPrice,
 							qty,
 							productId: product.id,
+							supplierId: supplier.id,
 							stockTransactionId: stockTx.id,
 							note: note || `Unused vs catalog (${expectedAmount} − ${paidAmount})`,
 							createdBy
@@ -343,6 +389,9 @@ export function pettyCashService() {
 		} catch (err) {
 			if (err instanceof Error && err.message === 'PRODUCT_NOT_FOUND') {
 				return { success: false as const, errors: { productId: ['Product not found'] } };
+			}
+			if (err instanceof Error && err.message === 'SUPPLIER_NOT_FOUND') {
+				return { success: false as const, errors: { supplierId: ['Supplier not found'] } };
 			}
 			if (err instanceof Error && err.message === 'INSUFFICIENT_PETTY_CASH') {
 				return {

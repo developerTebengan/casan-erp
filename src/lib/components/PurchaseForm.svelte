@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Button, Card, Input, Select, Textarea } from '$lib/components/ui';
+	import { Button, Card, Input, Select, Textarea, Combobox } from '$lib/components/ui';
 	import { DEPARTMENTS, PURPOSES } from '$lib/purchasing/catalog';
 	import type { Product, Purchase, PurchasePriority, Supplier, User } from '$lib/types';
 	import { formatCurrency, formatNumber } from '$lib/utils/format';
@@ -29,7 +29,6 @@
 	}: Props = $props();
 
 	let prNumber = $state(untrack(() => purchase?.prNumber ?? ''));
-	let supplierId = $state(untrack(() => purchase?.supplierId ?? ''));
 	let dateOfRequest = $state(
 		untrack(() =>
 			formatDateForInput(purchase?.dateOfRequest ? new Date(purchase.dateOfRequest) : new Date())
@@ -67,7 +66,7 @@
 					qty: item.qty,
 					price: item.price,
 					notes: item.notes ?? '',
-					supplierId: item.supplierId ?? purchase?.supplierId ?? ''
+					supplierId: item.supplierId ?? ''
 				})) ?? [{ productId: '', qty: 1, price: 0, notes: '', supplierId: '' }]
 		)
 	);
@@ -75,14 +74,9 @@
 		untrack(() => items.map((item) => formatNumber(Number(item.price) || 0)))
 	);
 
-	const supplierOptions = $derived([
-		{ value: '', label: 'No Supplier' },
-		...suppliers.map((s) => ({ value: s.id, label: s.name }))
-	]);
-	const lineSupplierOptions = $derived([
-		{ value: '', label: 'Use default supplier' },
-		...suppliers.map((s) => ({ value: s.id, label: s.name }))
-	]);
+	const lineSupplierOptions = $derived(
+		suppliers.map((s) => ({ value: s.id, label: s.name }))
+	);
 	const productOptions = $derived(
 		products.map((p) => ({ value: p.id, label: `${p.code} - ${p.name}` }))
 	);
@@ -147,7 +141,7 @@
 	}
 
 	function addItem() {
-		items = [...items, { productId: '', qty: 1, price: 0, notes: '', supplierId }];
+		items = [...items, { productId: '', qty: 1, price: 0, notes: '', supplierId: '' }];
 		priceInputs = [...priceInputs, '0'];
 	}
 
@@ -195,7 +189,7 @@
 		}
 		dateError = '';
 		const data = {
-			supplierId: supplierId || null,
+			supplierId: null,
 			dateOfRequest,
 			priority,
 			dateRequired,
@@ -213,7 +207,7 @@
 					qty: Number(item.qty),
 					price: Number(item.price),
 					notes: item.notes || undefined,
-					supplierId: item.supplierId || supplierId || null
+					supplierId: item.supplierId || null
 				}))
 		};
 		onsubmit(data);
@@ -229,24 +223,6 @@
 			disabled
 			error={errors.prNumber}
 		/>
-		<div class="space-y-1">
-			<Select
-				label="Default supplier"
-				name="supplierId"
-				options={supplierOptions}
-				bind:value={supplierId}
-				error={errors.supplierId}
-			/>
-			<p class="text-muted text-xs">Each line can use a different supplier.</p>
-			<a
-				href="/suppliers"
-				target="_blank"
-				class="inline-flex items-center gap-1 text-xs text-primary-600 hover:underline"
-			>
-				Manage Suppliers
-				<ExternalLink class="h-3 w-3" />
-			</a>
-		</div>
 		<Input
 			label="Date of Request"
 			name="dateOfRequest"
@@ -383,16 +359,23 @@
 					class="border-theme grid gap-3 rounded-lg border bg-slate-50 p-4 sm:grid-cols-12 sm:items-end dark:bg-slate-800/30"
 				>
 					<div class="sm:col-span-3">
-						<Select
+						<Combobox
 							label="Product"
 							options={productOptions}
 							bind:value={item.productId}
 							onchange={() => updatePrice(index)}
 							required
+							placeholder="Search product"
 						/>
 					</div>
 					<div class="sm:col-span-3">
-						<Select label="Supplier" options={lineSupplierOptions} bind:value={item.supplierId} />
+						<Combobox
+							label="Supplier"
+							options={lineSupplierOptions}
+							bind:value={item.supplierId}
+							required
+							placeholder="Search supplier"
+						/>
 					</div>
 					<div class="sm:col-span-2">
 						<Input label="Qty" type="number" min="1" bind:value={item.qty} required />

@@ -76,6 +76,9 @@ model Supplier {
   purchases         Purchase[]
   purchaseItems     PurchaseItem[]
   productSuppliers  ProductSupplier[]
+  settlements       PurchaseSupplierSettlement[]
+  refundRequests    RefundRequest[]
+  pettyCashBuys     PettyCashTransaction[]
 
   @@map("suppliers")
 }
@@ -207,6 +210,8 @@ model Purchase {
   financeApprover User?          @relation("FinanceApprover", fields: [financeApproverId], references: [id])
   finalApprover   User?          @relation("FinalApprover", fields: [finalApproverId], references: [id])
   items           PurchaseItem[]
+  settlements     PurchaseSupplierSettlement[]
+  refundRequests  RefundRequest[]
 
   departmentHeadId  String?
   financeApproverId String?
@@ -255,8 +260,35 @@ enum PettyCashType {
   TOP_UP
   SPEND
   REFUND
+  TRANSFER
 
   @@map("petty_cash_type")
+}
+
+enum SourceOfFund {
+  CASH
+  BANK_TRANSFER
+  DIRECTOR
+  REVENUE
+  OTHER
+  PR_LEFTOVER
+
+  @@map("source_of_fund")
+}
+
+enum RefundRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+
+  @@map("refund_request_status")
+}
+
+enum RefundDestination {
+  KAS_KECIL
+  BANK
+
+  @@map("refund_destination")
 }
 
 model PettyCashAccount {
@@ -268,7 +300,7 @@ model PettyCashAccount {
 }
 
 model PettyCashTransaction {
-  id                  String        @id @default(uuid())
+  id                  String         @id @default(uuid())
   type                PettyCashType
   amount              Decimal
   balanceAfter        Decimal
@@ -278,16 +310,69 @@ model PettyCashTransaction {
   actualUnitPrice     Decimal?
   qty                 Int?
   productId           String?
+  supplierId          String?
   stockTransactionId  String?
+  sourceOfFund        SourceOfFund?
   note                String?
   createdBy           String?
-  createdAt           DateTime      @default(now())
+  createdAt           DateTime       @default(now())
 
-  product Product? @relation(fields: [productId], references: [id])
+  product  Product?  @relation(fields: [productId], references: [id])
+  supplier Supplier? @relation(fields: [supplierId], references: [id])
+  refundRequest RefundRequest?
 
   @@index([type])
   @@index([createdAt])
   @@map("petty_cash_transactions")
+}
+
+model PurchaseSupplierSettlement {
+  id           String   @id @default(uuid())
+  purchaseId   String
+  supplierId   String?
+  supplierKey  String
+  actualGoods  Decimal
+  tax          Decimal  @default(0)
+  delivery     Decimal  @default(0)
+  other        Decimal  @default(0)
+  updatedAt    DateTime @updatedAt
+
+  purchase Purchase  @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  supplier Supplier? @relation(fields: [supplierId], references: [id])
+
+  @@unique([purchaseId, supplierKey])
+  @@map("purchase_supplier_settlements")
+}
+
+model RefundRequest {
+  id                      String               @id @default(uuid())
+  status                  RefundRequestStatus  @default(PENDING)
+  destination             RefundDestination
+  amount                  Decimal
+  purchaseId              String
+  supplierId              String?
+  supplierKey             String
+  pettyCashTransactionId  String?              @unique
+  prTotal                 Decimal
+  actualGoods             Decimal
+  tax                     Decimal              @default(0)
+  delivery                Decimal              @default(0)
+  other                   Decimal              @default(0)
+  bill                    Decimal
+  rejectReason            String?
+  createdBy               String?
+  decidedBy               String?
+  createdAt               DateTime             @default(now())
+  decidedAt               DateTime?
+
+  purchase             Purchase              @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  supplier             Supplier?             @relation(fields: [supplierId], references: [id])
+  pettyCashTransaction PettyCashTransaction? @relation(fields: [pettyCashTransactionId], references: [id])
+
+  @@unique([purchaseId, supplierKey], where: raw("status IN ('PENDING','APPROVED')"))
+  @@index([status])
+  @@index([createdAt])
+  @@map("refund_requests")
 }
 
 model CompanySettings {

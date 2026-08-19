@@ -18,7 +18,31 @@ Exports are UTF-8 CSV with a BOM so Microsoft Excel opens them. Buttons say **Ex
 
 ## [Unreleased]
 
-## [0.6.2] - 2026-08-19
+## [0.7.0] - 2026-08-19
+
+Searchable catalogs, honest actuals per supplier after a buy, and leftover PR money that Finance actually sees.
+
+**Who:** Admin settles and submits leftover. Finance/Admin approve into kas kecil or bank return. Everyone creating PRs picks a supplier per line.
+
+**How to use**
+
+1. Type to find a product or supplier (stock in, PR items, petty-cash buy).
+2. On an approved PR, fill actual goods + extras per supplier. If leftover, submit a refund request.
+3. Open **Kas kecil → Refunds → Pending** to approve (kas kecil top-up or bank transfer row).
+4. Top up kas kecil with a source of fund. The ledger shows In / Out / balance.
+
+### Added
+
+- Searchable product and supplier fields on stock in, PR lines, and petty-cash buy
+- Per-supplier PR settlement (actual goods, tax, delivery, other) and leftover refund requests
+- Approve leftover to kas kecil or mark return to the office bank account
+- Source of fund on petty-cash top-up; ledger In/Out columns
+
+### Removed
+
+- Header default supplier on the PR form — each line has its own supplier
+
+---
 
 Kas kecil is the daily cash desk, not a side page you only visit to top up.
 

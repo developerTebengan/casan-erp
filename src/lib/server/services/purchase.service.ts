@@ -2,6 +2,7 @@ import { purchaseRepository } from '$lib/server/repositories/purchase.repository
 import { userRepository } from '$lib/server/repositories/user.repository';
 import { notificationService } from '$lib/server/services/notification.service';
 import { isDepartment, isPurpose } from '$lib/purchasing/catalog';
+import { parsePurchaseItems } from '$lib/purchasing/items';
 import { validateRequired, type ValidationResult } from '$lib/utils/validation';
 import type { PurchaseCreateInput } from '$lib/server/repositories/purchase.repository';
 import type { PurchasePriority, ApprovalStatus, UserRole } from '$lib/types';
@@ -53,52 +54,6 @@ function computeApprovalStatus(
 
 export function purchaseService() {
 	const repo = purchaseRepository();
-
-	function validateItems(
-		items: unknown
-	):
-		| {
-				valid: true;
-				data: {
-					productId: string;
-					qty: number;
-					price: number;
-					notes?: string;
-					supplierId?: string | null;
-				}[];
-		  }
-		| { valid: false; errors: string } {
-		if (!Array.isArray(items) || items.length === 0) {
-			return { valid: false, errors: 'At least one item is required' };
-		}
-		const parsed: {
-			productId: string;
-			qty: number;
-			price: number;
-			notes?: string;
-			supplierId?: string | null;
-		}[] = [];
-		for (const item of items) {
-			const row = item as Record<string, unknown>;
-			if (!row.productId || !row.qty || row.price === undefined || row.price === null) {
-				return { valid: false, errors: 'Each item must have product, quantity, and price' };
-			}
-			const qty = Number(row.qty);
-			const price = Number(row.price);
-			if (Number.isNaN(qty) || qty <= 0)
-				return { valid: false, errors: 'Quantity must be a positive number' };
-			if (Number.isNaN(price) || price < 0)
-				return { valid: false, errors: 'Price must be a non-negative number' };
-			parsed.push({
-				productId: String(row.productId),
-				qty,
-				price,
-				notes: row.notes ? String(row.notes) : undefined,
-				supplierId: row.supplierId ? String(row.supplierId) : null
-			});
-		}
-		return { valid: true, data: parsed };
-	}
 
 	function validate(
 		input: Record<string, unknown>,
@@ -159,7 +114,7 @@ export function purchaseService() {
 			}
 		}
 
-		const itemsValidation = validateItems(input.items);
+		const itemsValidation = parsePurchaseItems(input.items);
 		if (!itemsValidation.valid) {
 			errors.items = [itemsValidation.errors];
 		}

@@ -1,7 +1,7 @@
 {
 	"name": "casan-erp",
 	"private": true,
-	"version": "0.6.2",
+	"version": "0.7.0",
 	"prisma": {
 		"seed": "tsx prisma/seed.ts"
 	},

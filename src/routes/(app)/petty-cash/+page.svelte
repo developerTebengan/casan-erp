@@ -14,7 +14,8 @@
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatCurrency, formatDateTime } from '$lib/utils/format';
 	import { hasPermission } from '$lib/permissions';
-	import type { PettyCashTransaction, PettyCashType } from '$lib/types';
+	import { ledgerInOut, MANUAL_SOURCES, sourceOfFundLabel } from '$lib/petty-cash/sourceOfFund';
+	import type { PettyCashTransaction, PettyCashType, SourceOfFund } from '$lib/types';
 
 	let { data } = $props();
 	const canWrite = $derived(hasPermission(data.user.role, 'pettyCash:write'));
@@ -26,11 +27,14 @@
 	let from = $state('');
 	let to = $state('');
 	let type = $state<PettyCashType | ''>('');
+	let sourceOfFund = $state<SourceOfFund | ''>('');
+	let topUpSource = $state<SourceOfFund | ''>('');
 	let loading = $state(false);
 	let errors = $state<Record<string, string>>({});
 	let editing = $state<PettyCashTransaction | null>(null);
 	let editAmount = $state('');
 	let editNote = $state('');
+	let editSource = $state<SourceOfFund | ''>('');
 	let editLoading = $state(false);
 	let editErrors = $state<Record<string, string>>({});
 
@@ -38,12 +42,23 @@
 		{ value: '', label: 'All types' },
 		{ value: 'TOP_UP', label: 'Top up' },
 		{ value: 'SPEND', label: 'Spend' },
-		{ value: 'REFUND', label: 'Refund' }
+		{ value: 'REFUND', label: 'Refund' },
+		{ value: 'TRANSFER', label: 'Transfer' }
 	];
+	const sourceFilterOptions = [
+		{ value: '', label: 'All sources' },
+		...MANUAL_SOURCES.map((value) => ({ value, label: sourceOfFundLabel(value) })),
+		{ value: 'PR_LEFTOVER', label: sourceOfFundLabel('PR_LEFTOVER') }
+	];
+	const sourceOptions = MANUAL_SOURCES.map((value) => ({
+		value,
+		label: sourceOfFundLabel(value)
+	}));
 
 	function typeLabel(row: PettyCashTransaction) {
 		if (row.type === 'TOP_UP') return 'Top up';
 		if (row.type === 'SPEND') return 'Spend';
+		if (row.type === 'TRANSFER') return 'Transfer';
 		return 'Refund';
 	}
 
@@ -51,7 +66,8 @@
 		const variants: Record<PettyCashType, string> = {
 			TOP_UP: 'bg-success-100 text-success-700 dark:bg-success-900/30 dark:text-success-600',
 			SPEND: 'bg-danger-100 text-danger-700 dark:bg-danger-900/30 dark:text-danger-600',
-			REFUND: 'bg-warning-100 text-warning-700 dark:bg-warning-900/30 dark:text-warning-500'
+			REFUND: 'bg-warning-100 text-warning-700 dark:bg-warning-900/30 dark:text-warning-500',
+			TRANSFER: 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400'
 		};
 		return `<span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${variants[row.type]}">${typeLabel(row)}</span>`;
 	}
@@ -61,6 +77,7 @@
 		if (from) params.set('from', from);
 		if (to) params.set('to', to);
 		if (type) params.set('type', type);
+		if (sourceOfFund) params.set('sourceOfFund', sourceOfFund);
 		return params.toString();
 	}
 
@@ -77,9 +94,25 @@
 		},
 		{ key: 'type', header: 'Type', cell: typeBadge },
 		{
-			key: 'amount',
-			header: 'Amount',
-			cell: (row: PettyCashTransaction) => formatCurrency(row.amount)
+			key: 'source',
+			header: 'Source',
+			cell: (row: PettyCashTransaction) => sourceOfFundLabel(row.sourceOfFund)
+		},
+		{
+			key: 'inn',
+			header: 'In',
+			cell: (row: PettyCashTransaction) => {
+				const n = ledgerInOut(row.type, row.amount).inn;
+				return n == null ? '—' : formatCurrency(n);
+			}
+		},
+		{
+			key: 'out',
+			header: 'Out',
+			cell: (row: PettyCashTransaction) => {
+				const n = ledgerInOut(row.type, row.amount).out;
+				return n == null ? '—' : formatCurrency(n);
+			}
 		},
 		{
 			key: 'balanceAfter',
@@ -90,7 +123,7 @@
 			key: 'product',
 			header: 'Product',
 			cell: (row: PettyCashTransaction) =>
-				row.product ? `${row.product.code} — ${row.product.name}` : '—'
+				row.product ? `${row.product.code} — ${row.product.name}` : row.supplier?.name || '—'
 		},
 		{ key: 'note', header: 'Note', cell: (row: PettyCashTransaction) => row.note || '—' },
 		{
@@ -109,6 +142,7 @@
 		editing = row;
 		editAmount = String(row.amount);
 		editNote = row.note ?? '';
+		editSource = (row.sourceOfFund as SourceOfFund | null) ?? '';
 		editErrors = {};
 	}
 
@@ -135,7 +169,11 @@
 			const res = await fetch(`/api/petty-cash/${editing.id}`, {
 				method: 'PATCH',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ amount: Number(editAmount), note: editNote || null })
+				body: JSON.stringify({
+					amount: Number(editAmount),
+					note: editNote || null,
+					sourceOfFund: editSource || null
+				})
 			});
 			if (res.ok) {
 				toastStore.success('Top-up updated');
@@ -165,12 +203,17 @@
 			const res = await fetch('/api/petty-cash', {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ amount: Number(amount), note: note || null })
+				body: JSON.stringify({
+					amount: Number(amount),
+					note: note || null,
+					sourceOfFund: topUpSource
+				})
 			});
 			if (res.ok) {
 				toastStore.success('Petty cash topped up');
 				amount = '';
 				note = '';
+				topUpSource = '';
 				await loadPage(1);
 			} else {
 				const err = await res.json().catch(() => ({}));
@@ -226,7 +269,7 @@
 	{#if canWrite}
 		<Card padding="lg">
 			<h2 class="text-main mb-4 text-lg font-semibold">Top up</h2>
-			<form onsubmit={handleTopUp} class="grid gap-4 sm:grid-cols-3 sm:items-end">
+			<form onsubmit={handleTopUp} class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">
 				<Input
 					label="Amount"
 					name="amount"
@@ -236,20 +279,33 @@
 					required
 					error={errors.amount}
 				/>
-				<Input label="Note" name="note" bind:value={note} placeholder="Source of cash..." />
+				<Select
+					label="Source of fund"
+					options={[{ value: '', label: 'Select source' }, ...sourceOptions]}
+					bind:value={topUpSource}
+					required
+					error={errors.sourceOfFund}
+				/>
+				<Input label="Note" name="note" bind:value={note} placeholder="Receipt / bank ref..." />
 				<Button type="submit" variant="primary" {loading}>Top up</Button>
 			</form>
 		</Card>
 	{/if}
 
 	<Card padding="md">
-		<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:items-end">
+		<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5 lg:items-end">
 			<Input label="From" type="date" bind:value={from} onchange={() => loadPage(1)} />
 			<Input label="To" type="date" bind:value={to} onchange={() => loadPage(1)} />
 			<Select
 				label="Type"
 				options={typeOptions}
 				bind:value={type}
+				onchange={() => loadPage(1)}
+			/>
+			<Select
+				label="Source of fund"
+				options={sourceFilterOptions}
+				bind:value={sourceOfFund}
 				onchange={() => loadPage(1)}
 			/>
 			<Button variant="secondary" onclick={() => loadPage(1)}>Filter</Button>
@@ -274,7 +330,13 @@
 			required
 			error={editErrors.amount || editErrors.form}
 		/>
-		<Input label="Note" bind:value={editNote} placeholder="Source of cash..." />
+		<Input label="Note" bind:value={editNote} placeholder="Receipt / bank ref..." />
+		<Select
+			label="Source of fund"
+			options={[{ value: '', label: 'Select source' }, ...sourceOptions]}
+			bind:value={editSource}
+			error={editErrors.sourceOfFund}
+		/>
 	</div>
 	{#snippet footer()}
 		<Button variant="secondary" onclick={() => (editing = null)}>Cancel</Button>

@@ -1,6 +1,6 @@
 import { roundMoney } from './variance';
 
-export type LedgerType = 'TOP_UP' | 'SPEND' | 'REFUND';
+export type LedgerType = 'TOP_UP' | 'SPEND' | 'REFUND' | 'TRANSFER';
 
 export interface LedgerRow {
 	id: string;
