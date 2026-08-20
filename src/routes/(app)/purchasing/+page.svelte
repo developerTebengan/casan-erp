@@ -220,8 +220,8 @@
 	]);
 
 	function handleRowClick(row: Purchase, e: MouseEvent) {
-		const target = e.target as HTMLElement;
-		if (target.closest('a, button')) return;
+		const target = e.target;
+		if (target instanceof Element && target.closest('a, button')) return;
 		goto(`/purchasing/${row.id}`);
 	}
 
