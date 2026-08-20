@@ -36,6 +36,14 @@ export const CHANGELOG: ChangelogEntry[] = [
 			{
 				type: 'removed',
 				items: ['Per-supplier settlement cards on the PR detail page']
+			},
+			{
+				type: 'fixed',
+				items: [
+					'Opening a PR from the list no longer 500s (leftover snapshot was not JSON-safe)',
+					'Price inputs use Indonesian thousand separators (45.000)',
+					'Select and combobox dropdowns stay readable in dark mode'
+				]
 			}
 		]
 	},

@@ -7,6 +7,7 @@ Versions are `MAJOR.MINOR.PATCH` for a pre-1.0 product.
 
 - **0.5.x** — Bahasa-first procurement loop (ask → approve → receive → honest stock).
 - **0.6.x** — Petty cash box, CSV exports, supplier↔product catalog.
+- **0.8.x** — PR header fees, receive unit price, one leftover per PR.
 
 Product definition: [docs/CASAN_ERP_prd_v1.md](docs/CASAN_ERP_prd_v1.md). Live: https://casan-erp.vercel.app.
 
@@ -48,6 +49,12 @@ Partial receive still uses the **full** approved grand total. Only one active le
 ### Removed
 
 - Per-supplier settlement cards on the PR detail page
+
+### Fixed
+
+- Opening a PR from the list (row click or eye icon) — leftover snapshot no longer ships a Prisma Decimal object, which caused a 500
+- Price inputs (receive unit price, actual tax/shipping/other, PR fees) show id-ID thousand separators (`45.000`)
+- Native select and combobox lists stay readable in dark mode (dropdown was a black box)
 
 ---
 
