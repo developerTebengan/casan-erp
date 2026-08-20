@@ -7,6 +7,7 @@ export type ReceiveLineInput = {
 	itemId?: string;
 	productId: string;
 	qty: number;
+	unitPrice?: number;
 };
 
 export function goodsReceiptService() {
@@ -58,7 +59,9 @@ export function goodsReceiptService() {
 			qtyByProduct
 		);
 
-		const lines = allocated.map((item) => ({
+		const lines = allocated.map((item) => {
+			const prLine = (purchase.items ?? []).find((i) => i.id === item.itemId);
+			return {
 			itemId: item.itemId,
 			productId: item.productId,
 			productName: item.productName,
@@ -67,11 +70,13 @@ export function goodsReceiptService() {
 			categoryName: item.categoryName,
 			supplierName: item.supplierName,
 			orderedQty: item.qty,
+			orderedPrice: prLine ? Number(prLine.price) : 0,
 			receivedQty: item.receivedQty,
 			remainingQty: item.remainingQty,
 			status: item.status,
 			lastInAt: item.receivedQty > 0 ? (lastInAtByProduct[item.productId] ?? null) : null
-		}));
+		};
+		});
 
 		const groups = groupByProductType(lines);
 		const fullyReceived = lines.every((l) => l.remainingQty === 0);
@@ -117,7 +122,7 @@ export function goodsReceiptService() {
 				(productRemaining[line.productId] ?? 0) + line.remainingQty;
 		}
 
-		const parsed: { productId: string; qty: number }[] = [];
+		const parsed: { productId: string; qty: number; unitPrice: number }[] = [];
 		for (const line of lines) {
 			const productId = String(line.productId);
 			const qty = Number(line.qty);
@@ -127,8 +132,18 @@ export function goodsReceiptService() {
 					errors: { form: ['Each line needs a product and positive quantity'] }
 				};
 			}
-
 			const itemId = line.itemId ? String(line.itemId) : '';
+			const prLine = itemId
+				? summary.lines.find((l) => l.itemId === itemId)
+				: summary.lines.find((l) => l.productId === productId);
+			const unitPrice =
+				line.unitPrice === undefined || line.unitPrice === null || String(line.unitPrice) === ''
+					? (prLine?.orderedPrice ?? 0)
+					: Number(line.unitPrice);
+			if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+				return { success: false as const, errors: { form: ['Unit price cannot be negative'] } };
+			}
+
 			if (itemId) {
 				const remaining = remainingByItem[itemId];
 				if (remaining === undefined) {
@@ -164,7 +179,7 @@ export function goodsReceiptService() {
 				}
 				productRemaining[productId] = remaining - qty;
 			}
-			parsed.push({ productId, qty });
+			parsed.push({ productId, qty, unitPrice });
 		}
 
 		const created = [];
@@ -185,6 +200,7 @@ export function goodsReceiptService() {
 				qty: line.qty,
 				stockBefore: product.stock,
 				stockAfter,
+				unitPrice: line.unitPrice,
 				note: note?.trim() || `Goods receipt for ${summary.purchase.prNumber}`,
 				createdBy
 			});

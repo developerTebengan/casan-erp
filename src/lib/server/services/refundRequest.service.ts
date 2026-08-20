@@ -1,12 +1,15 @@
 import { db } from '$lib/server/db';
 import { dayRange } from '$lib/utils/dayRange';
 import {
-	canSubmitRefundRequest,
-	leftover,
-	prTotalForSupplier,
-	settlementBill,
-	supplierKey
-} from '$lib/purchasing/settlement';
+	actualExtras,
+	approvedGrand,
+	capRefundAmount,
+	leftoverFromPr,
+	lineGoodsTotal,
+	parseNonNegMoney
+} from '$lib/purchasing/leftover';
+import { canSubmitRefundRequest } from '$lib/purchasing/settlement';
+import { NONE_SUPPLIER_KEY } from '$lib/purchasing/settlement';
 
 const ACCOUNT_ID = 'default';
 
@@ -88,126 +91,212 @@ export function refundRequestService() {
 		return rows.map(mapRequest);
 	}
 
+	async function snapshot(purchaseId: string) {
+		const purchase = await db.purchase.findFirst({
+			where: { id: purchaseId, deletedAt: null },
+			include: { items: true }
+		});
+		if (!purchase) return null;
+		const txs = await db.stockTransaction.findMany({
+			where: {
+				referenceId: purchaseId,
+				source: 'PURCHASE',
+				type: 'IN',
+				deletedAt: null
+			},
+			select: { productId: true, qty: true, unitPrice: true }
+		});
+		const priceByProduct: Record<string, number> = {};
+		for (const item of purchase.items) {
+			if (priceByProduct[item.productId] == null) {
+				priceByProduct[item.productId] = money(item.price);
+			}
+		}
+		const actualGoods = txs.reduce((sum, tx) => {
+			const unit =
+				tx.unitPrice == null ? (priceByProduct[tx.productId] ?? 0) : money(tx.unitPrice);
+			return sum + Math.abs(tx.qty) * unit;
+		}, 0);
+		const lineTotal = lineGoodsTotal(
+			purchase.items.map((item) => ({ qty: item.qty, price: money(item.price) }))
+		);
+		const tax = money(purchase.tax);
+		const shipping = money(purchase.shipping);
+		const otherFees = money(purchase.otherFees);
+		const extras = actualExtras({
+			tax,
+			shipping,
+			otherFees,
+			actualTax: purchase.actualTax == null ? null : money(purchase.actualTax),
+			actualShipping: purchase.actualShipping == null ? null : money(purchase.actualShipping),
+			actualOtherFees: purchase.actualOtherFees == null ? null : money(purchase.actualOtherFees)
+		});
+		const grand = approvedGrand(lineTotal, tax, shipping, otherFees);
+		const left = leftoverFromPr(grand, actualGoods, extras);
+		const active = await db.refundRequest.findFirst({
+			where: { purchaseId, status: { in: ['PENDING', 'APPROVED'] } }
+		});
+		return {
+			purchase,
+			lineTotal,
+			tax,
+			shipping,
+			otherFees,
+			actualTax: purchase.actualTax == null ? null : money(purchase.actualTax),
+			actualShipping: purchase.actualShipping == null ? null : money(purchase.actualShipping),
+			actualOtherFees: purchase.actualOtherFees == null ? null : money(purchase.actualOtherFees),
+			approvedGrand: grand,
+			actualGoods: money(actualGoods),
+			actualExtras: extras,
+			leftover: left,
+			hasActive: Boolean(active)
+		};
+	}
+
 	async function saveAndMaybeRequest(
 		purchaseId: string,
 		input: {
-			supplierId?: unknown;
-			actualGoods?: unknown;
-			tax?: unknown;
-			delivery?: unknown;
-			other?: unknown;
+			actualTax?: unknown;
+			actualShipping?: unknown;
+			actualOtherFees?: unknown;
 			destination?: unknown;
 			submitRequest?: unknown;
 		},
 		createdBy?: string | null
 	) {
-		const supplierId = input.supplierId ? String(input.supplierId) : null;
-		const key = supplierKey(supplierId);
-		const actualGoods = money(input.actualGoods);
-		const tax = money(input.tax);
-		const delivery = money(input.delivery);
-		const other = money(input.other);
-		if (actualGoods < 0 || tax < 0 || delivery < 0 || other < 0) {
+		const actualTax = parseNonNegMoney(input.actualTax);
+		const actualShipping = parseNonNegMoney(input.actualShipping);
+		const actualOtherFees = parseNonNegMoney(input.actualOtherFees);
+		if (actualTax == null || actualShipping == null || actualOtherFees == null) {
 			return { success: false as const, errors: { form: ['Amounts cannot be negative'] } };
 		}
 
 		const purchase = await db.purchase.findFirst({
-			where: { id: purchaseId, deletedAt: null },
-			include: { items: true, supplier: true }
+			where: { id: purchaseId, deletedAt: null }
 		});
 		if (!purchase) {
 			return { success: false as const, errors: { form: ['Purchase not found'] } };
 		}
+		if (purchase.approvalStatus !== 'APPROVED') {
+			return { success: false as const, errors: { form: ['Only an approved PR can be settled'] } };
+		}
 
-		const prTotal = prTotalForSupplier(
-			purchase.items.map((item) => ({
-				supplierId: item.supplierId,
-				qty: item.qty,
-				price: Number(item.price)
-			})),
-			key
-		);
-		const bill = settlementBill(actualGoods, tax, delivery, other);
-		const left = leftover(prTotal, bill);
+		await db.purchase.update({
+			where: { id: purchaseId },
+			data: { actualTax, actualShipping, actualOtherFees }
+		});
+
+		const snap = await snapshot(purchaseId);
+		if (!snap) {
+			return { success: false as const, errors: { form: ['Purchase not found'] } };
+		}
+
 		const submitRequest = Boolean(input.submitRequest);
-
-		if (submitRequest && !canSubmitRefundRequest(left)) {
-			return { success: false as const, errors: { form: ['No leftover to refund'] } };
-		}
-
-		const destination = String(input.destination ?? '');
-		if (submitRequest && destination !== 'KAS_KECIL' && destination !== 'BANK') {
-			return { success: false as const, errors: { destination: ['Choose kas kecil or bank'] } };
-		}
-
-		try {
-			const result = await db.$transaction(async (tx) => {
-				const settlement = await tx.purchaseSupplierSettlement.upsert({
-					where: { purchaseId_supplierKey: { purchaseId, supplierKey: key } },
-					create: {
-						purchaseId,
-						supplierId,
-						supplierKey: key,
-						actualGoods,
-						tax,
-						delivery,
-						other
-					},
-					update: { actualGoods, tax, delivery, other, supplierId }
-				});
-
-				if (!submitRequest) {
-					return { settlement, request: null as null };
-				}
-
-				const existing = await tx.refundRequest.findFirst({
-					where: {
-						purchaseId,
-						supplierKey: key,
-						status: { in: ['PENDING', 'APPROVED'] }
-					}
-				});
-				if (existing) throw new Error('DUPLICATE');
-
-				const request = await tx.refundRequest.create({
-					data: {
-						destination: destination as 'KAS_KECIL' | 'BANK',
-						amount: left,
-						purchaseId,
-						supplierId,
-						supplierKey: key,
-						prTotal,
-						actualGoods,
-						tax,
-						delivery,
-						other,
-						bill,
-						createdBy
-					},
-					include: requestInclude
-				});
-				return { settlement, request };
-			});
-
+		if (!submitRequest) {
 			return {
 				success: true as const,
-				data: {
-					leftover: left,
-					bill,
-					prTotal,
-					request: result.request ? mapRequest(result.request) : null
-				}
+				data: { leftover: snap.leftover, bill: snap.actualGoods + snap.actualExtras, prTotal: snap.approvedGrand, request: null }
 			};
-		} catch (err) {
-			if (err instanceof Error && err.message === 'DUPLICATE') {
-				return {
-					success: false as const,
-					status: 409 as const,
-					errors: { form: ['A refund request already exists for this supplier'] }
-				};
-			}
-			throw err;
 		}
+		if (!canSubmitRefundRequest(snap.leftover)) {
+			return { success: false as const, errors: { form: ['No leftover to refund'] } };
+		}
+		const destination = String(input.destination ?? '');
+		if (destination !== 'KAS_KECIL' && destination !== 'BANK') {
+			return { success: false as const, errors: { destination: ['Choose kas kecil or bank'] } };
+		}
+		if (snap.hasActive) {
+			return {
+				success: false as const,
+				status: 409 as const,
+				errors: { form: ['A refund request already exists for this PR'] }
+			};
+		}
+
+		const request = await db.refundRequest.create({
+			data: {
+				destination,
+				amount: snap.leftover,
+				purchaseId,
+				supplierId: null,
+				supplierKey: NONE_SUPPLIER_KEY,
+				prTotal: snap.approvedGrand,
+				actualGoods: snap.actualGoods,
+				tax: snap.actualTax ?? snap.tax,
+				delivery: snap.actualShipping ?? snap.shipping,
+				other: snap.actualOtherFees ?? snap.otherFees,
+				bill: snap.actualGoods + snap.actualExtras,
+				createdBy
+			},
+			include: requestInclude
+		});
+		return {
+			success: true as const,
+			data: {
+				leftover: snap.leftover,
+				bill: snap.actualGoods + snap.actualExtras,
+				prTotal: snap.approvedGrand,
+				request: mapRequest(request)
+			}
+		};
+	}
+
+	async function createFromList(
+		input: {
+			purchaseId?: unknown;
+			amount?: unknown;
+			destination?: unknown;
+			note?: unknown;
+		},
+		createdBy?: string | null
+	) {
+		const purchaseId = String(input.purchaseId ?? '');
+		if (!purchaseId) {
+			return { success: false as const, errors: { purchaseId: ['Select a purchase request'] } };
+		}
+		const snap = await snapshot(purchaseId);
+		if (!snap) {
+			return { success: false as const, errors: { purchaseId: ['Purchase not found'] } };
+		}
+		if (snap.purchase.approvalStatus !== 'APPROVED') {
+			return { success: false as const, errors: { purchaseId: ['Only an approved PR can be refunded'] } };
+		}
+		if (snap.hasActive) {
+			return {
+				success: false as const,
+				status: 409 as const,
+				errors: { form: ['A refund request already exists for this PR'] }
+			};
+		}
+		const capped = capRefundAmount(Number(input.amount), snap.leftover);
+		if (capped == null) {
+			return {
+				success: false as const,
+				errors: { amount: ['Amount must be greater than 0 and not more than leftover'] }
+			};
+		}
+		const destination = String(input.destination ?? '');
+		if (destination !== 'KAS_KECIL' && destination !== 'BANK') {
+			return { success: false as const, errors: { destination: ['Choose kas kecil or bank'] } };
+		}
+		const request = await db.refundRequest.create({
+			data: {
+				destination,
+				amount: capped,
+				purchaseId,
+				supplierId: null,
+				supplierKey: NONE_SUPPLIER_KEY,
+				prTotal: snap.approvedGrand,
+				actualGoods: snap.actualGoods,
+				tax: snap.actualTax ?? snap.tax,
+				delivery: snap.actualShipping ?? snap.shipping,
+				other: snap.actualOtherFees ?? snap.otherFees,
+				bill: snap.actualGoods + snap.actualExtras,
+				createdBy
+			},
+			include: requestInclude
+		});
+		return { success: true as const, data: mapRequest(request) };
 	}
 
 	async function decide(
@@ -446,5 +535,5 @@ export function refundRequestService() {
 		};
 	}
 
-	return { listSettlements, listRequestsForPurchase, saveAndMaybeRequest, decide, listQueue };
+	return { listSettlements, listRequestsForPurchase, snapshot, saveAndMaybeRequest, createFromList, decide, listQueue };
 }

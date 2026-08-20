@@ -167,6 +167,7 @@ model StockTransaction {
   qty         Int
   stockBefore Int
   stockAfter  Int
+  unitPrice   Decimal?
   note        String?
   createdBy   String?
   createdAt   DateTime               @default(now())
@@ -192,6 +193,12 @@ model Purchase {
   purpose                  String
   comments                 String?
   total                    Decimal          @default(0)
+  tax                      Decimal          @default(0)
+  shipping                 Decimal          @default(0)
+  otherFees                Decimal          @default(0)
+  actualTax                Decimal?
+  actualShipping           Decimal?
+  actualOtherFees          Decimal?
   departmentHeadStatus     ApprovalStatus   @default(PENDING)
   departmentHeadApprovedAt DateTime?
   financeStatus            ApprovalStatus   @default(PENDING)

@@ -86,6 +86,12 @@ export interface Purchase {
 	approvalStatus: ApprovalStatus;
 	rejectionReason?: string | null;
 	total: number;
+	tax: number;
+	shipping: number;
+	otherFees: number;
+	actualTax?: number | null;
+	actualShipping?: number | null;
+	actualOtherFees?: number | null;
 	items?: PurchaseItem[];
 	fullyReceived?: boolean;
 	partiallyReceived?: boolean;
@@ -107,6 +113,7 @@ export interface StockTransaction {
 	qty: number;
 	stockBefore: number;
 	stockAfter: number;
+	unitPrice?: number | null;
 	note?: string | null;
 	createdBy?: string | null;
 	createdAt: string;

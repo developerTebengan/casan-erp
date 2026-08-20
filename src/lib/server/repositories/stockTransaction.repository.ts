@@ -25,6 +25,7 @@ export interface StockTransactionCreateInput {
 	qty: number;
 	stockBefore: number;
 	stockAfter: number;
+	unitPrice?: number | null;
 	note?: string | null;
 	createdBy?: string | null;
 }
@@ -116,6 +117,7 @@ export function stockTransactionRepository() {
 				qty: input.qty,
 				stockBefore: input.stockBefore,
 				stockAfter: input.stockAfter,
+				unitPrice: input.unitPrice ?? null,
 				note: input.note,
 				createdBy: input.createdBy
 			},
@@ -154,6 +156,7 @@ function mapStockTransaction(tx: {
 	qty: number;
 	stockBefore: number;
 	stockAfter: number;
+	unitPrice?: unknown;
 	note: string | null;
 	createdBy: string | null;
 	createdAt: Date;
@@ -185,6 +188,7 @@ function mapStockTransaction(tx: {
 		qty: tx.qty,
 		stockBefore: tx.stockBefore,
 		stockAfter: tx.stockAfter,
+		unitPrice: tx.unitPrice == null ? null : Number(tx.unitPrice),
 		note: tx.note,
 		createdBy: tx.createdBy,
 		createdAt: tx.createdAt.toISOString()

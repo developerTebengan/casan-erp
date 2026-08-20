@@ -18,6 +18,39 @@ Exports are UTF-8 CSV with a BOM so Microsoft Excel opens them. Buttons say **Ex
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-08-20
+
+Header fees on the PR, receive at actual unit price, one leftover for the whole PR — not per supplier.
+
+**Who:** Anyone with `purchasing:write` sets tax/shipping/other on create. Admin receives with qty + unit price and saves actual extras or submits leftover (`purchasing:receive`). Admin/Finance create a refund from the list or approve pending (`pettyCash:write`).
+
+**How to use**
+
+1. Create PR: line items + **Tax / Shipping / Other fees** → grand total on the form and print.
+2. On an approved PR: **Receive this item** with qty and **unit price** (defaults to PR line price).
+3. **Leftover vs approved total** card: enter actual tax/shipping/other → **Save actual fees** or **Submit leftover** (destination kas kecil or bank).
+4. Or **Kas kecil → Refunds → New refund**: pick an approved PR, amount ≤ leftover, destination.
+
+Partial receive still uses the **full** approved grand total. Only one active leftover request per PR.
+
+### Added
+
+- Tax, shipping, and other fees on the PR header; grand total includes all three
+- Unit price on goods receipt (defaults to PR line price; catalog unchanged)
+- One leftover per whole PR with actual tax/shipping/other at settlement
+- New refund from Kas kecil → Refunds (search approved PR, amount ≤ leftover)
+
+### Changed
+
+- Leftover settlement is one card on the PR instead of per-supplier cards
+- Partial receive still uses the full approved grand total for leftover math
+
+### Removed
+
+- Per-supplier settlement cards on the PR detail page
+
+---
+
 ## [0.7.0] - 2026-08-19
 
 Searchable catalogs, honest actuals per supplier after a buy, and leftover PR money that Finance actually sees.

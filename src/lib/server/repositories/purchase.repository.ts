@@ -57,6 +57,9 @@ export interface PurchaseCreateInput {
 	financeApproverId?: string | null;
 	finalApproverId?: string | null;
 	items: PurchaseItemInput[];
+	tax?: number;
+	shipping?: number;
+	otherFees?: number;
 }
 
 export function purchaseRepository() {
@@ -278,7 +281,11 @@ export function purchaseRepository() {
 	}
 
 	async function create(input: PurchaseCreateInput) {
-		const total = input.items.reduce((sum, item) => sum + item.qty * item.price, 0);
+		const lineTotal = input.items.reduce((sum, item) => sum + item.qty * item.price, 0);
+		const tax = input.tax ?? 0;
+		const shipping = input.shipping ?? 0;
+		const otherFees = input.otherFees ?? 0;
+		const total = lineTotal + tax + shipping + otherFees;
 		const prNumber = input.prNumber?.trim() || (await nextPrNumber());
 
 		const purchase = await db.purchase.create({
@@ -296,6 +303,9 @@ export function purchaseRepository() {
 				departmentHeadId: input.departmentHeadId,
 				financeApproverId: input.financeApproverId,
 				finalApproverId: input.finalApproverId,
+				tax,
+				shipping,
+				otherFees,
 				total,
 				items: {
 					create: input.items.map((item) => ({
@@ -359,6 +369,12 @@ export function purchaseRepository() {
 			finalApprovedAt: Date | null;
 			approvalStatus: ApprovalStatus;
 			rejectionReason: string | null;
+			tax: number;
+			shipping: number;
+			otherFees: number;
+			actualTax: number | null;
+			actualShipping: number | null;
+			actualOtherFees: number | null;
 		}>
 	) {
 		const purchase = await db.purchase.update({
@@ -425,6 +441,12 @@ function mapPurchase(p: {
 	approvalStatus?: string | ApprovalStatus;
 	rejectionReason?: string | null;
 	total: unknown;
+	tax?: unknown;
+	shipping?: unknown;
+	otherFees?: unknown;
+	actualTax?: unknown;
+	actualShipping?: unknown;
+	actualOtherFees?: unknown;
 	createdAt: Date;
 	updatedAt: Date;
 		items?: Array<{
@@ -475,6 +497,12 @@ function mapPurchase(p: {
 		approvalStatus: (p.approvalStatus as ApprovalStatus) ?? 'PENDING',
 		rejectionReason: p.rejectionReason,
 		total: Number(p.total),
+		tax: Number(p.tax ?? 0),
+		shipping: Number(p.shipping ?? 0),
+		otherFees: Number(p.otherFees ?? 0),
+		actualTax: p.actualTax == null ? null : Number(p.actualTax),
+		actualShipping: p.actualShipping == null ? null : Number(p.actualShipping),
+		actualOtherFees: p.actualOtherFees == null ? null : Number(p.actualOtherFees),
 		createdAt: p.createdAt.toISOString(),
 		updatedAt: p.updatedAt.toISOString(),
 		items: p.items?.map((item) => ({

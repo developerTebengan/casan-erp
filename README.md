@@ -2,7 +2,7 @@
 
 Procurement and inventory for PT CASAN Energi Indonesia: purchase requests, sequential approval, goods receipt, stock, and a petty cash box for small cash buys.
 
-Not a full finance or sales suite. Product definition: [docs/CASAN_ERP_prd_v1.md](docs/CASAN_ERP_prd_v1.md) (through v0.7.0). Releases: [CHANGELOG.md](CHANGELOG.md).
+Not a full finance or sales suite. Product definition: [docs/CASAN_ERP_prd_v1.md](docs/CASAN_ERP_prd_v1.md) (through v0.8.0). Releases: [CHANGELOG.md](CHANGELOG.md).
 
 Stack: SvelteKit, TypeScript, Tailwind CSS, Prisma, PostgreSQL.
 

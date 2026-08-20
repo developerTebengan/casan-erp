@@ -68,3 +68,21 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		throw error(500, { message: 'Failed to load refunds' });
 	}
 };
+
+export const POST: RequestHandler = async ({ request, locals }) => {
+	try {
+		if (!locals.user || !hasPermission(locals.user.role, 'pettyCash:write')) {
+			return json({ message: 'Forbidden' }, { status: 403 });
+		}
+		const body = await request.json();
+		const result = await refundRequestService().createFromList(body, locals.user.id);
+		if (!result.success) {
+			const status = 'status' in result && result.status === 409 ? 409 : 400;
+			return json({ message: 'Validation failed', errors: result.errors }, { status });
+		}
+		return json(result.data, { status: 201 });
+	} catch (e) {
+		console.error(e);
+		throw error(500, { message: 'Failed to create refund request' });
+	}
+};

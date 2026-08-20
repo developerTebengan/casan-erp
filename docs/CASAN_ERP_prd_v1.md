@@ -5,10 +5,10 @@
 **Audience:** Internal Casan staff (pemohon, approver, admin gudang, keuangan)  
 **Platform:** SvelteKit web app (desktop + phone), Bahasa-first  
 **Owner:** PT CASAN Energi Indonesia  
-**Status:** Describes shipped product through **v0.7.0** (2026-08-19)  
+**Status:** Describes shipped product through **v0.8.0** (2026-08-20)  
 **Live:** https://casan-erp.vercel.app  
-**Document version:** 1.2  
-**Date:** 19 August 2026
+**Document version:** 1.3  
+**Date:** 20 August 2026
 
 This document is the product definition. Release history lives in [CHANGELOG.md](../CHANGELOG.md). Implementation notes for individual drops live under `docs/superpowers/specs/`.
 
@@ -99,6 +99,7 @@ Required on create:
 - Purpose (catalog): Restock, Operations, Project, Maintenance, New equipment, Event, Office supplies, Other
 - Date required, decision deadline (latest date to approve or reject)
 - At least one line: product, qty, price; **supplier required per line**
+- Optional **tax, shipping, other fees** on the PR header (non-negative; default 0). **Grand total** = sum of line subtotals + fees. Shown on create, detail, and print.
 - Three named approvers (department head, finance, final)
 
 System assigns `PR-YYYY-NNN` on save (year from request date, sequence per year). Users do not type PR numbers.
@@ -131,9 +132,12 @@ Only when overall approval is `APPROVED` and at least one line still has remaini
 
 - Receive **this item**, not the whole PR by default.
 - Qty defaults to invoiced amount still due for that line (`ordered − already received`).
+- **Unit price** on receive defaults to the PR line price; user may change it for this delivery. Catalog product price is **not** updated on receive.
 - Later deliveries wait: list status `PARTIAL` until every line is `STOCK_IN`.
 - Receipt status is visible per PR line and grouped by product type (category).
 - Inventory shows last-in date from purchase receipts (and other IN movements).
+
+**Leftover (v0.8):** After goods are in (partial OK), Admin compares **approved grand total** (lines + header fees) to **actual goods** (sum of received qty × unit price, falling back to PR line price when unit price was not stored) plus **actual extras** (actual tax/shipping/other if saved, else header estimates). **Leftover** = max(0, grand − goods − extras). One settlement card per PR — not per supplier. Admin saves actual extras and/or submits a refund request (destination kas kecil or bank). Finance/Admin may also **New refund** from the refund list (amount > 0 and ≤ leftover). Only one **PENDING** or **APPROVED** leftover request per PR at a time.
 
 ### 5.4 Stock ledger
 
@@ -158,6 +162,8 @@ One account (`petty_cash_accounts.id = default`) with a running `balance`. First
 | `SPEND` | Decreases by **amount paid** | Admin (stock buy) | Fail if balance too low |
 | `REFUND` | **Does not change balance** | System | Paid **less** than catalog unit × qty |
 | `TRANSFER` | **Does not change balance** | Finance/Admin | Approved PR leftover returned to rekening kantor |
+
+**PR leftover (v0.8):** Separate from catalog variance. Created from the PR settlement card or **Refunds → New refund**. Approve to kas kecil posts a `TOP_UP` with source `PR_LEFTOVER`; approve to bank posts a `TRANSFER` row (balance unchanged).
 
 Refunds are unused catalog budget: that money never left the box. The refund list is the audit of “we budgeted more than the shop charged.” Extra spend (shop more expensive than catalog) comes from petty cash; there is no refund row.
 
@@ -394,3 +400,5 @@ Detail lives in the changelog. Product shape by era:
 | 0.6.0 | 2026-08-18 | Petty cash box, cash stock buys, refund audit vs catalog, first CSVs |
 | 0.6.1 | 2026-08-18 | Stock CSV by date/type, editable top-ups, supplier↔product catalog |
 | 0.6.2 | 2026-08-19 | Kas kecil as cash desk: ledger filter/export, buy from that page, paid defaults to catalog |
+| 0.7.0 | 2026-08-19 | Searchable catalogs; per-supplier settlement (superseded in 0.8) |
+| 0.8.0 | 2026-08-20 | PR header fees; receive unit price; whole-PR leftover; New refund from list |

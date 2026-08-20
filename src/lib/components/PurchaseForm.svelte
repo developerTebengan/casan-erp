@@ -58,6 +58,9 @@
 	let financeApproverId = $state(untrack(() => purchase?.financeApproverId ?? ''));
 	let finalApproverId = $state(untrack(() => purchase?.finalApproverId ?? ''));
 	let dateError = $state('');
+	let tax = $state(untrack(() => String(purchase?.tax ?? 0)));
+	let shipping = $state(untrack(() => String(purchase?.shipping ?? 0)));
+	let otherFees = $state(untrack(() => String(purchase?.otherFees ?? 0)));
 	let items = $state(
 		untrack(
 			() =>
@@ -122,12 +125,15 @@
 			.map((u) => ({ value: u.id, label: `${u.name} (${u.email})` }))
 	]);
 
-	const total = $derived(
+	const lineTotal = $derived(
 		items.reduce((sum, item) => {
 			const qty = Number(item.qty) || 0;
 			const price = Number(item.price) || 0;
 			return sum + qty * price;
 		}, 0)
+	);
+	const grandTotal = $derived(
+		lineTotal + (Number(tax) || 0) + (Number(shipping) || 0) + (Number(otherFees) || 0)
 	);
 
 	function formatDateForInput(date: Date) {
@@ -200,6 +206,9 @@
 			departmentHeadId: departmentHeadId || null,
 			financeApproverId: financeApproverId || null,
 			finalApproverId: finalApproverId || null,
+			tax: Number(tax) || 0,
+			shipping: Number(shipping) || 0,
+			otherFees: Number(otherFees) || 0,
 			items: items
 				.filter((item) => item.productId)
 				.map((item) => ({
@@ -409,14 +418,22 @@
 		</div>
 	</div>
 
-	<div class="border-theme flex items-center justify-between border-t pt-6">
-		<div>
-			<p class="text-muted text-sm">Total Amount</p>
-			<p class="text-2xl font-bold text-primary-600">{formatCurrency(total)}</p>
+	<div class="border-theme space-y-4 border-t pt-6">
+		<div class="grid gap-4 sm:grid-cols-3">
+			<Input label="Tax" type="number" min="0" bind:value={tax} error={errors.tax} />
+			<Input label="Shipping" type="number" min="0" bind:value={shipping} error={errors.shipping} />
+			<Input label="Other fees" type="number" min="0" bind:value={otherFees} error={errors.otherFees} />
 		</div>
-		<div class="flex gap-3">
-			<Button variant="secondary" href="/purchasing">Cancel</Button>
-			<Button type="submit" variant="primary" {loading}>{submitLabel}</Button>
+		<div class="flex items-center justify-between">
+			<div>
+				<p class="text-muted text-sm">Line total {formatCurrency(lineTotal)}</p>
+				<p class="text-muted text-sm">Grand total</p>
+				<p class="text-2xl font-bold text-primary-600">{formatCurrency(grandTotal)}</p>
+			</div>
+			<div class="flex gap-3">
+				<Button variant="secondary" href="/purchasing">Cancel</Button>
+				<Button type="submit" variant="primary" {loading}>{submitLabel}</Button>
+			</div>
 		</div>
 	</div>
 </form>

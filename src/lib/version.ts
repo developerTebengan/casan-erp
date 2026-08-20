@@ -1,4 +1,4 @@
-export const APP_VERSION = '0.7.0';
+export const APP_VERSION = '0.8.0';
 export const APP_NAME = 'Casan ERP';
 
 export type ChangelogChangeType = 'added' | 'changed' | 'fixed' | 'removed';
@@ -13,6 +13,32 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+	{
+		version: '0.8.0',
+		date: '2026-08-20',
+		changes: [
+			{
+				type: 'added',
+				items: [
+					'Tax, shipping, and other fees on the PR header; grand total includes all three',
+					'Unit price on goods receipt (defaults to PR line price; catalog unchanged)',
+					'One leftover per whole PR with actual tax/shipping/other at settlement',
+					'New refund from Kas kecil → Refunds (search approved PR, amount ≤ leftover)'
+				]
+			},
+			{
+				type: 'changed',
+				items: [
+					'Leftover settlement is one card on the PR instead of per-supplier cards',
+					'Partial receive still uses the full approved grand total for leftover math'
+				]
+			},
+			{
+				type: 'removed',
+				items: ['Per-supplier settlement cards on the PR detail page']
+			}
+		]
+	},
 	{
 		version: '0.7.0',
 		date: '2026-08-19',

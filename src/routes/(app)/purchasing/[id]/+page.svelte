@@ -15,7 +15,6 @@
 		PackagePlus
 	} from '@lucide/svelte';
 	import { Card, Breadcrumb, Badge, Button, DataTable, Modal, Textarea, Input, Select } from '$lib/components/ui';
-	import PurchaseSettlement from '$lib/components/PurchaseSettlement.svelte';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatCurrency, formatDate } from '$lib/utils/format';
 	import { supplierNames } from '$lib/purchasing/catalog';
@@ -29,6 +28,7 @@
 	const users = $derived(data.users);
 	let receipt = $state(data.receipt);
 	let receiveQtys = $state<Record<string, number>>({});
+	let receivePrices = $state<Record<string, string>>({});
 	let receiveNote = $state('');
 	let receiving = $state(false);
 	let receivingItemId = $state<string | null>(null);
@@ -39,10 +39,13 @@
 	$effect(() => {
 		receipt = data.receipt;
 		const next: Record<string, number> = {};
+		const prices: Record<string, string> = {};
 		for (const line of data.receipt?.lines ?? []) {
 			next[line.itemId] = line.remainingQty;
+			prices[line.itemId] = String(line.orderedPrice ?? 0);
 		}
 		receiveQtys = next;
+		receivePrices = prices;
 	});
 
 	let loading = $state(false);
@@ -299,7 +302,14 @@
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					lines: [{ itemId: line.itemId, productId: line.productId, qty }],
+					lines: [
+						{
+							itemId: line.itemId,
+							productId: line.productId,
+							qty,
+							unitPrice: Number(receivePrices[itemId] ?? line.orderedPrice ?? 0)
+						}
+					],
 					note: receiveNote
 				})
 			});
@@ -317,6 +327,47 @@
 		} finally {
 			receiving = false;
 			receivingItemId = null;
+		}
+	}
+
+	const leftover = $derived(data.leftover);
+	let actualTax = $state('');
+	let actualShipping = $state('');
+	let actualOther = $state('');
+	let leftoverDest = $state('KAS_KECIL');
+	let leftoverLoading = $state('');
+
+	$effect(() => {
+		const snap = data.leftover;
+		if (!snap) return;
+		actualTax = String(snap.actualTax ?? snap.tax ?? 0);
+		actualShipping = String(snap.actualShipping ?? snap.shipping ?? 0);
+		actualOther = String(snap.actualOtherFees ?? snap.otherFees ?? 0);
+	});
+
+	async function saveLeftover(submitRequest: boolean) {
+		leftoverLoading = submitRequest ? 'req' : 'save';
+		try {
+			const res = await fetch(`/api/purchases/${purchase.id}/settlement`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					actualTax: Number(actualTax) || 0,
+					actualShipping: Number(actualShipping) || 0,
+					actualOtherFees: Number(actualOther) || 0,
+					destination: leftoverDest,
+					submitRequest
+				})
+			});
+			const body = await res.json().catch(() => ({}));
+			if (!res.ok) {
+				toastStore.error(body.errors?.form?.[0] || body.message || 'Failed');
+				return;
+			}
+			toastStore.success(submitRequest ? 'Refund request submitted' : 'Actual fees saved');
+			await invalidateAll();
+		} finally {
+			leftoverLoading = '';
 		}
 	}
 </script>
@@ -458,8 +509,12 @@
 
 			<div class="border-theme mt-6 flex justify-end border-t pt-4">
 				<div class="text-right">
-					<p class="text-muted text-sm">Total Amount</p>
+					<p class="text-muted text-sm">Line + tax / shipping / other</p>
 					<p class="text-2xl font-bold text-primary-600">{formatCurrency(purchase.total)}</p>
+					<p class="text-muted mt-1 text-xs">
+						Tax {formatCurrency(purchase.tax ?? 0)} · Shipping {formatCurrency(purchase.shipping ?? 0)}
+						· Other {formatCurrency(purchase.otherFees ?? 0)}
+					</p>
 				</div>
 			</div>
 		</Card>
@@ -712,9 +767,21 @@
 															};
 														}}
 													/>
+													<Input
+														label="Unit price"
+														type="number"
+														min="0"
+														value={receivePrices[line.itemId] ?? String(line.orderedPrice ?? 0)}
+														oninput={(e) => {
+															receivePrices = {
+																...receivePrices,
+																[line.itemId]: (e.target as HTMLInputElement).value
+															};
+														}}
+													/>
 													<p class="text-muted text-xs">
 														Defaults to invoiced qty still due ({line.remainingQty}
-														{line.unit}). Change only if this delivery is partial.
+														{line.unit}). Change qty or price if this delivery differs.
 													</p>
 													<div class="flex flex-wrap gap-2">
 														<Button
@@ -761,12 +828,59 @@
 				</Card>
 			{/if}
 
-			<PurchaseSettlement
-				purchase={purchase}
-				settlements={data.settlements}
-				requests={data.refundRequests}
-				canReceive={canReceive}
-			/>
+			{#if purchase.approvalStatus === 'APPROVED' && leftover}
+				<Card padding="lg">
+					<h3 class="text-main mb-2 text-lg font-semibold">Leftover vs approved total</h3>
+					<p class="text-muted mb-4 text-sm">
+						Approved {formatCurrency(leftover.approvedGrand)} − goods received
+						{formatCurrency(leftover.actualGoods)} − extras {formatCurrency(leftover.actualExtras)}
+						= leftover {formatCurrency(leftover.leftover)}
+					</p>
+					{#if receipt && !receipt.fullyReceived}
+						<p class="text-warning-700 mb-4 text-sm dark:text-warning-500">
+							Lines still waiting. You can file leftover anyway if the bill is already known.
+						</p>
+					{/if}
+					{#if canReceive}
+						<div class="grid gap-4 sm:grid-cols-3">
+							<Input label="Actual tax" type="number" min="0" bind:value={actualTax} />
+							<Input label="Actual shipping" type="number" min="0" bind:value={actualShipping} />
+							<Input label="Actual other" type="number" min="0" bind:value={actualOther} />
+						</div>
+						<div class="mt-4 flex flex-wrap items-end gap-3">
+							{#if leftover.leftover > 0 && !leftover.hasActive}
+								<Select
+									label="Return leftover to"
+									options={[
+										{ value: 'KAS_KECIL', label: 'Kas kecil' },
+										{ value: 'BANK', label: 'Rekening kantor' }
+									]}
+									bind:value={leftoverDest}
+								/>
+							{/if}
+							<Button
+								variant="secondary"
+								loading={leftoverLoading === 'save'}
+								onclick={() => saveLeftover(false)}
+							>
+								Save actual fees
+							</Button>
+							{#if leftover.leftover > 0 && !leftover.hasActive}
+								<Button
+									variant="primary"
+									loading={leftoverLoading === 'req'}
+									onclick={() => saveLeftover(true)}
+								>
+									Submit leftover
+								</Button>
+							{/if}
+							{#if leftover.hasActive}
+								<p class="text-muted text-sm">A leftover request already exists for this PR.</p>
+							{/if}
+						</div>
+					{/if}
+				</Card>
+			{/if}
 		</div>
 	</div>
 </div>

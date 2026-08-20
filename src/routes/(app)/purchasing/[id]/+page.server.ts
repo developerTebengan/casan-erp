@@ -13,14 +13,10 @@ export const load: PageServerLoad = async ({ params, cookies }) => {
 	if (!purchase) throw error(404, 'Purchasing request not found');
 
 	const receipt = await goodsReceiptService().getReceiptSummary(params.id);
-	const refunds = refundRequestService();
-	const [settlements, refundRequests] = await Promise.all([
-		refunds.listSettlements(params.id),
-		refunds.listRequestsForPurchase(params.id)
-	]);
+	const leftover = await refundRequestService().snapshot(params.id);
 	const canReceive = hasPermission(user.role, 'purchasing:receive');
 	const isAdmin = user.role === 'ADMIN';
 	const users = isAdmin ? await userService().list() : [];
 
-	return { purchase, user, receipt, canReceive, isAdmin, users, settlements, refundRequests };
+	return { purchase, user, receipt, canReceive, isAdmin, users, leftover };
 };

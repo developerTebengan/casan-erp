@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { Download } from '@lucide/svelte';
+	import { Download, Plus } from '@lucide/svelte';
 	import {
 		Card,
 		Button,
@@ -10,7 +10,8 @@
 		Pagination,
 		Breadcrumb,
 		Modal,
-		Textarea
+		Textarea,
+		Combobox
 	} from '$lib/components/ui';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatCurrency, formatDateTime } from '$lib/utils/format';
@@ -27,6 +28,19 @@
 	let rejectId = $state('');
 	let rejectReason = $state('');
 	let decideLoading = $state(false);
+	let newOpen = $state(false);
+	let prOptions = $state<{ value: string; label: string }[]>([]);
+	let prLoading = $state(false);
+	let newPurchaseId = $state('');
+	let newAmount = $state('');
+	let newDest = $state('KAS_KECIL');
+	let newLoading = $state(false);
+	let newErrors = $state<Record<string, string>>({});
+	let leftoverPreview = $state<{
+		prNumber: string;
+		leftover: number;
+		hasActive: boolean;
+	} | null>(null);
 
 	function query() {
 		const params = new URLSearchParams();
@@ -41,6 +55,87 @@
 	async function loadPage(page = 1) {
 		const res = await fetch(`/api/petty-cash/refunds?${query()}&page=${page}&limit=20`);
 		if (res.ok) queue = await res.json();
+	}
+
+	async function loadApprovedPrs() {
+		prLoading = true;
+		try {
+			const res = await fetch('/api/purchases?approvalStatus=APPROVED&limit=100');
+			if (!res.ok) return;
+			const body = await res.json();
+			prOptions = (body.data ?? []).map((p: { id: string; prNumber: string }) => ({
+				value: p.id,
+				label: p.prNumber
+			}));
+		} finally {
+			prLoading = false;
+		}
+	}
+
+	async function loadLeftoverForPr(purchaseId: string) {
+		if (!purchaseId) {
+			leftoverPreview = null;
+			newAmount = '';
+			return;
+		}
+		const res = await fetch(`/api/purchases/${purchaseId}/settlement`);
+		if (!res.ok) {
+			leftoverPreview = null;
+			newAmount = '';
+			toastStore.error('Could not load leftover for that PR');
+			return;
+		}
+		const snap = await res.json();
+		leftoverPreview = {
+			prNumber: snap.prNumber,
+			leftover: snap.leftover,
+			hasActive: snap.hasActive
+		};
+		newAmount = String(snap.leftover ?? 0);
+	}
+
+	function openNewRefund() {
+		newOpen = true;
+		newPurchaseId = '';
+		newAmount = '';
+		newDest = 'KAS_KECIL';
+		newErrors = {};
+		leftoverPreview = null;
+		loadApprovedPrs();
+	}
+
+	async function submitNewRefund() {
+		newLoading = true;
+		newErrors = {};
+		try {
+			const res = await fetch('/api/petty-cash/refunds', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					purchaseId: newPurchaseId,
+					amount: Number(newAmount),
+					destination: newDest
+				})
+			});
+			const body = await res.json().catch(() => ({}));
+			if (!res.ok) {
+				if (body.errors) {
+					const next: Record<string, string> = {};
+					for (const [k, v] of Object.entries(body.errors)) {
+						next[k] = Array.isArray(v) ? String(v[0]) : String(v);
+					}
+					newErrors = next;
+				}
+				toastStore.error(newErrors.form || body.message || 'Failed to create refund');
+				return;
+			}
+			toastStore.success('Refund request created');
+			newOpen = false;
+			tab = 'pending';
+			await loadPage(1);
+		} finally {
+			newLoading = false;
+		}
 	}
 
 	async function decide(id: string, action: 'approve' | 'reject', reason?: string) {
@@ -88,7 +183,7 @@
 			header: 'PR / Product',
 			cell: (row: Row) => {
 				if (row.kind === 'PR_LEFTOVER') {
-					return `${row.prNumber} — ${row.supplierName}`;
+					return row.supplierName ? `${row.prNumber} — ${row.supplierName}` : row.prNumber;
 				}
 				return row.product ? `${row.product.code} — ${row.product.name}` : '—';
 			}
@@ -142,10 +237,18 @@
 				Pending PR leftovers need approval. Posted includes catalog variance (shop cheaper than catalog).
 			</p>
 		</div>
-		<Button href={`/api/petty-cash/refunds?export=1&${query()}`} variant="secondary">
-			<Download class="h-4 w-4" />
-			Export CSV
-		</Button>
+		<div class="flex flex-wrap gap-3">
+			<Button href={`/api/petty-cash/refunds?export=1&${query()}`} variant="secondary">
+				<Download class="h-4 w-4" />
+				Export CSV
+			</Button>
+			{#if canWrite}
+				<Button variant="primary" onclick={openNewRefund}>
+					<Plus class="h-4 w-4" />
+					New refund
+				</Button>
+			{/if}
+		</div>
 	</div>
 
 	<div class="flex gap-2">
@@ -201,6 +304,58 @@
 			onclick={() => decide(rejectId, 'reject', rejectReason)}
 		>
 			Reject
+		</Button>
+	{/snippet}
+</Modal>
+
+<Modal open={newOpen} title="New PR leftover refund" onclose={() => (newOpen = false)}>
+	<div class="space-y-4">
+		<Combobox
+			label="Purchase request"
+			options={prOptions}
+			bind:value={newPurchaseId}
+			onchange={() => loadLeftoverForPr(newPurchaseId)}
+			placeholder={prLoading ? 'Loading…' : 'Search approved PR'}
+			error={newErrors.purchaseId}
+			required
+		/>
+		{#if leftoverPreview}
+			<p class="text-muted text-sm">
+				{leftoverPreview.prNumber}: leftover {formatCurrency(leftoverPreview.leftover)}
+				{#if leftoverPreview.hasActive}
+					· a request already exists
+				{/if}
+			</p>
+		{/if}
+		<Input
+			label="Amount"
+			type="number"
+			min="0"
+			bind:value={newAmount}
+			error={newErrors.amount}
+			required
+		/>
+		<Select
+			label="Return to"
+			options={[
+				{ value: 'KAS_KECIL', label: 'Kas kecil' },
+				{ value: 'BANK', label: 'Rekening kantor' }
+			]}
+			bind:value={newDest}
+			error={newErrors.destination}
+		/>
+	</div>
+	{#snippet footer()}
+		<Button variant="secondary" onclick={() => (newOpen = false)} disabled={newLoading}>
+			Cancel
+		</Button>
+		<Button
+			variant="primary"
+			loading={newLoading}
+			disabled={!newPurchaseId || leftoverPreview?.hasActive}
+			onclick={submitNewRefund}
+		>
+			Create request
 		</Button>
 	{/snippet}
 </Modal>

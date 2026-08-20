@@ -7,6 +7,9 @@
 
 	let { data } = $props();
 	const purchase = $derived(data.purchase as Purchase);
+	const lineTotal = $derived(
+		(purchase.items ?? []).reduce((sum, item) => sum + Number(item.subtotal ?? 0), 0)
+	);
 
 	function statusLabel(status: ApprovalStatus) {
 		if (status === 'APPROVED') return 'Approved';
@@ -199,9 +202,33 @@
 				{/each}
 			</tbody>
 			<tfoot>
+				<tr>
+					<td colspan="7" class="border border-slate-300 px-2 py-2 text-right">Line total</td>
+					<td colspan="2" class="border border-slate-300 px-2 py-2 text-right">
+						{formatCurrency(lineTotal)}
+					</td>
+				</tr>
+				<tr>
+					<td colspan="7" class="border border-slate-300 px-2 py-2 text-right">Tax</td>
+					<td colspan="2" class="border border-slate-300 px-2 py-2 text-right">
+						{formatCurrency(purchase.tax ?? 0)}
+					</td>
+				</tr>
+				<tr>
+					<td colspan="7" class="border border-slate-300 px-2 py-2 text-right">Shipping</td>
+					<td colspan="2" class="border border-slate-300 px-2 py-2 text-right">
+						{formatCurrency(purchase.shipping ?? 0)}
+					</td>
+				</tr>
+				<tr>
+					<td colspan="7" class="border border-slate-300 px-2 py-2 text-right">Other fees</td>
+					<td colspan="2" class="border border-slate-300 px-2 py-2 text-right">
+						{formatCurrency(purchase.otherFees ?? 0)}
+					</td>
+				</tr>
 				<tr class="bg-slate-50 font-semibold">
-					<td colspan="7" class="border border-slate-300 px-2 py-2 text-right">Total</td>
-					<td colspan="2" class="border border-slate-300 px-2 py-2">
+					<td colspan="7" class="border border-slate-300 px-2 py-2 text-right">Grand total</td>
+					<td colspan="2" class="border border-slate-300 px-2 py-2 text-right">
 						{formatCurrency(purchase.total)}
 					</td>
 				</tr>

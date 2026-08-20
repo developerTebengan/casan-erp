@@ -3,6 +3,7 @@ import { userRepository } from '$lib/server/repositories/user.repository';
 import { notificationService } from '$lib/server/services/notification.service';
 import { isDepartment, isPurpose } from '$lib/purchasing/catalog';
 import { parsePurchaseItems } from '$lib/purchasing/items';
+import { parseNonNegMoney } from '$lib/purchasing/leftover';
 import { validateRequired, type ValidationResult } from '$lib/utils/validation';
 import type { PurchaseCreateInput } from '$lib/server/repositories/purchase.repository';
 import type { PurchasePriority, ApprovalStatus, UserRole } from '$lib/types';
@@ -119,6 +120,13 @@ export function purchaseService() {
 			errors.items = [itemsValidation.errors];
 		}
 
+		const tax = parseNonNegMoney(input.tax);
+		const shipping = parseNonNegMoney(input.shipping);
+		const otherFees = parseNonNegMoney(input.otherFees);
+		if (tax == null) errors.tax = ['Tax cannot be negative'];
+		if (shipping == null) errors.shipping = ['Shipping cannot be negative'];
+		if (otherFees == null) errors.otherFees = ['Other fees cannot be negative'];
+
 		if (Object.keys(errors).length > 0) {
 			return { valid: false, errors };
 		}
@@ -142,6 +150,9 @@ export function purchaseService() {
 				departmentHeadId: input.departmentHeadId ? String(input.departmentHeadId) : null,
 				financeApproverId: input.financeApproverId ? String(input.financeApproverId) : null,
 				finalApproverId: input.finalApproverId ? String(input.finalApproverId) : null,
+				tax: tax ?? 0,
+				shipping: shipping ?? 0,
+				otherFees: otherFees ?? 0,
 				items: itemsValidation.data
 			}
 		};
