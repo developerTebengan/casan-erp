@@ -403,5 +403,190 @@ export function pettyCashService() {
 		}
 	}
 
-	return { getBalance, list, listForExport, topUp, editTopUp, buyStock };
+	async function checkoutBasket(
+		input: {
+			lines?: unknown;
+			note?: unknown;
+		},
+		createdBy?: string | null
+	) {
+		const sharedNote = input.note ? String(input.note) : null;
+		const rawLines = Array.isArray(input.lines) ? input.lines : [];
+
+		if (rawLines.length === 0) {
+			return { success: false as const, errors: { form: ['Basket is empty'] } };
+		}
+
+		try {
+			const result = await db.$transaction(async (tx) => {
+				const account = await tx.pettyCashAccount.upsert({
+					where: { id: ACCOUNT_ID },
+					create: { id: ACCOUNT_ID, balance: 0 },
+					update: {}
+				});
+				let runningBalance = money(account.balance);
+
+				const parsed: Array<{
+					product: { id: string; stock: number; price: unknown };
+					supplier: { id: string };
+					qty: number;
+					paidAmount: number;
+					actualUnitPrice: number | null;
+					updateCatalogPrice: boolean;
+					note: string | null;
+				}> = [];
+
+				let totalPaid = 0;
+				for (const line of rawLines) {
+					const l = line as Record<string, unknown>;
+					const productId = String(l.productId ?? '');
+					const supplierId = String(l.supplierId ?? '');
+					const qty = Number(l.qty);
+					const paidAmount = money(l.paidAmount);
+					const actualUnitPrice =
+						l.actualUnitPrice === '' || l.actualUnitPrice == null ? null : money(l.actualUnitPrice);
+					const updateCatalogPrice = Boolean(l.updateCatalogPrice);
+					const note = l.note ? String(l.note) : sharedNote;
+
+					if (!productId) {
+						return { success: false as const, errors: { productId: ['Product is required'] } };
+					}
+					if (!supplierId) {
+						return { success: false as const, errors: { supplierId: ['Supplier is required'] } };
+					}
+					if (!Number.isFinite(qty) || qty <= 0) {
+						return { success: false as const, errors: { qty: ['Quantity must be greater than 0'] } };
+					}
+					if (paidAmount < 0) {
+						return {
+							success: false as const,
+							errors: { paidAmount: ['Amount paid cannot be negative'] }
+						};
+					}
+
+					const product = await tx.product.findFirst({
+						where: { id: productId, deletedAt: null },
+						select: { id: true, stock: true, price: true }
+					});
+					if (!product) return { success: false as const, errors: { productId: ['Product not found'] } };
+
+					const supplier = await tx.supplier.findFirst({
+						where: { id: supplierId, deletedAt: null },
+						select: { id: true }
+					});
+					if (!supplier)
+						return {
+							success: false as const,
+							errors: { supplierId: ['Supplier not found'] }
+						};
+
+					parsed.push({ product, supplier, qty, paidAmount, actualUnitPrice, updateCatalogPrice, note });
+					totalPaid += paidAmount;
+				}
+
+				if (totalPaid > runningBalance) {
+					throw new Error('INSUFFICIENT_PETTY_CASH');
+				}
+
+				for (const item of parsed) {
+					const { product, qty, paidAmount, actualUnitPrice, updateCatalogPrice, note } = item;
+					const catalogUnitPrice = money(product.price);
+					const expectedAmount = catalogTotal(catalogUnitPrice, qty);
+					const refundAmount = varianceRefund(expectedAmount, paidAmount);
+					const unitPrice = actualUnitPrice ?? Math.round(paidAmount / qty);
+
+					const stockAfter = product.stock + qty;
+					const stockTx = await tx.stockTransaction.create({
+						data: {
+							productId: product.id,
+							type: 'IN',
+							source: 'PETTY_CASH',
+							qty,
+							stockBefore: product.stock,
+							stockAfter,
+							note: note || `Petty cash purchase, paid ${paidAmount}`,
+							createdBy
+						}
+					});
+
+					const productUpdate: { stock: number; price?: number } = { stock: stockAfter };
+					if (updateCatalogPrice && actualUnitPrice != null && actualUnitPrice >= 0) {
+						productUpdate.price = actualUnitPrice;
+					}
+					await tx.product.update({
+						where: { id: product.id },
+						data: productUpdate
+					});
+
+					const spendBalance = runningBalance - paidAmount;
+					runningBalance = spendBalance;
+					await tx.pettyCashAccount.update({
+						where: { id: ACCOUNT_ID },
+						data: { balance: spendBalance }
+					});
+
+					await tx.pettyCashTransaction.create({
+						data: {
+							type: 'SPEND',
+							amount: paidAmount,
+							balanceAfter: spendBalance,
+							expectedAmount,
+							paidAmount,
+							catalogUnitPrice,
+							actualUnitPrice: unitPrice,
+							qty,
+							productId: product.id,
+							supplierId: item.supplier.id,
+							stockTransactionId: stockTx.id,
+							note,
+							createdBy
+						}
+					});
+
+					if (refundAmount > 0) {
+						await tx.pettyCashTransaction.create({
+							data: {
+								type: 'REFUND',
+								amount: refundAmount,
+								balanceAfter: spendBalance,
+								expectedAmount,
+								paidAmount,
+								catalogUnitPrice,
+								actualUnitPrice: unitPrice,
+								qty,
+								productId: product.id,
+								supplierId: item.supplier.id,
+								stockTransactionId: stockTx.id,
+								note: note || `Unused vs catalog (${expectedAmount} − ${paidAmount})`,
+								createdBy
+							}
+						});
+					}
+
+					// Keep local copies in sync so repeated products in the basket behave sequentially.
+					product.stock = stockAfter;
+					if (productUpdate.price != null) product.price = productUpdate.price;
+				}
+
+				return { success: true as const, count: parsed.length, balanceAfter: runningBalance };
+			});
+
+			if (!result.success) return result;
+
+			return {
+				success: true as const,
+				data: { count: result.count, balanceAfter: result.balanceAfter }
+			};
+		} catch (err) {
+			if (err instanceof Error && err.message === 'INSUFFICIENT_PETTY_CASH') {
+				return {
+					success: false as const,
+					errors: { paidAmount: ['Petty cash balance is not enough for this amount'] }
+				};
+			}
+			throw err;
+		}
+	}
+
+	return { getBalance, list, listForExport, topUp, editTopUp, buyStock, checkoutBasket };
 }
