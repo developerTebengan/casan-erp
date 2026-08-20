@@ -16,7 +16,7 @@
 	} from '@lucide/svelte';
 	import { Card, Breadcrumb, Badge, Button, DataTable, Modal, Textarea, Input, Select } from '$lib/components/ui';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import { formatCurrency, formatDate } from '$lib/utils/format';
+	import { formatCurrency, formatDate, formatNumber, parseIdNumber } from '$lib/utils/format';
 	import { supplierNames } from '$lib/purchasing/catalog';
 	import type { PurchaseItem, ApprovalStatus, User as UserType, UserRole } from '$lib/types';
 
@@ -42,7 +42,7 @@
 		const prices: Record<string, string> = {};
 		for (const line of data.receipt?.lines ?? []) {
 			next[line.itemId] = line.remainingQty;
-			prices[line.itemId] = String(line.orderedPrice ?? 0);
+			prices[line.itemId] = formatNumber(line.orderedPrice ?? 0);
 		}
 		receiveQtys = next;
 		receivePrices = prices;
@@ -307,7 +307,7 @@
 							itemId: line.itemId,
 							productId: line.productId,
 							qty,
-							unitPrice: Number(receivePrices[itemId] ?? line.orderedPrice ?? 0)
+							unitPrice: parseIdNumber(receivePrices[itemId] ?? line.orderedPrice ?? 0)
 						}
 					],
 					note: receiveNote
@@ -340,9 +340,9 @@
 	$effect(() => {
 		const snap = data.leftover;
 		if (!snap) return;
-		actualTax = String(snap.actualTax ?? snap.tax ?? 0);
-		actualShipping = String(snap.actualShipping ?? snap.shipping ?? 0);
-		actualOther = String(snap.actualOtherFees ?? snap.otherFees ?? 0);
+		actualTax = formatNumber(snap.actualTax ?? snap.tax ?? 0);
+		actualShipping = formatNumber(snap.actualShipping ?? snap.shipping ?? 0);
+		actualOther = formatNumber(snap.actualOtherFees ?? snap.otherFees ?? 0);
 	});
 
 	async function saveLeftover(submitRequest: boolean) {
@@ -352,9 +352,9 @@
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					actualTax: Number(actualTax) || 0,
-					actualShipping: Number(actualShipping) || 0,
-					actualOtherFees: Number(actualOther) || 0,
+					actualTax: parseIdNumber(actualTax),
+					actualShipping: parseIdNumber(actualShipping),
+					actualOtherFees: parseIdNumber(actualOther),
 					destination: leftoverDest,
 					submitRequest
 				})
@@ -769,13 +769,22 @@
 													/>
 													<Input
 														label="Unit price"
-														type="number"
-														min="0"
-														value={receivePrices[line.itemId] ?? String(line.orderedPrice ?? 0)}
+														type="text"
+														value={receivePrices[line.itemId] ?? formatNumber(line.orderedPrice ?? 0)}
 														oninput={(e) => {
 															receivePrices = {
 																...receivePrices,
 																[line.itemId]: (e.target as HTMLInputElement).value
+															};
+														}}
+														onblur={() => {
+															receivePrices = {
+																...receivePrices,
+																[line.itemId]: formatNumber(
+																	parseIdNumber(
+																		receivePrices[line.itemId] ?? line.orderedPrice ?? 0
+																	)
+																)
 															};
 														}}
 													/>
@@ -843,9 +852,24 @@
 					{/if}
 					{#if canReceive}
 						<div class="grid gap-4 sm:grid-cols-3">
-							<Input label="Actual tax" type="number" min="0" bind:value={actualTax} />
-							<Input label="Actual shipping" type="number" min="0" bind:value={actualShipping} />
-							<Input label="Actual other" type="number" min="0" bind:value={actualOther} />
+							<Input
+								label="Actual tax"
+								type="text"
+								bind:value={actualTax}
+								onblur={() => (actualTax = formatNumber(parseIdNumber(actualTax)))}
+							/>
+							<Input
+								label="Actual shipping"
+								type="text"
+								bind:value={actualShipping}
+								onblur={() => (actualShipping = formatNumber(parseIdNumber(actualShipping)))}
+							/>
+							<Input
+								label="Actual other"
+								type="text"
+								bind:value={actualOther}
+								onblur={() => (actualOther = formatNumber(parseIdNumber(actualOther)))}
+							/>
 						</div>
 						<div class="mt-4 flex flex-wrap items-end gap-3">
 							{#if leftover.leftover > 0 && !leftover.hasActive}

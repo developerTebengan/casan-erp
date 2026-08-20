@@ -2,7 +2,7 @@
 	import { Button, Card, Input, Select, Textarea, Combobox } from '$lib/components/ui';
 	import { DEPARTMENTS, PURPOSES } from '$lib/purchasing/catalog';
 	import type { Product, Purchase, PurchasePriority, Supplier, User } from '$lib/types';
-	import { formatCurrency, formatNumber } from '$lib/utils/format';
+	import { formatCurrency, formatNumber, parseIdNumber } from '$lib/utils/format';
 	import { ExternalLink, Plus, Trash2 } from '@lucide/svelte';
 	import { untrack } from 'svelte';
 
@@ -58,9 +58,9 @@
 	let financeApproverId = $state(untrack(() => purchase?.financeApproverId ?? ''));
 	let finalApproverId = $state(untrack(() => purchase?.finalApproverId ?? ''));
 	let dateError = $state('');
-	let tax = $state(untrack(() => String(purchase?.tax ?? 0)));
-	let shipping = $state(untrack(() => String(purchase?.shipping ?? 0)));
-	let otherFees = $state(untrack(() => String(purchase?.otherFees ?? 0)));
+	let tax = $state(untrack(() => formatNumber(Number(purchase?.tax ?? 0))));
+	let shipping = $state(untrack(() => formatNumber(Number(purchase?.shipping ?? 0))));
+	let otherFees = $state(untrack(() => formatNumber(Number(purchase?.otherFees ?? 0))));
 	let items = $state(
 		untrack(
 			() =>
@@ -171,7 +171,7 @@
 	}
 
 	function handlePriceInput(index: number, raw: string) {
-		const numeric = Number(raw.replace(/\./g, '').replace(/,/g, '')) || 0;
+		const numeric = parseIdNumber(raw);
 		items[index] = { ...items[index], price: numeric };
 	}
 
@@ -206,9 +206,9 @@
 			departmentHeadId: departmentHeadId || null,
 			financeApproverId: financeApproverId || null,
 			finalApproverId: finalApproverId || null,
-			tax: Number(tax) || 0,
-			shipping: Number(shipping) || 0,
-			otherFees: Number(otherFees) || 0,
+			tax: parseIdNumber(tax),
+			shipping: parseIdNumber(shipping),
+			otherFees: parseIdNumber(otherFees),
 			items: items
 				.filter((item) => item.productId)
 				.map((item) => ({
@@ -420,9 +420,27 @@
 
 	<div class="border-theme space-y-4 border-t pt-6">
 		<div class="grid gap-4 sm:grid-cols-3">
-			<Input label="Tax" type="number" min="0" bind:value={tax} error={errors.tax} />
-			<Input label="Shipping" type="number" min="0" bind:value={shipping} error={errors.shipping} />
-			<Input label="Other fees" type="number" min="0" bind:value={otherFees} error={errors.otherFees} />
+			<Input
+				label="Tax"
+				type="text"
+				bind:value={tax}
+				onblur={() => (tax = formatNumber(parseIdNumber(tax)))}
+				error={errors.tax}
+			/>
+			<Input
+				label="Shipping"
+				type="text"
+				bind:value={shipping}
+				onblur={() => (shipping = formatNumber(parseIdNumber(shipping)))}
+				error={errors.shipping}
+			/>
+			<Input
+				label="Other fees"
+				type="text"
+				bind:value={otherFees}
+				onblur={() => (otherFees = formatNumber(parseIdNumber(otherFees)))}
+				error={errors.otherFees}
+			/>
 		</div>
 		<div class="flex items-center justify-between">
 			<div>

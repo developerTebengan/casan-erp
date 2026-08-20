@@ -10,6 +10,18 @@ export function formatNumber(value: number): string {
 	return new Intl.NumberFormat('id-ID').format(value);
 }
 
+/** Parse user-typed id-ID numbers (e.g. "45.000" or "1.234.567"). */
+export function parseIdNumber(raw: string | number | null | undefined): number {
+	if (typeof raw === 'number') return Number.isFinite(raw) ? raw : 0;
+	const cleaned = String(raw ?? '')
+		.replace(/\./g, '')
+		.replace(/,/g, '')
+		.trim();
+	if (!cleaned) return 0;
+	const n = Number(cleaned);
+	return Number.isFinite(n) ? n : 0;
+}
+
 export function formatDate(date: string | Date): string {
 	return new Intl.DateTimeFormat('id-ID', {
 		day: '2-digit',

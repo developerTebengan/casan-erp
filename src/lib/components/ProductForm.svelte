@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
 	import { Input, Select, Button } from '$lib/components/ui';
-	import { formatNumber } from '$lib/utils/format';
+	import { formatNumber, parseIdNumber } from '$lib/utils/format';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import type { Product, Category } from '$lib/types';
 
@@ -142,7 +142,7 @@
 			bind:value={priceInput}
 			oninput={(e) => {
 				const raw = (e.target as HTMLInputElement).value;
-				price = Number(raw.replace(/\./g, '').replace(/,/g, '')) || 0;
+				price = parseIdNumber(raw);
 			}}
 			onblur={() => {
 				priceInput = formatNumber(price);
