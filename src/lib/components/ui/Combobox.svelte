@@ -124,7 +124,7 @@
 		<ul
 			id="{inputId}-list"
 			role="listbox"
-			class="border-theme bg-card absolute z-30 mt-1 max-h-56 w-full overflow-auto rounded-lg border py-1 shadow-lg"
+			class="border-theme bg-card absolute z-30 mt-1 max-h-56 w-full overflow-auto rounded-lg border py-1 shadow-lg dark:border-slate-600 dark:bg-slate-800"
 		>
 			{#each filtered as option, i}
 				<li>
@@ -133,8 +133,8 @@
 						role="option"
 						aria-selected={option.value === value}
 						class={classNames(
-							'text-main w-full px-4 py-2 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-800',
-							i === highlight ? 'bg-slate-100 dark:bg-slate-800' : ''
+							'text-main w-full px-4 py-2 text-left text-sm hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-700',
+							i === highlight ? 'bg-slate-100 dark:bg-slate-700' : ''
 						)}
 						onmousedown={(e) => e.preventDefault()}
 						onclick={() => select(option.value)}

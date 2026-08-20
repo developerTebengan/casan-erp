@@ -99,4 +99,16 @@ body {
 	.border-theme {
 		border-color: var(--border-color);
 	}
+
+	/* Native select popup stays light/readable even in dark mode */
+	select {
+		color-scheme: light;
+		background-color: var(--bg-card);
+		color: var(--text-main);
+	}
+
+	select option {
+		background-color: #ffffff;
+		color: #0f172a;
+	}
 }
