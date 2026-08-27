@@ -69,6 +69,13 @@ export function productService() {
 			return { valid: false, errors };
 		}
 
+		const preferredSupplierId =
+			input.preferredSupplierId === null || input.preferredSupplierId === ''
+				? null
+				: input.preferredSupplierId
+					? String(input.preferredSupplierId)
+					: undefined;
+
 		return {
 			valid: true,
 			data: {
@@ -80,6 +87,7 @@ export function productService() {
 				minimumStock,
 				price,
 				imageUrl: input.imageUrl ? String(input.imageUrl) : null,
+				preferredSupplierId,
 				status: (status as 'ACTIVE' | 'INACTIVE') || 'ACTIVE'
 			}
 		};
@@ -135,7 +143,11 @@ export function productService() {
 			...validation.data!,
 			stock: existing.stock,
 			imageUrl:
-				input.imageUrl !== undefined ? validation.data!.imageUrl : existing.imageUrl
+				input.imageUrl !== undefined ? validation.data!.imageUrl : existing.imageUrl,
+			preferredSupplierId:
+				input.preferredSupplierId !== undefined
+					? validation.data!.preferredSupplierId
+					: existing.preferredSupplierId
 		} as ProductUpdateInput);
 		return { success: true, data: product };
 	}

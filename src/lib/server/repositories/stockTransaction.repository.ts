@@ -19,6 +19,8 @@ export interface StockTransactionCreateInput {
 	type: StockTransactionType;
 	source?: StockTransactionSource;
 	referenceId?: string | null;
+	warehouseId?: string | null;
+	reversedFromId?: string | null;
 	qty: number;
 	stockBefore: number;
 	stockAfter: number;
@@ -82,6 +84,8 @@ export function stockTransactionRepository() {
 				type: input.type,
 				source: input.source ?? 'MANUAL',
 				referenceId: input.referenceId,
+				warehouseId: input.warehouseId,
+				reversedFromId: input.reversedFromId,
 				qty: input.qty,
 				stockBefore: input.stockBefore,
 				stockAfter: input.stockAfter,
@@ -120,6 +124,8 @@ function mapStockTransaction(tx: {
 	type: string;
 	source: string;
 	referenceId: string | null;
+	warehouseId?: string | null;
+	reversedFromId?: string | null;
 	qty: number;
 	stockBefore: number;
 	stockAfter: number;
@@ -151,6 +157,8 @@ function mapStockTransaction(tx: {
 		type: tx.type as StockTransactionType,
 		source: tx.source as StockTransactionSource,
 		referenceId: tx.referenceId,
+		warehouseId: tx.warehouseId ?? null,
+		reversedFromId: tx.reversedFromId ?? null,
 		qty: tx.qty,
 		stockBefore: tx.stockBefore,
 		stockAfter: tx.stockAfter,

@@ -2,6 +2,25 @@
 
 All notable changes to Casan ERP are documented here.
 
+## [0.5.0] - 2026-08-04
+
+### Added
+- STOCK_KEEPER and BUYER roles with focused menus and permissions
+- Receiving inbox for approved PRs awaiting goods receipt
+- PR fulfillment status (Open / Partial / Complete) on purchasing list
+- Edit pending PRs and revise rejected PRs for resubmit
+- Category CRUD, richer suppliers, preferred supplier reorder assist
+- Auto PR numbers, expected delivery date, in-app notifications
+- Warehouses, cycle counts, GRN print, reports with CSV export
+- SKU/code scan on stock and receiving
+
+### Fixed
+- Goods receipt reverse now nets remaining qty correctly
+- Stock create/reverse and goods receipt run in DB transactions
+
+### Changed
+- USER role is requester-focused (create PR); buyer/receive work uses BUYER / STOCK_KEEPER
+
 ## [0.4.0] - 2026-07-28
 
 ### Added

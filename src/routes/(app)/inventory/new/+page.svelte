@@ -49,6 +49,7 @@
 	<Card padding="lg">
 		<ProductForm
 			categories={data.categories}
+			suppliers={data.suppliers}
 			onsubmit={handleSubmit}
 			{loading}
 			{errors}

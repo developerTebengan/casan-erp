@@ -43,12 +43,14 @@
 		const variants: Record<StockTransactionType, string> = {
 			IN: 'bg-success-100 text-success-700 dark:bg-success-900/30 dark:text-success-600',
 			OUT: 'bg-danger-100 text-danger-700 dark:bg-danger-900/30 dark:text-danger-600',
-			ADJUSTMENT: 'bg-warning-100 text-warning-700 dark:bg-warning-900/30 dark:text-warning-500'
+			ADJUSTMENT: 'bg-warning-100 text-warning-700 dark:bg-warning-900/30 dark:text-warning-500',
+			TRANSFER: 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-500'
 		};
 		const labels: Record<StockTransactionType, string> = {
 			IN: 'IN',
 			OUT: 'OUT',
-			ADJUSTMENT: 'ADJ'
+			ADJUSTMENT: 'ADJ',
+			TRANSFER: 'TRF'
 		};
 		return `<span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${variants[tx.type]}">${labels[tx.type]}</span>`;
 	}

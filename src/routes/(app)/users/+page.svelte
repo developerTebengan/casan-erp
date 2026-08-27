@@ -32,7 +32,9 @@
 
 	const roleOptions = [
 		{ value: 'ADMIN', label: 'Admin' },
-		{ value: 'USER', label: 'User' },
+		{ value: 'USER', label: 'Requester' },
+		{ value: 'BUYER', label: 'Buyer' },
+		{ value: 'STOCK_KEEPER', label: 'Stock Keeper' },
 		{ value: 'DEPARTMENT_HEAD', label: 'Department Head' },
 		{ value: 'FINANCE', label: 'Finance' },
 		{ value: 'MANAGER', label: 'Manager' },

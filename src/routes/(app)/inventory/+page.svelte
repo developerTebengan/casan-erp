@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { untrack } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { Search, Plus, Edit, Trash2, Package, Filter } from '@lucide/svelte';
+	import { Plus } from '@lucide/svelte';
 	import {
 		Card,
 		Button,
@@ -11,10 +11,10 @@
 		DataTable,
 		Pagination,
 		Breadcrumb,
-		Badge,
 		ConfirmDialog,
 		EmptyState,
-		Spinner
+		Spinner,
+		Modal
 	} from '$lib/components/ui';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatNumber } from '$lib/utils/format';
@@ -32,6 +32,16 @@
 	let loading = $state(false);
 	let deleteId = $state<string | null>(null);
 	let deleting = $state(false);
+
+	type ReorderSupplierRow = {
+		supplierId: string;
+		supplierName: string;
+		productCount: number;
+		products: string[];
+	};
+	let reorderOpen = $state(false);
+	let reorderLoading = $state(false);
+	let reorderRows = $state<ReorderSupplierRow[]>([]);
 
 	const statusOptions = [
 		{ value: '', label: 'All Status' },
@@ -143,14 +153,54 @@
 		goto(`/inventory/${row.id}`);
 	}
 
+	async function openReorderBySupplier() {
+		reorderOpen = true;
+		reorderLoading = true;
+		reorderRows = [];
+		try {
+			const res = await fetch('/api/products?lowStock=1&status=ACTIVE&limit=100&page=1');
+			if (!res.ok) {
+				toastStore.error('Failed to load low-stock products');
+				return;
+			}
+			const result = await res.json();
+			const lowStockProducts: Product[] = result.data ?? [];
+			const bySupplier = new Map<string, ReorderSupplierRow>();
+			for (const p of lowStockProducts) {
+				if (!p.preferredSupplierId) continue;
+				const existing = bySupplier.get(p.preferredSupplierId);
+				const name = p.preferredSupplier?.name ?? 'Unknown supplier';
+				if (existing) {
+					existing.productCount += 1;
+					existing.products.push(p.name);
+				} else {
+					bySupplier.set(p.preferredSupplierId, {
+						supplierId: p.preferredSupplierId,
+						supplierName: name,
+						productCount: 1,
+						products: [p.name]
+					});
+				}
+			}
+			reorderRows = [...bySupplier.values()].sort((a, b) =>
+				a.supplierName.localeCompare(b.supplierName)
+			);
+		} finally {
+			reorderLoading = false;
+		}
+	}
+
 	onMount(() => {
 		const params = new URLSearchParams(window.location.search);
 		if (params.get('lowStock') === '1') {
 			stockFilter = '1';
 			loadProducts(1);
-			return;
+		} else if (!categories.length) {
+			loadProducts();
 		}
-		if (!categories.length) loadProducts();
+		if (params.get('reorder') === '1') {
+			openReorderBySupplier();
+		}
 	});
 </script>
 
@@ -166,6 +216,9 @@
 			{#if stockFilter === '1' || products.some((p) => p.stock <= p.minimumStock)}
 				<Button href="/purchasing/new?fromLowStock=1" variant="secondary">
 					Create PR from low stock
+				</Button>
+				<Button variant="secondary" onclick={openReorderBySupplier}>
+					Reorder by supplier
 				</Button>
 			{/if}
 			<Button href="/inventory/new" variant="primary">
@@ -239,4 +292,45 @@
 		onconfirm={handleDelete}
 		oncancel={() => (deleteId = null)}
 	/>
+
+	<Modal
+		open={reorderOpen}
+		title="Reorder by supplier"
+		onclose={() => (reorderOpen = false)}
+	>
+		{#if reorderLoading}
+			<div class="flex justify-center py-8">
+				<Spinner size="md" />
+			</div>
+		{:else if reorderRows.length === 0}
+			<p class="text-muted text-sm">
+				No low-stock products have a preferred supplier set. Assign preferred suppliers on products
+				first.
+			</p>
+		{:else}
+			<ul class="divide-theme divide-y">
+				{#each reorderRows as row (row.supplierId)}
+					<li class="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between">
+						<div>
+							<p class="text-main font-medium">{row.supplierName}</p>
+							<p class="text-muted text-xs">
+								{row.productCount} low-stock item{row.productCount === 1 ? '' : 's'}:
+								{row.products.slice(0, 3).join(', ')}{row.products.length > 3 ? '…' : ''}
+							</p>
+						</div>
+						<Button
+							href={`/purchasing/new?fromLowStock=1&supplierId=${row.supplierId}`}
+							variant="primary"
+							size="sm"
+						>
+							Create PR
+						</Button>
+					</li>
+				{/each}
+			</ul>
+		{/if}
+		{#snippet footer()}
+			<Button variant="secondary" onclick={() => (reorderOpen = false)}>Close</Button>
+		{/snippet}
+	</Modal>
 </div>

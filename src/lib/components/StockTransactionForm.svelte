@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { Input, Select, Button } from '$lib/components/ui';
-	import type { Product } from '$lib/types';
+	import { Input, Select, SearchableSelect, Button } from '$lib/components/ui';
+	import type { Product, Warehouse } from '$lib/types';
 
 	interface Props {
 		products: Product[];
+		warehouses?: Warehouse[];
 		errors?: Record<string, string>;
 		loading?: boolean;
 		submitLabel?: string;
@@ -14,6 +15,7 @@
 
 	let {
 		products,
+		warehouses = [],
 		errors = {},
 		loading = false,
 		submitLabel = 'Save',
@@ -21,7 +23,12 @@
 		onsubmit
 	}: Props = $props();
 
+	const defaultWarehouseId = untrack(
+		() => warehouses.find((w) => w.isDefault)?.id ?? warehouses[0]?.id ?? ''
+	);
+
 	let productId = $state(untrack(() => products[0]?.id ?? ''));
+	let warehouseId = $state(defaultWarehouseId);
 	let type = $state(untrack(() => 'IN'));
 	let qty = $state(untrack(() => ''));
 	let note = $state(untrack(() => ''));
@@ -36,6 +43,13 @@
 		products.map((p) => ({ value: p.id, label: `${p.code} — ${p.name}` }))
 	);
 
+	const warehouseOptions = $derived(
+		warehouses.map((w) => ({
+			value: w.id,
+			label: `${w.code} — ${w.name}${w.isDefault ? ' (default)' : ''}`
+		}))
+	);
+
 	const selectedProduct = $derived(products.find((p) => p.id === productId));
 
 	const qtyLabel = $derived(
@@ -48,7 +62,8 @@
 			productId,
 			type,
 			qty: Number(qty),
-			note: note || null
+			note: note || null,
+			warehouseId: warehouseId || null
 		};
 		onsubmit(data);
 	}
@@ -56,14 +71,24 @@
 
 <form onsubmit={handleSubmit} class="space-y-6">
 	<div class="grid gap-6 sm:grid-cols-2">
-		<Select
+		<SearchableSelect
 			label="Product"
 			name="productId"
 			options={productOptions}
 			bind:value={productId}
+			placeholder="Search by code or name..."
 			required
 			error={errors.productId}
 		/>
+		{#if warehouseOptions.length > 0}
+			<Select
+				label="Warehouse"
+				name="warehouseId"
+				options={warehouseOptions}
+				bind:value={warehouseId}
+				error={errors.warehouseId}
+			/>
+		{/if}
 		<Select
 			label="Transaction Type"
 			name="type"

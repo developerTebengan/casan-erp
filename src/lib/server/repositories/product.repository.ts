@@ -1,11 +1,12 @@
 import { db } from '$lib/server/db';
-import type { Product, ProductStatus } from '$lib/types';
+import type { Product, ProductStatus, Supplier } from '$lib/types';
 
 export interface ProductFilters {
 	search?: string;
 	categoryId?: string;
 	status?: ProductStatus;
 	lowStock?: boolean;
+	preferredSupplierId?: string;
 	page?: number;
 	limit?: number;
 }
@@ -19,14 +20,37 @@ export interface ProductCreateInput {
 	minimumStock: number;
 	price: number;
 	imageUrl?: string | null;
+	preferredSupplierId?: string | null;
 	status: ProductStatus;
 }
 
 export interface ProductUpdateInput extends Partial<ProductCreateInput> {}
 
+const productInclude = {
+	category: { select: { id: true, name: true } },
+	preferredSupplier: {
+		select: {
+			id: true,
+			name: true,
+			type: true,
+			phone: true,
+			address: true,
+			status: true
+		}
+	}
+} as const;
+
 export function productRepository() {
 	async function findAll(filters: ProductFilters = {}) {
-		const { search, categoryId, status, lowStock, page = 1, limit = 10 } = filters;
+		const {
+			search,
+			categoryId,
+			status,
+			lowStock,
+			preferredSupplierId,
+			page = 1,
+			limit = 10
+		} = filters;
 		const skip = (page - 1) * limit;
 
 		const baseWhere: Record<string, unknown> = { deletedAt: null };
@@ -38,12 +62,13 @@ export function productRepository() {
 		}
 		if (categoryId) baseWhere.categoryId = categoryId;
 		if (status) baseWhere.status = status;
+		if (preferredSupplierId) baseWhere.preferredSupplierId = preferredSupplierId;
 
 		if (lowStock) {
 			const all = await db.product.findMany({
 				where: baseWhere,
 				orderBy: { createdAt: 'desc' },
-				include: { category: { select: { id: true, name: true } } }
+				include: productInclude
 			});
 			const filtered = all.filter((p) => p.stock <= p.minimumStock);
 			const total = filtered.length;
@@ -60,7 +85,7 @@ export function productRepository() {
 				skip,
 				take: limit,
 				orderBy: { createdAt: 'desc' },
-				include: { category: { select: { id: true, name: true } } }
+				include: productInclude
 			}),
 			db.product.count({ where: baseWhere })
 		]);
@@ -74,7 +99,7 @@ export function productRepository() {
 	async function findById(id: string) {
 		const product = await db.product.findFirst({
 			where: { id, deletedAt: null },
-			include: { category: { select: { id: true, name: true } } }
+			include: productInclude
 		});
 		return product ? mapProduct(product) : null;
 	}
@@ -87,7 +112,7 @@ export function productRepository() {
 	async function create(input: ProductCreateInput) {
 		const product = await db.product.create({
 			data: input,
-			include: { category: { select: { id: true, name: true } } }
+			include: productInclude
 		});
 		return mapProduct(product);
 	}
@@ -96,7 +121,7 @@ export function productRepository() {
 		const product = await db.product.update({
 			where: { id },
 			data: input,
-			include: { category: { select: { id: true, name: true } } }
+			include: productInclude
 		});
 		return mapProduct(product);
 	}
@@ -119,6 +144,15 @@ function mapProduct(p: {
 	minimumStock: number;
 	price: unknown;
 	imageUrl?: string | null;
+	preferredSupplierId?: string | null;
+	preferredSupplier?: {
+		id: string;
+		name: string;
+		type?: string | null;
+		phone?: string | null;
+		address?: string | null;
+		status?: string | null;
+	} | null;
 	status: string;
 	createdAt: Date;
 	updatedAt: Date;
@@ -134,6 +168,17 @@ function mapProduct(p: {
 		minimumStock: p.minimumStock,
 		price: Number(p.price),
 		imageUrl: p.imageUrl ?? null,
+		preferredSupplierId: p.preferredSupplierId ?? null,
+		preferredSupplier: p.preferredSupplier
+			? ({
+					id: p.preferredSupplier.id,
+					name: p.preferredSupplier.name,
+					type: p.preferredSupplier.type ?? 'GENERAL',
+					phone: p.preferredSupplier.phone ?? null,
+					address: p.preferredSupplier.address ?? null,
+					status: (p.preferredSupplier.status as Supplier['status']) || 'ACTIVE'
+				} satisfies Supplier)
+			: null,
 		status: p.status as ProductStatus,
 		createdAt: p.createdAt.toISOString(),
 		updatedAt: p.updatedAt.toISOString()

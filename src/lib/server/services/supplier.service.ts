@@ -5,6 +5,7 @@ import type {
 	SupplierFilters,
 	SupplierUpdateInput
 } from '$lib/server/repositories/supplier.repository';
+import type { SupplierStatus } from '$lib/types';
 
 export function supplierService() {
 	const repo = supplierRepository();
@@ -12,6 +13,28 @@ export function supplierService() {
 	function validate(input: Record<string, unknown>): ValidationResult<SupplierCreateInput> {
 		const requiredErrors = validateRequired(input, ['name']);
 		const errors: Record<string, string[]> = { ...requiredErrors };
+
+		const status = input.status ? String(input.status) : 'ACTIVE';
+		if (!['ACTIVE', 'INACTIVE'].includes(status)) {
+			errors.status = ['Status must be ACTIVE or INACTIVE'];
+		}
+
+		let leadTimeDays: number | null | undefined = undefined;
+		if (input.leadTimeDays !== undefined && input.leadTimeDays !== null && input.leadTimeDays !== '') {
+			leadTimeDays = Number(input.leadTimeDays);
+			if (Number.isNaN(leadTimeDays) || leadTimeDays < 0) {
+				errors.leadTimeDays = ['Lead time must be a non-negative number'];
+			}
+		} else if (input.leadTimeDays === null || input.leadTimeDays === '') {
+			leadTimeDays = null;
+		}
+
+		if (input.email) {
+			const email = String(input.email).trim();
+			if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+				errors.email = ['Invalid email address'];
+			}
+		}
 
 		if (Object.keys(errors).length > 0) {
 			return { valid: false, errors };
@@ -23,7 +46,13 @@ export function supplierService() {
 				name: String(input.name).trim(),
 				type: input.type ? String(input.type).trim() : 'GENERAL',
 				phone: input.phone ? String(input.phone).trim() : undefined,
-				address: input.address ? String(input.address).trim() : undefined
+				address: input.address ? String(input.address).trim() : undefined,
+				contactPerson: input.contactPerson ? String(input.contactPerson).trim() : undefined,
+				email: input.email ? String(input.email).trim() : undefined,
+				paymentTerms: input.paymentTerms ? String(input.paymentTerms).trim() : undefined,
+				leadTimeDays: leadTimeDays === undefined ? undefined : leadTimeDays,
+				taxId: input.taxId ? String(input.taxId).trim() : undefined,
+				status: status as SupplierStatus
 			}
 		};
 	}

@@ -94,6 +94,8 @@
 				<ul class="space-y-1.5 text-slate-700 dark:text-slate-200">
 					<li><button type="button" class="text-left hover:text-primary-600 hover:underline" onclick={() => { email = 'admin@casanerp.com'; password = 'password'; }}>admin@casanerp.com</button> — Admin</li>
 					<li><button type="button" class="text-left hover:text-primary-600 hover:underline" onclick={() => { email = 'user@casanerp.com'; password = 'password'; }}>user@casanerp.com</button> — Requester</li>
+					<li><button type="button" class="text-left hover:text-primary-600 hover:underline" onclick={() => { email = 'buyer@casanerp.com'; password = 'password'; }}>buyer@casanerp.com</button> — Buyer</li>
+					<li><button type="button" class="text-left hover:text-primary-600 hover:underline" onclick={() => { email = 'stock@casanerp.com'; password = 'password'; }}>stock@casanerp.com</button> — Stock Keeper</li>
 					<li><button type="button" class="text-left hover:text-primary-600 hover:underline" onclick={() => { email = 'dept.head@casanerp.com'; password = 'password'; }}>dept.head@casanerp.com</button> — Dept Head</li>
 					<li><button type="button" class="text-left hover:text-primary-600 hover:underline" onclick={() => { email = 'finance@casanerp.com'; password = 'password'; }}>finance@casanerp.com</button> — Finance</li>
 					<li><button type="button" class="text-left hover:text-primary-600 hover:underline" onclick={() => { email = 'manager@casanerp.com'; password = 'password'; }}>manager@casanerp.com</button> — Manager</li>

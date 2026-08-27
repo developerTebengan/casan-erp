@@ -14,6 +14,8 @@ datasource db {
 enum UserRole {
   ADMIN
   USER
+  BUYER
+  STOCK_KEEPER
   DEPARTMENT_HEAD
   FINANCE
   MANAGER
@@ -31,27 +33,43 @@ model User {
   createdAt DateTime  @default(now())
   deletedAt DateTime?
 
-  requests          Purchase[] @relation("Requester")
-  departmentHeadOf  Purchase[] @relation("DepartmentHead")
-  financeApproverOf Purchase[] @relation("FinanceApprover")
-  finalApproverOf   Purchase[] @relation("FinalApprover")
+  requests          Purchase[]     @relation("Requester")
+  departmentHeadOf  Purchase[]     @relation("DepartmentHead")
+  financeApproverOf Purchase[]     @relation("FinanceApprover")
+  finalApproverOf   Purchase[]     @relation("FinalApprover")
+  notifications     Notification[]
+  cycleCounts       CycleCount[]
 
   @@unique([email], where: raw("\"deletedAt\" IS NULL"))
   @@map("users")
 }
 
 model Supplier {
-  id        String     @id @default(uuid())
-  name      String
-  type      String     @default("GENERAL")
-  phone     String?
-  address   String?
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  deletedAt DateTime?
-  purchases Purchase[]
+  id             String         @id @default(uuid())
+  name           String
+  type           String         @default("GENERAL")
+  phone          String?
+  address        String?
+  contactPerson  String?
+  email          String?
+  paymentTerms   String?
+  leadTimeDays   Int?
+  taxId          String?
+  status         SupplierStatus @default(ACTIVE)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  deletedAt      DateTime?
+  purchases      Purchase[]
+  preferredFor   Product[]      @relation("PreferredSupplier")
 
   @@map("suppliers")
+}
+
+enum SupplierStatus {
+  ACTIVE
+  INACTIVE
+
+  @@map("supplier_status")
 }
 
 model Category {
@@ -66,27 +84,63 @@ model Category {
   @@map("categories")
 }
 
+model Warehouse {
+  id        String    @id @default(uuid())
+  code      String
+  name      String
+  isDefault Boolean   @default(false)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  stockTransactions StockTransaction[]
+  productStocks     ProductStock[]
+  cycleCounts       CycleCount[]
+  goodsReceipts     GoodsReceipt[]
+
+  @@unique([code], where: raw("\"deletedAt\" IS NULL"))
+  @@map("warehouses")
+}
+
 model Product {
-  id           String        @id @default(uuid())
-  code         String
-  name         String
-  categoryId   String
-  unit         String        @default("PCS")
-  stock        Int           @default(0)
-  minimumStock Int           @default(0)
-  price        Decimal       @default(0)
-  imageUrl     String?
-  status       ProductStatus @default(ACTIVE)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  deletedAt    DateTime?
+  id                  String        @id @default(uuid())
+  code                String
+  name                String
+  categoryId          String
+  unit                String        @default("PCS")
+  stock               Int           @default(0)
+  minimumStock        Int           @default(0)
+  price               Decimal       @default(0)
+  imageUrl            String?
+  preferredSupplierId String?
+  status              ProductStatus @default(ACTIVE)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  deletedAt           DateTime?
 
   category          Category           @relation(fields: [categoryId], references: [id])
+  preferredSupplier Supplier?          @relation("PreferredSupplier", fields: [preferredSupplierId], references: [id])
   purchaseItems     PurchaseItem[]
   stockTransactions StockTransaction[]
+  productStocks     ProductStock[]
+  cycleCountLines   CycleCountLine[]
+  goodsReceiptLines GoodsReceiptLine[]
 
   @@unique([code], where: raw("\"deletedAt\" IS NULL"))
   @@map("products")
+}
+
+model ProductStock {
+  id          String @id @default(uuid())
+  productId   String
+  warehouseId String
+  qty         Int    @default(0)
+
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  warehouse Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, warehouseId])
+  @@map("product_stocks")
 }
 
 enum ProductStatus {
@@ -100,6 +154,7 @@ enum StockTransactionType {
   IN
   OUT
   ADJUSTMENT
+  TRANSFER
 
   @@map("stock_transaction_type")
 }
@@ -109,28 +164,37 @@ enum StockTransactionSource {
   PURCHASE
   SALES
   ADJUSTMENT
+  CYCLE_COUNT
+  TRANSFER
 
   @@map("stock_transaction_source")
 }
 
 model StockTransaction {
-  id          String                 @id @default(uuid())
-  productId   String
-  type        StockTransactionType
-  source      StockTransactionSource @default(MANUAL)
-  referenceId String?
-  qty         Int
-  stockBefore Int
-  stockAfter  Int
-  note        String?
-  createdBy   String?
-  createdAt   DateTime               @default(now())
-  deletedAt   DateTime?
+  id             String                 @id @default(uuid())
+  productId      String
+  type           StockTransactionType
+  source         StockTransactionSource @default(MANUAL)
+  referenceId    String?
+  warehouseId    String?
+  reversedFromId String?
+  qty            Int
+  stockBefore    Int
+  stockAfter     Int
+  note           String?
+  createdBy      String?
+  createdAt      DateTime               @default(now())
+  deletedAt      DateTime?
 
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product      Product            @relation(fields: [productId], references: [id], onDelete: Cascade)
+  warehouse    Warehouse?         @relation(fields: [warehouseId], references: [id])
+  reversedFrom StockTransaction?  @relation("StockReversal", fields: [reversedFromId], references: [id])
+  reversals    StockTransaction[] @relation("StockReversal")
 
   @@index([productId])
   @@index([createdAt])
+  @@index([referenceId])
+  @@index([reversedFromId])
   @@map("stock_transactions")
 }
 
@@ -143,6 +207,7 @@ model Purchase {
   requesterId              String
   dateRequired             DateTime
   decisionDeadline         DateTime
+  expectedDeliveryDate     DateTime?
   department               String
   purpose                  String
   comments                 String?
@@ -165,6 +230,7 @@ model Purchase {
   financeApprover User?          @relation("FinanceApprover", fields: [financeApproverId], references: [id])
   finalApprover   User?          @relation("FinalApprover", fields: [finalApproverId], references: [id])
   items           PurchaseItem[]
+  goodsReceipts   GoodsReceipt[]
 
   departmentHeadId  String?
   financeApproverId String?
@@ -204,4 +270,92 @@ model PurchaseItem {
   product  Product  @relation(fields: [productId], references: [id])
 
   @@map("purchase_items")
+}
+
+model GoodsReceipt {
+  id          String   @id @default(uuid())
+  grnNumber   String
+  purchaseId  String
+  warehouseId String?
+  note        String?
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  deletedAt   DateTime?
+
+  purchase  Purchase           @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  warehouse Warehouse?         @relation(fields: [warehouseId], references: [id])
+  lines     GoodsReceiptLine[]
+
+  @@unique([grnNumber], where: raw("\"deletedAt\" IS NULL"))
+  @@map("goods_receipts")
+}
+
+model GoodsReceiptLine {
+  id             String @id @default(uuid())
+  goodsReceiptId String
+  productId      String
+  qty            Int
+
+  goodsReceipt GoodsReceipt @relation(fields: [goodsReceiptId], references: [id], onDelete: Cascade)
+  product      Product      @relation(fields: [productId], references: [id])
+
+  @@map("goods_receipt_lines")
+}
+
+enum CycleCountStatus {
+  DRAFT
+  POSTED
+  CANCELLED
+
+  @@map("cycle_count_status")
+}
+
+model CycleCount {
+  id          String           @id @default(uuid())
+  code        String
+  warehouseId String
+  status      CycleCountStatus @default(DRAFT)
+  note        String?
+  createdById String?
+  postedAt    DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  deletedAt   DateTime?
+
+  warehouse Warehouse        @relation(fields: [warehouseId], references: [id])
+  createdBy User?            @relation(fields: [createdById], references: [id])
+  lines     CycleCountLine[]
+
+  @@unique([code], where: raw("\"deletedAt\" IS NULL"))
+  @@map("cycle_counts")
+}
+
+model CycleCountLine {
+  id           String @id @default(uuid())
+  cycleCountId String
+  productId    String
+  systemQty    Int
+  countedQty   Int
+  variance     Int
+
+  cycleCount CycleCount @relation(fields: [cycleCountId], references: [id], onDelete: Cascade)
+  product    Product    @relation(fields: [productId], references: [id])
+
+  @@map("cycle_count_lines")
+}
+
+model Notification {
+  id        String    @id @default(uuid())
+  userId    String
+  type      String
+  title     String
+  body      String
+  href      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@map("notifications")
 }

@@ -12,9 +12,24 @@ export const load: PageServerLoad = async ({ params, cookies }) => {
 	if (!purchase) throw error(404, 'Purchasing request not found');
 
 	const receipt = await goodsReceiptService().getReceiptSummary(params.id);
+	const goodsReceipts = await goodsReceiptService().listByPurchase(params.id);
 	const canReceive = hasPermission(user.role, 'purchasing:receive');
+	const canWrite = hasPermission(user.role, 'purchasing:write');
 	const isAdmin = user.role === 'ADMIN';
 	const users = isAdmin ? await userService().list() : [];
+	const canEdit =
+		canWrite &&
+		(purchase.approvalStatus === 'PENDING' || purchase.approvalStatus === 'REJECTED');
 
-	return { purchase, user, receipt, canReceive, isAdmin, users };
+	return {
+		purchase,
+		user,
+		receipt,
+		goodsReceipts,
+		canReceive,
+		canWrite,
+		canEdit,
+		isAdmin,
+		users
+	};
 };

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { untrack } from 'svelte';
-	import { Plus, Edit, Trash2, Eye, Phone, MapPin } from '@lucide/svelte';
+	import { Plus, Phone, MapPin, Mail, User, Clock, FileText } from '@lucide/svelte';
 	import {
 		Card,
 		Button,
@@ -13,10 +13,12 @@
 		ConfirmDialog,
 		EmptyState,
 		Spinner,
-		StatusStatTabs
+		StatusStatTabs,
+		Badge
 	} from '$lib/components/ui';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import type { Supplier } from '$lib/types';
+	import { formatCurrency, formatDate } from '$lib/utils/format';
+	import type { Purchase, Supplier } from '$lib/types';
 
 	let { data } = $props();
 
@@ -31,6 +33,10 @@
 	let selectedSupplier = $state<Partial<Supplier>>({});
 	let modalLoading = $state(false);
 	let modalErrors = $state<Record<string, string>>({});
+
+	let purchaseHistory = $state<Purchase[]>([]);
+	let purchaseTotalSpend = $state(0);
+	let purchaseHistoryLoading = $state(false);
 
 	let deleteId = $state<string | null>(null);
 	let deleting = $state(false);
@@ -74,6 +80,11 @@
 		{ value: 'OTHER', label: 'Other' }
 	];
 
+	const statusOptions = [
+		{ value: 'ACTIVE', label: 'Active' },
+		{ value: 'INACTIVE', label: 'Inactive' }
+	];
+
 	const typeTabs = $derived([
 		{ id: 'ALL', label: 'All', count: typeCounts.ALL ?? 0, variant: 'secondary' as const },
 		...supplierTypeOptions.map((opt) => ({
@@ -84,8 +95,23 @@
 		}))
 	]);
 
+	function emptySupplier(): Partial<Supplier> {
+		return {
+			name: '',
+			type: 'GENERAL',
+			phone: '',
+			address: '',
+			contactPerson: '',
+			email: '',
+			paymentTerms: '',
+			leadTimeDays: null,
+			taxId: '',
+			status: 'ACTIVE'
+		};
+	}
+
 	function openCreate() {
-		selectedSupplier = { name: '', type: 'GENERAL', phone: '', address: '' };
+		selectedSupplier = emptySupplier();
 		modalErrors = {};
 		modalMode = 'create';
 	}
@@ -95,21 +121,54 @@
 			...supplier,
 			type: supplier.type ?? 'GENERAL',
 			phone: supplier.phone ?? '',
-			address: supplier.address ?? ''
+			address: supplier.address ?? '',
+			contactPerson: supplier.contactPerson ?? '',
+			email: supplier.email ?? '',
+			paymentTerms: supplier.paymentTerms ?? '',
+			leadTimeDays: supplier.leadTimeDays ?? null,
+			taxId: supplier.taxId ?? '',
+			status: supplier.status ?? 'ACTIVE'
 		};
 		modalErrors = {};
 		modalMode = 'edit';
 	}
 
+	async function loadPurchaseHistory(supplierId: string) {
+		purchaseHistoryLoading = true;
+		purchaseHistory = [];
+		purchaseTotalSpend = 0;
+		try {
+			const params = new URLSearchParams({
+				supplierId,
+				page: '1',
+				limit: '10'
+			});
+			const res = await fetch(`/api/purchases?${params.toString()}`);
+			if (res.ok) {
+				const result = await res.json();
+				purchaseHistory = result.data ?? [];
+				purchaseTotalSpend = purchaseHistory.reduce(
+					(sum: number, p: Purchase) => sum + (p.total || 0),
+					0
+				);
+			}
+		} finally {
+			purchaseHistoryLoading = false;
+		}
+	}
+
 	function openDetail(supplier: Supplier) {
 		selectedSupplier = { ...supplier };
 		modalMode = 'detail';
+		if (supplier.id) loadPurchaseHistory(supplier.id);
 	}
 
 	function closeModal() {
 		modalMode = null;
 		selectedSupplier = {};
 		modalErrors = {};
+		purchaseHistory = [];
+		purchaseTotalSpend = 0;
 	}
 
 	async function handleSave() {
@@ -127,7 +186,13 @@
 					name: selectedSupplier.name,
 					type: selectedSupplier.type || 'GENERAL',
 					phone: selectedSupplier.phone,
-					address: selectedSupplier.address
+					address: selectedSupplier.address,
+					contactPerson: selectedSupplier.contactPerson,
+					email: selectedSupplier.email,
+					paymentTerms: selectedSupplier.paymentTerms,
+					leadTimeDays: selectedSupplier.leadTimeDays,
+					taxId: selectedSupplier.taxId,
+					status: selectedSupplier.status || 'ACTIVE'
 				})
 			});
 
@@ -169,6 +234,14 @@
 		}
 	}
 
+	function statusBadge(s: Supplier) {
+		const active = (s.status ?? 'ACTIVE') === 'ACTIVE';
+		const classes = active
+			? 'bg-success-100 text-success-700 dark:bg-success-900/30 dark:text-success-600'
+			: 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300';
+		return `<span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${classes}">${s.status ?? 'ACTIVE'}</span>`;
+	}
+
 	function actionsCell(s: Supplier) {
 		return `
 			<div class="flex items-center gap-2">
@@ -188,8 +261,9 @@
 	const columns = [
 		{ key: 'name', header: 'Supplier Name' },
 		{ key: 'type', header: 'Type', cell: (s: Supplier) => s.type || 'GENERAL' },
+		{ key: 'contactPerson', header: 'Contact', cell: (s: Supplier) => s.contactPerson || '-' },
 		{ key: 'phone', header: 'Phone', cell: (s: Supplier) => s.phone || '-' },
-		{ key: 'address', header: 'Address', cell: (s: Supplier) => s.address || '-' },
+		{ key: 'status', header: 'Status', cell: statusBadge },
 		{ key: 'actions', header: '', cell: actionsCell }
 	];
 
@@ -236,7 +310,7 @@
 	<Card padding="md">
 		<Input
 			label="Search"
-			placeholder="Search by name, phone, or address..."
+			placeholder="Search by name, contact, phone, email..."
 			bind:value={search}
 			oninput={handleSearch}
 		/>
@@ -264,13 +338,15 @@
 	title={modalMode === 'create' ? 'Add Supplier' : 'Edit Supplier'}
 	onclose={closeModal}
 >
-	<div class="space-y-4">
-		<Input
-			label="Supplier Name"
-			bind:value={selectedSupplier.name}
-			required
-			error={modalErrors.name}
-		/>
+	<div class="grid gap-4 sm:grid-cols-2">
+		<div class="sm:col-span-2">
+			<Input
+				label="Supplier Name"
+				bind:value={selectedSupplier.name}
+				required
+				error={modalErrors.name}
+			/>
+		</div>
 		<Select
 			label="Supplier Type"
 			options={supplierTypeOptions}
@@ -279,16 +355,69 @@
 				(v) => (selectedSupplier.type = v)
 			}
 		/>
+		<Select
+			label="Status"
+			options={statusOptions}
+			bind:value={
+				() => selectedSupplier.status ?? 'ACTIVE',
+				(v) => (selectedSupplier.status = v as Supplier['status'])
+			}
+		/>
+		<Input
+			label="Contact Person"
+			bind:value={
+				() => selectedSupplier.contactPerson ?? '',
+				(v) => (selectedSupplier.contactPerson = v)
+			}
+			error={modalErrors.contactPerson}
+		/>
+		<Input
+			label="Email"
+			type="email"
+			bind:value={() => selectedSupplier.email ?? '', (v) => (selectedSupplier.email = v)}
+			error={modalErrors.email}
+		/>
 		<Input
 			label="Phone"
 			bind:value={() => selectedSupplier.phone ?? '', (v) => (selectedSupplier.phone = v)}
 			error={modalErrors.phone}
 		/>
 		<Input
-			label="Address"
-			bind:value={() => selectedSupplier.address ?? '', (v) => (selectedSupplier.address = v)}
-			error={modalErrors.address}
+			label="Tax ID"
+			bind:value={() => selectedSupplier.taxId ?? '', (v) => (selectedSupplier.taxId = v)}
+			error={modalErrors.taxId}
 		/>
+		<Input
+			label="Payment Terms"
+			placeholder="e.g. Net 30"
+			bind:value={
+				() => selectedSupplier.paymentTerms ?? '',
+				(v) => (selectedSupplier.paymentTerms = v)
+			}
+			error={modalErrors.paymentTerms}
+		/>
+		<Input
+			label="Lead Time (days)"
+			type="number"
+			bind:value={
+				() =>
+					selectedSupplier.leadTimeDays != null ? String(selectedSupplier.leadTimeDays) : '',
+				(v) => {
+					selectedSupplier.leadTimeDays = v === '' ? null : Number(v);
+				}
+			}
+			error={modalErrors.leadTimeDays}
+		/>
+		<div class="sm:col-span-2">
+			<Input
+				label="Address"
+				bind:value={
+					() => selectedSupplier.address ?? '',
+					(v) => (selectedSupplier.address = v)
+				}
+				error={modalErrors.address}
+			/>
+		</div>
 	</div>
 
 	{#snippet footer()}
@@ -300,7 +429,7 @@
 </Modal>
 
 <Modal open={modalMode === 'detail'} title="Supplier Details" onclose={closeModal}>
-	<div class="space-y-4">
+	<div class="space-y-5">
 		<div class="flex items-center gap-3">
 			<div class="rounded-lg bg-primary-100 p-2 text-primary-700 dark:bg-primary-900/30">
 				<span class="text-lg font-bold">{selectedSupplier.name?.charAt(0).toUpperCase()}</span>
@@ -309,25 +438,106 @@
 				<h3 class="text-main text-lg font-semibold">{selectedSupplier.name}</h3>
 				<p class="text-muted text-sm">Type: {selectedSupplier.type || 'GENERAL'}</p>
 			</div>
+			<Badge variant={(selectedSupplier.status ?? 'ACTIVE') === 'ACTIVE' ? 'success' : 'secondary'}>
+				{selectedSupplier.status ?? 'ACTIVE'}
+			</Badge>
 		</div>
-		{#if selectedSupplier.phone}
-			<div class="flex items-start gap-3">
-				<Phone class="h-5 w-5 text-slate-400" />
-				<div>
-					<p class="text-muted text-sm">Phone</p>
-					<p class="text-main">{selectedSupplier.phone}</p>
+
+		<div class="grid gap-3 sm:grid-cols-2">
+			{#if selectedSupplier.contactPerson}
+				<div class="flex items-start gap-3">
+					<User class="mt-0.5 h-5 w-5 text-slate-400" />
+					<div>
+						<p class="text-muted text-sm">Contact Person</p>
+						<p class="text-main">{selectedSupplier.contactPerson}</p>
+					</div>
 				</div>
-			</div>
-		{/if}
-		{#if selectedSupplier.address}
-			<div class="flex items-start gap-3">
-				<MapPin class="h-5 w-5 text-slate-400" />
-				<div>
-					<p class="text-muted text-sm">Address</p>
-					<p class="text-main">{selectedSupplier.address}</p>
+			{/if}
+			{#if selectedSupplier.email}
+				<div class="flex items-start gap-3">
+					<Mail class="mt-0.5 h-5 w-5 text-slate-400" />
+					<div>
+						<p class="text-muted text-sm">Email</p>
+						<p class="text-main">{selectedSupplier.email}</p>
+					</div>
 				</div>
+			{/if}
+			{#if selectedSupplier.phone}
+				<div class="flex items-start gap-3">
+					<Phone class="mt-0.5 h-5 w-5 text-slate-400" />
+					<div>
+						<p class="text-muted text-sm">Phone</p>
+						<p class="text-main">{selectedSupplier.phone}</p>
+					</div>
+				</div>
+			{/if}
+			{#if selectedSupplier.taxId}
+				<div class="flex items-start gap-3">
+					<FileText class="mt-0.5 h-5 w-5 text-slate-400" />
+					<div>
+						<p class="text-muted text-sm">Tax ID</p>
+						<p class="text-main">{selectedSupplier.taxId}</p>
+					</div>
+				</div>
+			{/if}
+			{#if selectedSupplier.paymentTerms}
+				<div class="flex items-start gap-3">
+					<FileText class="mt-0.5 h-5 w-5 text-slate-400" />
+					<div>
+						<p class="text-muted text-sm">Payment Terms</p>
+						<p class="text-main">{selectedSupplier.paymentTerms}</p>
+					</div>
+				</div>
+			{/if}
+			{#if selectedSupplier.leadTimeDays != null}
+				<div class="flex items-start gap-3">
+					<Clock class="mt-0.5 h-5 w-5 text-slate-400" />
+					<div>
+						<p class="text-muted text-sm">Lead Time</p>
+						<p class="text-main">{selectedSupplier.leadTimeDays} days</p>
+					</div>
+				</div>
+			{/if}
+			{#if selectedSupplier.address}
+				<div class="flex items-start gap-3 sm:col-span-2">
+					<MapPin class="mt-0.5 h-5 w-5 text-slate-400" />
+					<div>
+						<p class="text-muted text-sm">Address</p>
+						<p class="text-main">{selectedSupplier.address}</p>
+					</div>
+				</div>
+			{/if}
+		</div>
+
+		<div class="border-theme border-t pt-4">
+			<div class="mb-3 flex items-center justify-between gap-3">
+				<h4 class="text-main font-semibold">Purchase history</h4>
+				<p class="text-muted text-sm">
+					Shown total: <span class="text-main font-medium">{formatCurrency(purchaseTotalSpend)}</span>
+				</p>
 			</div>
-		{/if}
+			{#if purchaseHistoryLoading}
+				<div class="flex justify-center py-6">
+					<Spinner size="md" />
+				</div>
+			{:else if purchaseHistory.length === 0}
+				<p class="text-muted text-sm">No purchases for this supplier yet.</p>
+			{:else}
+				<ul class="divide-theme divide-y">
+					{#each purchaseHistory as p (p.id)}
+						<li class="flex items-center justify-between gap-3 py-2.5">
+							<div>
+								<a href="/purchasing/{p.id}" class="text-primary-600 hover:underline text-sm font-medium">
+									{p.prNumber}
+								</a>
+								<p class="text-muted text-xs">{formatDate(p.dateOfRequest)} · {p.approvalStatus}</p>
+							</div>
+							<p class="text-main text-sm font-medium">{formatCurrency(p.total)}</p>
+						</li>
+					{/each}
+				</ul>
+			{/if}
+		</div>
 	</div>
 
 	{#snippet footer()}

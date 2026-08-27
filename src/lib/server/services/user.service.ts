@@ -4,7 +4,16 @@ import { hashPassword } from '$lib/server/auth';
 import type { UserCreateInput, UserUpdateInput } from '$lib/server/repositories/user.repository';
 import type { UserRole } from '$lib/types';
 
-const validRoles: UserRole[] = ['ADMIN', 'USER', 'DEPARTMENT_HEAD', 'FINANCE', 'MANAGER', 'DIRECTOR'];
+const validRoles: UserRole[] = [
+	'ADMIN',
+	'USER',
+	'BUYER',
+	'STOCK_KEEPER',
+	'DEPARTMENT_HEAD',
+	'FINANCE',
+	'MANAGER',
+	'DIRECTOR'
+];
 
 export function userService() {
 	const repo = userRepository();

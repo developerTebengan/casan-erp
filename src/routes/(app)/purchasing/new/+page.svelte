@@ -53,7 +53,9 @@
 			<div
 				class="mb-6 rounded-lg bg-warning-50 p-4 text-sm text-warning-800 dark:bg-warning-900/20 dark:text-warning-400"
 			>
-				Pre-filled from low-stock products. Review quantities and assign approvers before submitting.
+				Pre-filled from low-stock products{data.supplierName
+					? ` for preferred supplier ${data.supplierName}`
+					: ''}. Review quantities and assign approvers before submitting.
 			</div>
 		{/if}
 		<PurchaseForm

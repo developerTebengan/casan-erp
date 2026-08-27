@@ -49,6 +49,7 @@
 	<Card padding="lg">
 		<StockTransactionForm
 			products={data.products}
+			warehouses={data.warehouses}
 			onsubmit={handleSubmit}
 			{loading}
 			{errors}

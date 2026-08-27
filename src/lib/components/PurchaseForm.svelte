@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Button, Card, Input, Select, Textarea } from '$lib/components/ui';
+	import { Button, Card, Input, SearchableSelect, Select, Textarea } from '$lib/components/ui';
 	import type { Product, Purchase, PurchasePriority, Supplier, User } from '$lib/types';
 	import { formatCurrency, formatNumber } from '$lib/utils/format';
 	import { ExternalLink, Plus, Trash2 } from '@lucide/svelte';
@@ -27,7 +27,9 @@
 		onsubmit
 	}: Props = $props();
 
-	let prNumber = $state(untrack(() => purchase?.prNumber ?? generatePRNumber()));
+	const isEdit = $derived(!!purchase?.id);
+
+	let prNumber = $state(untrack(() => purchase?.prNumber ?? ''));
 	let supplierId = $state(untrack(() => purchase?.supplierId ?? ''));
 	let dateOfRequest = $state(
 		untrack(() =>
@@ -49,6 +51,13 @@
 						? new Date(purchase.dateRequired)
 						: getTomorrow()
 			)
+		)
+	);
+	let expectedDeliveryDate = $state(
+		untrack(() =>
+			purchase?.expectedDeliveryDate
+				? formatDateForInput(new Date(purchase.expectedDeliveryDate))
+				: ''
 		)
 	);
 	let department = $state(untrack(() => purchase?.department ?? ''));
@@ -116,11 +125,6 @@
 		}, 0)
 	);
 
-	function generatePRNumber() {
-		const now = new Date();
-		return `PR-${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
-	}
-
 	function formatDateForInput(date: Date) {
 		return date.toISOString().split('T')[0];
 	}
@@ -175,12 +179,13 @@
 		}
 		dateError = '';
 		const data = {
-			prNumber,
+			prNumber: isEdit ? prNumber : prNumber || undefined,
 			supplierId: supplierId || null,
 			dateOfRequest,
 			priority,
 			dateRequired,
 			decisionDeadline,
+			expectedDeliveryDate: expectedDeliveryDate || null,
 			department,
 			purpose,
 			comments: comments || null,
@@ -202,13 +207,27 @@
 
 <form onsubmit={handleSubmit} class="space-y-6">
 	<div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-		<Input
-			label="PR Number"
-			name="prNumber"
-			bind:value={prNumber}
-			required
-			error={errors.prNumber}
-		/>
+		{#if isEdit}
+			<Input
+				label="PR Number"
+				name="prNumber"
+				bind:value={prNumber}
+				required
+				error={errors.prNumber}
+			/>
+		{:else}
+			<div>
+				<p class="text-main mb-1.5 text-sm font-medium">PR Number</p>
+				<div
+					class="border-theme bg-slate-50 text-muted rounded-lg border px-4 py-2.5 text-sm dark:bg-slate-800/50"
+				>
+					Auto-generated on save (e.g. PR-202608-0001)
+				</div>
+				{#if errors.prNumber}
+					<p class="mt-1 text-sm text-danger-500">{errors.prNumber}</p>
+				{/if}
+			</div>
+		{/if}
 		<div class="space-y-1">
 			<Select
 				label="Supplier (Optional)"
@@ -246,7 +265,7 @@
 		/>
 	</div>
 
-	<div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+	<div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
 		<Input
 			label="Department"
 			name="department"
@@ -274,10 +293,17 @@
 			error={errors.decisionDeadline || dateError}
 			oninput={() => (dateError = '')}
 		/>
+		<Input
+			label="Expected delivery"
+			name="expectedDeliveryDate"
+			type="date"
+			bind:value={expectedDeliveryDate}
+			error={errors.expectedDeliveryDate}
+		/>
 	</div>
 	<p class="text-muted -mt-4 text-xs">
 		Decision deadline is the latest date this PR should be approved or rejected (separate from when
-		goods are needed).
+		goods are needed). Expected delivery is optional planned arrival after approval.
 	</p>
 
 	<div>
@@ -361,11 +387,12 @@
 					class="border-theme grid gap-3 rounded-lg border bg-slate-50 p-4 sm:grid-cols-12 sm:items-end dark:bg-slate-800/30"
 				>
 					<div class="sm:col-span-4">
-						<Select
+						<SearchableSelect
 							label="Product"
 							options={productOptions}
 							bind:value={item.productId}
 							onchange={() => updatePrice(index)}
+							placeholder="Search by code or name..."
 							required
 						/>
 					</div>
@@ -407,7 +434,9 @@
 			<p class="text-2xl font-bold text-primary-600">{formatCurrency(total)}</p>
 		</div>
 		<div class="flex gap-3">
-			<Button variant="secondary" href="/purchasing">Cancel</Button>
+			<Button variant="secondary" href={isEdit && purchase?.id ? `/purchasing/${purchase.id}` : '/purchasing'}>
+				Cancel
+			</Button>
 			<Button type="submit" variant="primary" {loading}>{submitLabel}</Button>
 		</div>
 	</div>

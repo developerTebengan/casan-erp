@@ -13,11 +13,20 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		const categoryId = url.searchParams.get('categoryId') || undefined;
 		const status = (url.searchParams.get('status') as 'ACTIVE' | 'INACTIVE') || undefined;
 		const lowStock = url.searchParams.get('lowStock') === '1';
+		const preferredSupplierId = url.searchParams.get('preferredSupplierId') || undefined;
 		const page = Math.max(1, Number(url.searchParams.get('page') ?? 1));
 		const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit') ?? 10)));
 
 		const service = productService();
-		const result = await service.list({ search, categoryId, status, lowStock, page, limit });
+		const result = await service.list({
+			search,
+			categoryId,
+			status,
+			lowStock,
+			preferredSupplierId,
+			page,
+			limit
+		});
 		return json(result);
 	} catch (e) {
 		console.error(e);

@@ -1,8 +1,11 @@
 import { db } from '$lib/server/db';
+import { stockTransactionRepository } from '$lib/server/repositories/stockTransaction.repository';
+import { warehouseRepository } from '$lib/server/repositories/warehouse.repository';
 import {
-	stockTransactionRepository,
-	type StockTransactionCreateInput
-} from '$lib/server/repositories/stockTransaction.repository';
+	applyProductStockDelta,
+	getWarehouseQty,
+	setProductStockQty
+} from '$lib/server/productStock';
 import { validateRequired, type ValidationResult } from '$lib/utils/validation';
 import type { StockTransactionType, StockTransactionSource } from '$lib/types';
 
@@ -11,10 +14,29 @@ export interface StockTransactionManualInput {
 	type: StockTransactionType;
 	qty: number;
 	note?: string | null;
+	warehouseId?: string | null;
+}
+
+export interface StockTransferInput {
+	productId: string;
+	fromWarehouseId: string;
+	toWarehouseId: string;
+	qty: number;
+	note?: string | null;
 }
 
 export function stockTransactionService() {
 	const repo = stockTransactionRepository();
+	const warehouses = warehouseRepository();
+
+	async function resolveWarehouseId(warehouseId?: string | null): Promise<string | null> {
+		if (warehouseId) {
+			const wh = await warehouses.findById(warehouseId);
+			return wh?.id ?? null;
+		}
+		const def = await warehouses.findDefault();
+		return def?.id ?? null;
+	}
 
 	function validate(input: Record<string, unknown>): ValidationResult<StockTransactionManualInput> {
 		const requiredErrors = validateRequired(input, ['productId', 'type', 'qty']);
@@ -42,7 +64,8 @@ export function stockTransactionService() {
 				productId: String(input.productId),
 				type: type as StockTransactionType,
 				qty,
-				note: input.note ? String(input.note) : null
+				note: input.note ? String(input.note) : null,
+				warehouseId: input.warehouseId ? String(input.warehouseId) : null
 			}
 		};
 	}
@@ -60,46 +83,193 @@ export function stockTransactionService() {
 		if (!validation.valid) return { success: false, errors: validation.errors };
 
 		const { productId, type, qty, note } = validation.data!;
+		const warehouseId = await resolveWarehouseId(validation.data!.warehouseId);
+		if (validation.data!.warehouseId && !warehouseId) {
+			return { success: false, errors: { warehouseId: ['Warehouse not found'] } };
+		}
 
 		const product = await db.product.findFirst({ where: { id: productId, deletedAt: null } });
 		if (!product) {
 			return { success: false, errors: { productId: ['Product not found'] } };
 		}
 
-		let stockAfter = product.stock;
-		let signedQty = qty;
+		try {
+			const created = await db.$transaction(async (prisma) => {
+				const whStock = await getWarehouseQty(prisma, product.id, warehouseId, product.stock);
 
-		if (type === 'IN') {
-			stockAfter = product.stock + qty;
-		} else if (type === 'OUT') {
-			if (qty > product.stock) {
+				let stockAfter = product.stock;
+				let signedQty = qty;
+				let warehouseQtyAfter = whStock;
+
+				if (type === 'IN') {
+					stockAfter = product.stock + qty;
+					signedQty = qty;
+					warehouseQtyAfter = whStock + qty;
+				} else if (type === 'OUT') {
+					if (qty > whStock) {
+						throw new Error(`INSUFFICIENT:${whStock}`);
+					}
+					stockAfter = product.stock - qty;
+					signedQty = -qty;
+					warehouseQtyAfter = whStock - qty;
+				} else if (type === 'ADJUSTMENT') {
+					const delta = qty - whStock;
+					stockAfter = product.stock + delta;
+					signedQty = delta;
+					warehouseQtyAfter = qty;
+				}
+
+				if (stockAfter < 0) {
+					throw new Error(`INSUFFICIENT:${product.stock}`);
+				}
+
+				const tx = await prisma.stockTransaction.create({
+					data: {
+						productId: product.id,
+						type,
+						source: 'MANUAL' as StockTransactionSource,
+						warehouseId,
+						qty: signedQty,
+						stockBefore: product.stock,
+						stockAfter,
+						note,
+						createdBy
+					},
+					include: {
+						product: {
+							include: { category: { select: { id: true, name: true } } }
+						}
+					}
+				});
+
+				await prisma.product.update({
+					where: { id: product.id },
+					data: { stock: stockAfter }
+				});
+
+				if (warehouseId) {
+					await setProductStockQty(prisma, product.id, warehouseId, warehouseQtyAfter);
+				}
+
+				return tx;
+			});
+
+			const mapped = await repo.findById(created.id);
+			return { success: true, data: mapped ?? created };
+		} catch (e) {
+			if (e instanceof Error && e.message.startsWith('INSUFFICIENT:')) {
+				const available = e.message.split(':')[1];
 				return {
 					success: false,
-					errors: { qty: [`Insufficient stock. Available: ${product.stock} ${product.unit}`] }
+					errors: {
+						qty: [`Insufficient stock. Available: ${available} ${product.unit}`]
+					}
 				};
 			}
-			stockAfter = product.stock - qty;
-			signedQty = -qty;
-		} else if (type === 'ADJUSTMENT') {
-			stockAfter = qty;
-			signedQty = qty - product.stock;
+			throw e;
+		}
+	}
+
+	async function transfer(input: Record<string, unknown>, createdBy?: string | null) {
+		const requiredErrors = validateRequired(input, [
+			'productId',
+			'fromWarehouseId',
+			'toWarehouseId',
+			'qty'
+		]);
+		const errors: Record<string, string[]> = { ...requiredErrors };
+
+		const qty = Number(input.qty);
+		if (Number.isNaN(qty) || qty <= 0) {
+			errors.qty = ['Quantity must be greater than 0'];
 		}
 
-		const txInput: StockTransactionCreateInput = {
-			productId: product.id,
-			type,
-			source: 'MANUAL' as StockTransactionSource,
-			qty: signedQty,
-			stockBefore: product.stock,
-			stockAfter,
-			note,
-			createdBy
-		};
+		const fromWarehouseId = String(input.fromWarehouseId ?? '');
+		const toWarehouseId = String(input.toWarehouseId ?? '');
+		if (fromWarehouseId && toWarehouseId && fromWarehouseId === toWarehouseId) {
+			errors.toWarehouseId = ['Destination warehouse must be different'];
+		}
 
-		const tx = await repo.create(txInput);
-		await db.product.update({ where: { id: product.id }, data: { stock: stockAfter } });
+		if (Object.keys(errors).length > 0) {
+			return { success: false as const, errors };
+		}
 
-		return { success: true, data: tx };
+		const product = await db.product.findFirst({
+			where: { id: String(input.productId), deletedAt: null }
+		});
+		if (!product) {
+			return { success: false as const, errors: { productId: ['Product not found'] } };
+		}
+
+		const fromWh = await warehouses.findById(fromWarehouseId);
+		const toWh = await warehouses.findById(toWarehouseId);
+		if (!fromWh) {
+			return { success: false as const, errors: { fromWarehouseId: ['Source warehouse not found'] } };
+		}
+		if (!toWh) {
+			return {
+				success: false as const,
+				errors: { toWarehouseId: ['Destination warehouse not found'] }
+			};
+		}
+
+		const note =
+			(input.note ? String(input.note) : null) ||
+			`Transfer ${fromWh.code} → ${toWh.code}`;
+
+		try {
+			const created = await db.$transaction(async (prisma) => {
+				const fromQty = await getWarehouseQty(prisma, product.id, fromWh.id, product.stock);
+				if (qty > fromQty) {
+					throw new Error(`INSUFFICIENT:${fromQty}`);
+				}
+
+				const outTx = await prisma.stockTransaction.create({
+					data: {
+						productId: product.id,
+						type: 'OUT',
+						source: 'TRANSFER',
+						warehouseId: fromWh.id,
+						qty: -qty,
+						stockBefore: product.stock,
+						stockAfter: product.stock,
+						note,
+						createdBy
+					}
+				});
+
+				const inTx = await prisma.stockTransaction.create({
+					data: {
+						productId: product.id,
+						type: 'IN',
+						source: 'TRANSFER',
+						referenceId: outTx.id,
+						warehouseId: toWh.id,
+						qty,
+						stockBefore: product.stock,
+						stockAfter: product.stock,
+						note,
+						createdBy
+					}
+				});
+
+				await applyProductStockDelta(prisma, product.id, fromWh.id, -qty, product.stock);
+				await applyProductStockDelta(prisma, product.id, toWh.id, qty, 0);
+
+				return { outTx, inTx };
+			});
+
+			return { success: true as const, data: created };
+		} catch (e) {
+			if (e instanceof Error && e.message.startsWith('INSUFFICIENT:')) {
+				const available = e.message.split(':')[1];
+				return {
+					success: false as const,
+					errors: { qty: [`Insufficient stock at source. Available: ${available}`] }
+				};
+			}
+			throw e;
+		}
 	}
 
 	async function reverse(id: string, createdBy?: string | null, reason?: string | null) {
@@ -118,7 +288,10 @@ export function stockTransactionService() {
 		const existingReversal = await db.stockTransaction.findFirst({
 			where: {
 				deletedAt: null,
-				note: { startsWith: `Reversal of ${original.id}` }
+				OR: [
+					{ reversedFromId: original.id },
+					{ note: { startsWith: `Reversal of ${original.id}` } }
+				]
 			}
 		});
 		if (existingReversal) {
@@ -132,7 +305,7 @@ export function stockTransactionService() {
 			return { success: false, errors: { form: ['Product not found'] } };
 		}
 
-		const delta = -original.qty; // undo the signed qty effect on stock
+		const delta = -original.qty;
 		const stockAfter = product.stock + delta;
 		if (stockAfter < 0) {
 			return {
@@ -150,34 +323,68 @@ export function stockTransactionService() {
 		else if (original.type === 'OUT') reverseType = 'IN';
 		else reverseType = 'ADJUSTMENT';
 
+		const reverseSource: StockTransactionSource =
+			original.source === 'PURCHASE'
+				? 'PURCHASE'
+				: original.source === 'TRANSFER'
+					? 'TRANSFER'
+					: 'ADJUSTMENT';
+
 		const noteParts = [
 			`Reversal of ${original.id}`,
 			reason?.trim() ? reason.trim() : null
 		].filter(Boolean);
 
-		const reverseTx = await repo.create({
-			productId: product.id,
-			type: reverseType,
-			source: 'ADJUSTMENT',
-			referenceId: original.referenceId,
-			qty: delta,
-			stockBefore: product.stock,
-			stockAfter,
-			note: noteParts.join(' — '),
-			createdBy
-		});
+		const reverseTx = await db.$transaction(async (prisma) => {
+			const created = await prisma.stockTransaction.create({
+				data: {
+					productId: product.id,
+					type: reverseType,
+					source: reverseSource,
+					referenceId: original.referenceId,
+					warehouseId: original.warehouseId ?? null,
+					reversedFromId: original.id,
+					qty: delta,
+					stockBefore: product.stock,
+					stockAfter,
+					note: noteParts.join(' — '),
+					createdBy
+				},
+				include: {
+					product: {
+						include: { category: { select: { id: true, name: true } } }
+					}
+				}
+			});
 
-		await db.product.update({ where: { id: product.id }, data: { stock: stockAfter } });
+			await prisma.product.update({
+				where: { id: product.id },
+				data: { stock: stockAfter }
+			});
 
-		await db.stockTransaction.update({
-			where: { id: original.id },
-			data: {
-				note: `${original.note ? original.note + ' ' : ''}[REVERSED]`
+			if (original.warehouseId) {
+				await applyProductStockDelta(
+					prisma,
+					product.id,
+					original.warehouseId,
+					delta,
+					product.stock
+				);
 			}
+
+			await prisma.stockTransaction.update({
+				where: { id: original.id },
+				data: {
+					note: `${original.note ? original.note + ' ' : ''}[REVERSED]`
+				}
+			});
+
+			return created;
 		});
 
-		return { success: true, data: reverseTx };
+		const mapped = await repo.findById(reverseTx.id);
+		return { success: true, data: mapped ?? reverseTx };
 	}
 
-	return { list, getById, create, reverse, validate };
+	return { list, getById, create, transfer, reverse, validate };
 }

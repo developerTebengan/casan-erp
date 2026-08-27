@@ -1,4 +1,4 @@
-export const APP_VERSION = '0.4.0';
+export const APP_VERSION = '0.5.0';
 export const APP_NAME = 'Casan ERP';
 
 export type ChangelogChangeType = 'added' | 'changed' | 'fixed' | 'removed';
@@ -13,6 +13,38 @@ export interface ChangelogEntry {
 }
 
 export const CHANGELOG: ChangelogEntry[] = [
+	{
+		version: '0.5.0',
+		date: '2026-08-04',
+		changes: [
+			{
+				type: 'added',
+				items: [
+					'STOCK_KEEPER and BUYER roles with focused menus and permissions',
+					'Receiving inbox for approved PRs awaiting goods receipt',
+					'PR fulfillment status (Open / Partial / Complete) on purchasing list',
+					'Edit pending PRs and revise rejected PRs for resubmit',
+					'Category CRUD, richer suppliers, preferred supplier reorder assist',
+					'Auto PR numbers, expected delivery date, in-app notifications',
+					'Warehouses, cycle counts, GRN print, reports with CSV export',
+					'SKU/code scan on stock and receiving'
+				]
+			},
+			{
+				type: 'fixed',
+				items: [
+					'Goods receipt reverse now nets remaining qty correctly',
+					'Stock create/reverse and goods receipt run in DB transactions'
+				]
+			},
+			{
+				type: 'changed',
+				items: [
+					'USER role is requester-focused (create PR); buyer/receive work uses BUYER / STOCK_KEEPER'
+				]
+			}
+		]
+	},
 	{
 		version: '0.4.0',
 		date: '2026-07-28',

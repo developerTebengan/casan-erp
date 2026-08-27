@@ -17,7 +17,9 @@
 		class?: string;
 		oninput?: (e: Event) => void;
 		onchange?: (e: Event) => void;
+		onfocus?: (e: FocusEvent) => void;
 		onblur?: (e: FocusEvent) => void;
+		onkeydown?: (e: KeyboardEvent) => void;
 	}
 
 	let {
@@ -36,7 +38,9 @@
 		class: className = '',
 		oninput,
 		onchange,
-		onblur
+		onfocus,
+		onblur,
+		onkeydown
 	}: Props = $props();
 
 	const inputId = $derived(id ?? name ?? crypto.randomUUID());
@@ -62,7 +66,9 @@
 		{step}
 		{oninput}
 		{onchange}
+		{onfocus}
 		{onblur}
+		{onkeydown}
 		class={classNames(
 			'bg-card text-main w-full rounded-lg border px-4 py-2.5 text-sm placeholder:text-slate-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20 focus:outline-none disabled:cursor-not-allowed disabled:bg-slate-100 dark:disabled:bg-slate-800',
 			error ? 'border-danger-300 focus:border-danger-500 focus:ring-danger-500/20' : 'border-theme'

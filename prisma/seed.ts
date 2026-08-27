@@ -28,13 +28,26 @@ const prisma = new PrismaClient({ adapter });
 
 async function main() {
 	await prisma.purchaseItem.deleteMany();
+	await prisma.goodsReceiptLine.deleteMany().catch(() => undefined);
+	await prisma.goodsReceipt.deleteMany().catch(() => undefined);
+	await prisma.cycleCountLine.deleteMany().catch(() => undefined);
+	await prisma.cycleCount.deleteMany().catch(() => undefined);
+	await prisma.stockTransaction.deleteMany().catch(() => undefined);
+	await prisma.productStock.deleteMany().catch(() => undefined);
+	await prisma.notification.deleteMany().catch(() => undefined);
 	await prisma.purchase.deleteMany();
 	await prisma.product.deleteMany();
 	await prisma.category.deleteMany();
 	await prisma.supplier.deleteMany();
+	await prisma.warehouse.deleteMany().catch(() => undefined);
 	await prisma.user.deleteMany();
 
 	const password = await bcrypt.hash('password', 10);
+
+	const mainWarehouse = await prisma.warehouse.create({
+		data: { code: 'MAIN', name: 'Main Warehouse', isDefault: true }
+	});
+	void mainWarehouse;
 
 	const users = await Promise.all([
 		prisma.user.create({
@@ -51,6 +64,22 @@ async function main() {
 				email: 'user@casanerp.com',
 				password,
 				role: UserRole.USER
+			}
+		}),
+		prisma.user.create({
+			data: {
+				name: 'Rina Buyer',
+				email: 'buyer@casanerp.com',
+				password,
+				role: UserRole.BUYER
+			}
+		}),
+		prisma.user.create({
+			data: {
+				name: 'Andi Stock',
+				email: 'stock@casanerp.com',
+				password,
+				role: UserRole.STOCK_KEEPER
 			}
 		}),
 		prisma.user.create({
@@ -265,6 +294,10 @@ async function main() {
 		const requestDate = new Date(2026, i % 12, (i % 28) + 1);
 		const requiredDate = new Date(requestDate);
 		requiredDate.setDate(requiredDate.getDate() + 7);
+		const decisionDeadline = new Date(requestDate);
+		decisionDeadline.setDate(decisionDeadline.getDate() + 3);
+		const expectedDeliveryDate = new Date(requiredDate);
+		expectedDeliveryDate.setDate(expectedDeliveryDate.getDate() - 1);
 
 		const requester = users[i % users.length];
 		const departmentHead = users.find((u) => u.role === UserRole.DEPARTMENT_HEAD)!;
@@ -281,6 +314,8 @@ async function main() {
 				priority: priorities[i % priorities.length],
 				requesterId: requester.id,
 				dateRequired: requiredDate,
+				decisionDeadline,
+				expectedDeliveryDate,
 				department: departments[i % departments.length],
 				purpose: `Procurement request for ${supplier.name}`,
 				comments: i % 4 === 0 ? 'Please process this request urgently' : undefined,
@@ -293,6 +328,16 @@ async function main() {
 				}
 			}
 		});
+	}
+
+	// Backfill product stocks into MAIN warehouse
+	const wh = await prisma.warehouse.findFirst({ where: { code: 'MAIN', deletedAt: null } });
+	if (wh) {
+		for (const p of products) {
+			await prisma.productStock.create({
+				data: { productId: p.id, warehouseId: wh.id, qty: p.stock }
+			});
+		}
 	}
 
 	console.log('Seed completed successfully.');

@@ -31,7 +31,8 @@ export const POST: RequestHandler = async ({ params, request, locals }) => {
 			params.id,
 			body.lines ?? [],
 			locals.user.id,
-			body.note
+			body.note,
+			body.warehouseId
 		);
 
 		if (!result.success) {

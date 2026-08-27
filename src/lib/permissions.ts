@@ -12,12 +12,18 @@ export type AppPermission =
 	| 'approvals:view'
 	| 'suppliers:view'
 	| 'suppliers:write'
+	| 'categories:manage'
+	| 'warehouses:view'
+	| 'warehouses:write'
+	| 'reports:view'
 	| 'users:manage'
 	| 'settings:view';
 
 const ALL_ROLES: UserRole[] = [
 	'ADMIN',
 	'USER',
+	'BUYER',
+	'STOCK_KEEPER',
 	'DEPARTMENT_HEAD',
 	'FINANCE',
 	'MANAGER',
@@ -37,20 +43,44 @@ const ROLE_PERMISSIONS: Record<UserRole, AppPermission[]> = {
 		'approvals:view',
 		'suppliers:view',
 		'suppliers:write',
+		'categories:manage',
+		'warehouses:view',
+		'warehouses:write',
+		'reports:view',
 		'users:manage',
 		'settings:view'
 	],
 	USER: [
 		'dashboard:view',
 		'inventory:view',
+		'purchasing:view',
+		'purchasing:write',
+		'suppliers:view',
+		'settings:view'
+	],
+	BUYER: [
+		'dashboard:view',
+		'inventory:view',
+		'purchasing:view',
+		'purchasing:write',
+		'suppliers:view',
+		'suppliers:write',
+		'reports:view',
+		'settings:view'
+	],
+	STOCK_KEEPER: [
+		'dashboard:view',
+		'inventory:view',
 		'inventory:write',
 		'stock:view',
 		'stock:write',
 		'purchasing:view',
-		'purchasing:write',
 		'purchasing:receive',
 		'suppliers:view',
-		'suppliers:write',
+		'categories:manage',
+		'warehouses:view',
+		'warehouses:write',
+		'reports:view',
 		'settings:view'
 	],
 	DEPARTMENT_HEAD: [
@@ -60,6 +90,7 @@ const ROLE_PERMISSIONS: Record<UserRole, AppPermission[]> = {
 		'purchasing:view',
 		'approvals:view',
 		'suppliers:view',
+		'reports:view',
 		'settings:view'
 	],
 	FINANCE: [
@@ -69,6 +100,7 @@ const ROLE_PERMISSIONS: Record<UserRole, AppPermission[]> = {
 		'approvals:view',
 		'suppliers:view',
 		'suppliers:write',
+		'reports:view',
 		'settings:view'
 	],
 	MANAGER: [
@@ -77,6 +109,7 @@ const ROLE_PERMISSIONS: Record<UserRole, AppPermission[]> = {
 		'purchasing:view',
 		'approvals:view',
 		'suppliers:view',
+		'reports:view',
 		'settings:view'
 	],
 	DIRECTOR: [
@@ -85,6 +118,7 @@ const ROLE_PERMISSIONS: Record<UserRole, AppPermission[]> = {
 		'purchasing:view',
 		'approvals:view',
 		'suppliers:view',
+		'reports:view',
 		'settings:view'
 	]
 };
@@ -97,9 +131,15 @@ export function canAccessPath(role: UserRole, pathname: string): boolean {
 	if (pathname.startsWith('/dashboard')) return hasPermission(role, 'dashboard:view');
 	if (pathname.startsWith('/inventory')) return hasPermission(role, 'inventory:view');
 	if (pathname.startsWith('/stock')) return hasPermission(role, 'stock:view');
+	if (pathname.startsWith('/receiving')) return hasPermission(role, 'purchasing:receive');
 	if (pathname.startsWith('/approvals')) return hasPermission(role, 'approvals:view');
 	if (pathname.startsWith('/purchasing')) return hasPermission(role, 'purchasing:view');
 	if (pathname.startsWith('/suppliers')) return hasPermission(role, 'suppliers:view');
+	if (pathname.startsWith('/categories')) return hasPermission(role, 'categories:manage');
+	if (pathname.startsWith('/warehouses')) return hasPermission(role, 'warehouses:view');
+	if (pathname.startsWith('/cycle-counts')) return hasPermission(role, 'stock:write');
+	if (pathname.startsWith('/reports')) return hasPermission(role, 'reports:view');
+	if (pathname.startsWith('/notifications')) return hasPermission(role, 'dashboard:view');
 	if (pathname.startsWith('/users')) return hasPermission(role, 'users:manage');
 	if (pathname.startsWith('/settings')) return hasPermission(role, 'settings:view');
 	return true;
@@ -114,10 +154,15 @@ export type NavItem = {
 export const NAV_ITEMS: NavItem[] = [
 	{ label: 'Dashboard', href: '/dashboard', permission: 'dashboard:view' },
 	{ label: 'Inventory', href: '/inventory', permission: 'inventory:view' },
+	{ label: 'Categories', href: '/categories', permission: 'categories:manage' },
 	{ label: 'Stock Movement', href: '/stock', permission: 'stock:view' },
+	{ label: 'Receiving', href: '/receiving', permission: 'purchasing:receive' },
+	{ label: 'Cycle Counts', href: '/cycle-counts', permission: 'stock:write' },
+	{ label: 'Warehouses', href: '/warehouses', permission: 'warehouses:view' },
 	{ label: 'My Approvals', href: '/approvals', permission: 'approvals:view' },
 	{ label: 'Purchasing Request', href: '/purchasing', permission: 'purchasing:view' },
 	{ label: 'Suppliers', href: '/suppliers', permission: 'suppliers:view' },
+	{ label: 'Reports', href: '/reports', permission: 'reports:view' },
 	{ label: 'Users', href: '/users', permission: 'users:manage' },
 	{ label: 'Settings', href: '/settings', permission: 'settings:view' }
 ];

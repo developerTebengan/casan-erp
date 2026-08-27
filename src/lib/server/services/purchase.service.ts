@@ -1,8 +1,53 @@
+import { db } from '$lib/server/db';
 import { purchaseRepository } from '$lib/server/repositories/purchase.repository';
 import { userRepository } from '$lib/server/repositories/user.repository';
+import { goodsReceiptService } from '$lib/server/services/goodsReceipt.service';
+import { notificationService } from '$lib/server/services/notification.service';
 import { validateRequired, type ValidationResult } from '$lib/utils/validation';
 import type { PurchaseCreateInput } from '$lib/server/repositories/purchase.repository';
-import type { PurchasePriority, ApprovalStatus, UserRole } from '$lib/types';
+import type {
+	PurchasePriority,
+	ApprovalStatus,
+	UserRole,
+	FulfillmentStatus,
+	Purchase
+} from '$lib/types';
+
+async function notifyApproversAssigned(purchase: Purchase) {
+	const service = notificationService();
+	const assignees = [
+		purchase.departmentHeadId,
+		purchase.financeApproverId,
+		purchase.finalApproverId
+	].filter((id): id is string => !!id);
+
+	const unique = [...new Set(assignees)];
+	await service.createMany(
+		unique.map((userId) => ({
+			userId,
+			type: 'PR_ASSIGNED',
+			title: `PR assigned: ${purchase.prNumber}`,
+			body: `You have been assigned as an approver on purchasing request ${purchase.prNumber}.`,
+			href: `/purchasing/${purchase.id}`
+		}))
+	);
+}
+
+async function notifyReadyToReceive(purchase: Purchase) {
+	const service = notificationService();
+	const targets = new Set<string>();
+	if (purchase.requesterId) targets.add(purchase.requesterId);
+
+	await service.createMany(
+		[...targets].map((userId) => ({
+			userId,
+			type: 'PR_READY_TO_RECEIVE',
+			title: `Ready to receive: ${purchase.prNumber}`,
+			body: `Purchasing request ${purchase.prNumber} is fully approved and ready for goods receipt.`,
+			href: `/purchasing/${purchase.id}`
+		}))
+	);
+}
 
 type ApprovalLevel = 'departmentHead' | 'finance' | 'final';
 
@@ -49,8 +94,52 @@ function computeApprovalStatus(
 	return 'PENDING';
 }
 
+function computeFulfillmentStatus(
+	approvalStatus: ApprovalStatus,
+	items: { productId: string; qty: number }[],
+	receivedMap: Record<string, number>
+): { fulfillmentStatus: FulfillmentStatus; orderedQty: number; receivedQty: number } {
+	const orderedQty = items.reduce((sum, i) => sum + i.qty, 0);
+	if (approvalStatus !== 'APPROVED') {
+		return { fulfillmentStatus: 'N/A', orderedQty, receivedQty: 0 };
+	}
+
+	let receivedQty = 0;
+	let anyReceived = false;
+	let allComplete = items.length > 0;
+
+	for (const item of items) {
+		const received = Math.min(item.qty, receivedMap[item.productId] ?? 0);
+		receivedQty += received;
+		if (received > 0) anyReceived = true;
+		if (received < item.qty) allComplete = false;
+	}
+
+	if (allComplete) return { fulfillmentStatus: 'COMPLETE', orderedQty, receivedQty };
+	if (anyReceived) return { fulfillmentStatus: 'PARTIAL', orderedQty, receivedQty };
+	return { fulfillmentStatus: 'OPEN', orderedQty, receivedQty };
+}
+
 export function purchaseService() {
 	const repo = purchaseRepository();
+
+	async function generatePrNumber(): Promise<string> {
+		const now = new Date();
+		const yyyymm = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`;
+		const likePrefix = `PR-${yyyymm}-`;
+		const latest = await db.purchase.findFirst({
+			where: { prNumber: { startsWith: likePrefix }, deletedAt: null },
+			orderBy: { prNumber: 'desc' },
+			select: { prNumber: true }
+		});
+		let seq = 1;
+		if (latest?.prNumber) {
+			const parts = latest.prNumber.split('-');
+			const last = Number(parts[parts.length - 1]);
+			if (!Number.isNaN(last)) seq = last + 1;
+		}
+		return `${likePrefix}${String(seq).padStart(4, '0')}`;
+	}
 
 	function validateItems(
 		items: unknown
@@ -83,17 +172,25 @@ export function purchaseService() {
 
 	function validate(
 		input: Record<string, unknown>,
-		requesterId: string
+		requesterId: string,
+		opts?: { requirePrNumber?: boolean }
 	): ValidationResult<PurchaseCreateInput> {
-		const requiredErrors = validateRequired(input, [
-			'prNumber',
+		const requirePrNumber = opts?.requirePrNumber === true;
+		const requiredFields = [
 			'dateOfRequest',
 			'dateRequired',
 			'decisionDeadline',
 			'department',
 			'purpose'
-		]);
+		];
+		if (requirePrNumber) requiredFields.unshift('prNumber');
+
+		const requiredErrors = validateRequired(input, requiredFields);
 		const errors: Record<string, string[]> = { ...requiredErrors };
+
+		if (requirePrNumber && (!input.prNumber || !String(input.prNumber).trim())) {
+			errors.prNumber = ['PR number is required'];
+		}
 
 		const priority = input.priority as string;
 		const validPriorities: PurchasePriority[] = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'];
@@ -119,6 +216,14 @@ export function purchaseService() {
 		}
 		if (decisionDeadline && dateOfRequest && decisionDeadline < dateOfRequest) {
 			errors.decisionDeadline = ['Decision deadline must be on/after date of request'];
+		}
+
+		let expectedDeliveryDate: Date | null = null;
+		if (input.expectedDeliveryDate) {
+			expectedDeliveryDate = new Date(String(input.expectedDeliveryDate));
+			if (Number.isNaN(expectedDeliveryDate.getTime())) {
+				errors.expectedDeliveryDate = ['Invalid expected delivery date'];
+			}
 		}
 
 		const validApprovalRoles: Record<string, UserRole[]> = {
@@ -150,13 +255,14 @@ export function purchaseService() {
 		return {
 			valid: true,
 			data: {
-				prNumber: String(input.prNumber).trim(),
+				prNumber: input.prNumber ? String(input.prNumber).trim() : '',
 				supplierId: input.supplierId ? String(input.supplierId) : null,
 				dateOfRequest: dateOfRequest!,
 				priority: (priority as PurchasePriority) || 'MEDIUM',
 				requesterId,
 				dateRequired: dateRequired!,
 				decisionDeadline: decisionDeadline!,
+				expectedDeliveryDate,
 				department: String(input.department).trim(),
 				purpose: String(input.purpose).trim(),
 				comments: input.comments ? String(input.comments).trim() : null,
@@ -168,28 +274,152 @@ export function purchaseService() {
 		};
 	}
 
-	async function list(filters: Parameters<typeof repo.findAll>[0]) {
-		return repo.findAll(filters);
+	async function attachFulfillment(purchases: Purchase[]): Promise<Purchase[]> {
+		const approvedIds = purchases
+			.filter((p) => p.approvalStatus === 'APPROVED')
+			.map((p) => p.id);
+
+		const receivedByPurchase =
+			approvedIds.length > 0
+				? await goodsReceiptService().getReceivedByProductBatch(approvedIds)
+				: {};
+
+		return purchases.map((p) => {
+			const items = (p.items ?? []).map((i) => ({ productId: i.productId, qty: i.qty }));
+			const { fulfillmentStatus, orderedQty, receivedQty } = computeFulfillmentStatus(
+				p.approvalStatus,
+				items,
+				receivedByPurchase[p.id] ?? {}
+			);
+			return { ...p, fulfillmentStatus, orderedQty, receivedQty };
+		});
+	}
+
+	async function list(filters: Parameters<typeof repo.findAll>[0] & {
+		fulfillmentStatus?: FulfillmentStatus;
+	}) {
+		const { fulfillmentStatus, ...rest } = filters;
+
+		if (
+			fulfillmentStatus &&
+			fulfillmentStatus !== 'N/A' &&
+			(!rest.approvalStatus || rest.approvalStatus === 'APPROVED')
+		) {
+			const all = await repo.findAll({
+				...rest,
+				approvalStatus: 'APPROVED',
+				page: 1,
+				limit: 10000
+			});
+			const withFulfillment = await attachFulfillment(all.data);
+			const filtered = withFulfillment.filter((p) => p.fulfillmentStatus === fulfillmentStatus);
+			const page = rest.page ?? 1;
+			const limit = rest.limit ?? 10;
+			const start = (page - 1) * limit;
+			return {
+				data: filtered.slice(start, start + limit),
+				pagination: {
+					page,
+					limit,
+					total: filtered.length,
+					totalPages: Math.ceil(filtered.length / limit) || 1
+				}
+			};
+		}
+
+		const result = await repo.findAll(rest);
+		return {
+			...result,
+			data: await attachFulfillment(result.data)
+		};
 	}
 
 	async function statusCounts() {
 		return repo.countByApprovalStatus();
 	}
 
+	async function fulfillmentCounts() {
+		const all = await repo.findAll({
+			approvalStatus: 'APPROVED',
+			page: 1,
+			limit: 10000
+		});
+		const withFulfillment = await attachFulfillment(all.data);
+		const counts = { ALL: withFulfillment.length, OPEN: 0, PARTIAL: 0, COMPLETE: 0 };
+		for (const p of withFulfillment) {
+			if (p.fulfillmentStatus === 'OPEN') counts.OPEN++;
+			else if (p.fulfillmentStatus === 'PARTIAL') counts.PARTIAL++;
+			else if (p.fulfillmentStatus === 'COMPLETE') counts.COMPLETE++;
+		}
+		return counts;
+	}
+
 	async function getById(id: string) {
-		return repo.findById(id);
+		const purchase = await repo.findById(id);
+		if (!purchase) return null;
+		const [withFulfillment] = await attachFulfillment([purchase]);
+		return withFulfillment;
 	}
 
 	async function create(input: Record<string, unknown>, requesterId: string) {
-		const validation = validate(input, requesterId);
+		const validation = validate(input, requesterId, { requirePrNumber: false });
 		if (!validation.valid) return { success: false, errors: validation.errors };
 
-		const existing = await repo.findByPrNumber(validation.data!.prNumber);
+		let prNumber = validation.data!.prNumber;
+		if (!prNumber) {
+			prNumber = await generatePrNumber();
+		}
+
+		const existing = await repo.findByPrNumber(prNumber);
 		if (existing) {
+			if (!validation.data!.prNumber) {
+				prNumber = await generatePrNumber();
+			} else {
+				return { success: false, errors: { prNumber: ['PR number already exists'] } };
+			}
+		}
+
+		const purchase = await repo.create({
+			...validation.data!,
+			prNumber
+		});
+		await notifyApproversAssigned(purchase);
+		return { success: true, data: purchase };
+	}
+
+	async function update(id: string, input: Record<string, unknown>) {
+		const existing = await repo.findById(id);
+		if (!existing) {
+			return { success: false, errors: { form: ['Purchasing request not found'] } };
+		}
+		if (existing.approvalStatus === 'APPROVED') {
+			return {
+				success: false,
+				errors: { form: ['Approved purchasing requests cannot be edited'] }
+			};
+		}
+		if (existing.approvalStatus !== 'PENDING' && existing.approvalStatus !== 'REJECTED') {
+			return {
+				success: false,
+				errors: { form: ['Only pending or rejected purchasing requests can be edited'] }
+			};
+		}
+
+		const validation = validate(input, existing.requesterId, { requirePrNumber: true });
+		if (!validation.valid) return { success: false, errors: validation.errors };
+
+		const prNumber = validation.data!.prNumber;
+		const duplicate = await repo.findByPrNumber(prNumber, id);
+		if (duplicate) {
 			return { success: false, errors: { prNumber: ['PR number already exists'] } };
 		}
 
-		const purchase = await repo.create(validation.data!);
+		const resetApproval = existing.approvalStatus === 'REJECTED';
+		const purchase = await repo.replaceContents(id, {
+			...validation.data!,
+			requesterId: existing.requesterId,
+			resetApproval
+		});
 		return { success: true, data: purchase };
 	}
 
@@ -274,6 +504,9 @@ export function purchaseService() {
 		);
 
 		const updated = await repo.update(id, data);
+		if (updated.approvalStatus === 'APPROVED') {
+			await notifyReadyToReceive(updated);
+		}
 		return { success: true, data: updated };
 	}
 
@@ -373,8 +606,29 @@ export function purchaseService() {
 			[config.idField]: newApproverId
 		} as Parameters<typeof repo.update>[1]);
 
+		await notificationService().create({
+			userId: newApproverId,
+			type: 'PR_ASSIGNED',
+			title: `PR assigned: ${updated.prNumber}`,
+			body: `You have been assigned as an approver on purchasing request ${updated.prNumber}.`,
+			href: `/purchasing/${updated.id}`
+		});
+
 		return { success: true, data: updated };
 	}
 
-	return { list, statusCounts, getById, create, remove, validate, approve, reject, reassign };
+	return {
+		list,
+		statusCounts,
+		fulfillmentCounts,
+		getById,
+		create,
+		update,
+		remove,
+		validate,
+		approve,
+		reject,
+		reassign,
+		generatePrNumber
+	};
 }

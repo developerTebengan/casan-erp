@@ -3,11 +3,12 @@
 	import { Input, Select, Button } from '$lib/components/ui';
 	import { formatNumber } from '$lib/utils/format';
 	import { toastStore } from '$lib/stores/toast.svelte';
-	import type { Product, Category } from '$lib/types';
+	import type { Product, Category, Supplier } from '$lib/types';
 
 	interface Props {
 		product?: Partial<Product>;
 		categories: Category[];
+		suppliers?: Supplier[];
 		errors?: Record<string, string>;
 		loading?: boolean;
 		submitLabel?: string;
@@ -17,6 +18,7 @@
 	let {
 		product,
 		categories,
+		suppliers = [],
 		errors = {},
 		loading = false,
 		submitLabel = 'Save',
@@ -34,10 +36,15 @@
 	let price = $state(untrack(() => product?.price ?? 0));
 	let priceInput = $state(untrack(() => formatNumber(Number(product?.price ?? 0))));
 	let status = $state(untrack(() => product?.status ?? 'ACTIVE'));
+	let preferredSupplierId = $state(untrack(() => product?.preferredSupplierId ?? ''));
 	let imageUrl = $state(untrack(() => product?.imageUrl ?? ''));
 	let uploading = $state(false);
 
 	const categoryOptions = $derived(categories.map((c) => ({ value: c.id, label: c.name })));
+	const supplierOptions = $derived([
+		{ value: '', label: 'None' },
+		...suppliers.map((s) => ({ value: s.id, label: s.name }))
+	]);
 	const statusOptions = $derived([
 		{ value: 'ACTIVE', label: 'Active' },
 		{ value: 'INACTIVE', label: 'Inactive' }
@@ -77,6 +84,7 @@
 			minimumStock: Number(minimumStock),
 			price: Number(price),
 			imageUrl: imageUrl || null,
+			preferredSupplierId: preferredSupplierId || null,
 			status
 		};
 		onsubmit(data);
@@ -149,6 +157,13 @@
 			}}
 			required
 			error={errors.price}
+		/>
+		<Select
+			label="Preferred Supplier"
+			name="preferredSupplierId"
+			options={supplierOptions}
+			bind:value={preferredSupplierId}
+			error={errors.preferredSupplierId}
 		/>
 		<Select
 			label="Status"

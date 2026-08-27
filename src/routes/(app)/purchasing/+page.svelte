@@ -18,7 +18,7 @@
 	} from '$lib/components/ui';
 	import { toastStore } from '$lib/stores/toast.svelte';
 	import { formatCurrency, formatDate } from '$lib/utils/format';
-	import type { ApprovalStatus, Purchase, Supplier } from '$lib/types';
+	import type { ApprovalStatus, FulfillmentStatus, Purchase, Supplier } from '$lib/types';
 
 	let { data } = $props();
 
@@ -29,6 +29,8 @@
 		untrack(() => data.statusCounts ?? { PENDING: 0, APPROVED: 0, REJECTED: 0, ALL: 0 })
 	);
 	let statusTab = $state(untrack(() => (data.initialStatus as string) || 'PENDING'));
+	let fulfillmentTab = $state('ALL');
+	let fulfillmentCounts = $state({ ALL: 0, OPEN: 0, PARTIAL: 0, COMPLETE: 0 });
 	let search = $state('');
 	let supplierId = $state('');
 	let priority = $state('');
@@ -76,6 +78,33 @@
 		}
 	]);
 
+	const fulfillmentTabs = $derived([
+		{
+			id: 'ALL',
+			label: 'All fulfillment',
+			count: fulfillmentCounts.ALL ?? 0,
+			variant: 'secondary' as const
+		},
+		{
+			id: 'OPEN',
+			label: 'Open',
+			count: fulfillmentCounts.OPEN ?? 0,
+			variant: 'warning' as const
+		},
+		{
+			id: 'PARTIAL',
+			label: 'Partial',
+			count: fulfillmentCounts.PARTIAL ?? 0,
+			variant: 'primary' as const
+		},
+		{
+			id: 'COMPLETE',
+			label: 'Complete',
+			count: fulfillmentCounts.COMPLETE ?? 0,
+			variant: 'success' as const
+		}
+	]);
+
 	async function loadPurchases(page = 1) {
 		loading = true;
 		try {
@@ -84,6 +113,13 @@
 			if (supplierId) params.set('supplierId', supplierId);
 			if (priority) params.set('priority', priority);
 			if (statusTab && statusTab !== 'ALL') params.set('approvalStatus', statusTab);
+			if (
+				statusTab === 'APPROVED' &&
+				fulfillmentTab &&
+				fulfillmentTab !== 'ALL'
+			) {
+				params.set('fulfillmentStatus', fulfillmentTab);
+			}
 			params.set('page', String(page));
 			params.set('limit', '10');
 
@@ -93,6 +129,7 @@
 				purchases = result.data;
 				pagination = result.pagination;
 				if (result.statusCounts) statusCounts = result.statusCounts;
+				if (result.fulfillmentCounts) fulfillmentCounts = result.fulfillmentCounts;
 			}
 		} finally {
 			loading = false;
@@ -105,6 +142,12 @@
 
 	function switchStatus(id: string) {
 		statusTab = id;
+		if (id !== 'APPROVED') fulfillmentTab = 'ALL';
+		loadPurchases(1);
+	}
+
+	function switchFulfillment(id: string) {
+		fulfillmentTab = id;
 		loadPurchases(1);
 	}
 
@@ -155,6 +198,23 @@
 		return `<span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${variantClass}">${label}</span>`;
 	}
 
+	function fulfillmentBadge(p: Purchase) {
+		const status = (p.fulfillmentStatus ?? 'N/A') as FulfillmentStatus;
+		const variants: Record<FulfillmentStatus, string> = {
+			'N/A': 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-200',
+			OPEN: 'bg-warning-100 text-warning-700 dark:bg-warning-900/30 dark:text-warning-600',
+			PARTIAL: 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-600',
+			COMPLETE: 'bg-success-100 text-success-700 dark:bg-success-900/30 dark:text-success-600'
+		};
+		const labels: Record<FulfillmentStatus, string> = {
+			'N/A': 'N/A',
+			OPEN: 'Open',
+			PARTIAL: 'Partial',
+			COMPLETE: 'Complete'
+		};
+		return `<span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${variants[status]}">${labels[status]}</span>`;
+	}
+
 	function deadlineCell(p: Purchase) {
 		const d = p.decisionDeadline || p.dateRequired;
 		const date = new Date(d);
@@ -191,7 +251,7 @@
 		`;
 	}
 
-	const columns = [
+	const columns = $derived([
 		{ key: 'prNumber', header: 'PR Number' },
 		{ key: 'supplier', header: 'Supplier', cell: (p: Purchase) => p.supplier?.name ?? '-' },
 		{
@@ -202,9 +262,12 @@
 		{ key: 'deadline', header: 'Decision by', cell: deadlineCell },
 		{ key: 'priority', header: 'Priority', cell: priorityBadge },
 		{ key: 'status', header: 'Status', cell: statusBadge },
+		...(statusTab === 'APPROVED' || statusTab === 'ALL'
+			? [{ key: 'fulfillment', header: 'Fulfillment', cell: fulfillmentBadge }]
+			: []),
 		{ key: 'total', header: 'Total', cell: (p: Purchase) => formatCurrency(p.total) },
 		{ key: 'actions', header: '', cell: actionsCell }
-	];
+	]);
 
 	function handleRowClick(row: Purchase, e: MouseEvent) {
 		const target = e.target as HTMLElement;
@@ -230,15 +293,33 @@
 			<h1 class="text-main text-2xl font-bold sm:text-3xl">Purchasing Requests</h1>
 			<p class="text-muted">Manage your purchasing requests and supplier transactions</p>
 		</div>
-		<Button href="/purchasing/new" variant="primary">
-			<Plus class="h-4 w-4" />
-			Create PR
-		</Button>
+		<div class="flex flex-wrap gap-3">
+			<Button href="/purchasing/new?fromLowStock=1" variant="secondary">
+				Create PR from low stock
+			</Button>
+			<Button href="/inventory?lowStock=1&reorder=1" variant="secondary">
+				Reorder by supplier
+			</Button>
+			<Button href="/purchasing/new" variant="primary">
+				<Plus class="h-4 w-4" />
+				Create PR
+			</Button>
+		</div>
 	</div>
 
 	<div class="print:hidden">
 		<StatusStatTabs tabs={statusTabs} active={statusTab} onchange={switchStatus} />
 	</div>
+
+	{#if statusTab === 'APPROVED'}
+		<div class="print:hidden">
+			<StatusStatTabs
+				tabs={fulfillmentTabs}
+				active={fulfillmentTab}
+				onchange={switchFulfillment}
+			/>
+		</div>
+	{/if}
 
 	<Card padding="md" class="print:hidden">
 		<div class="flex flex-col gap-4 lg:flex-row lg:items-end">

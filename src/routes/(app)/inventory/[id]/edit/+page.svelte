@@ -56,6 +56,7 @@
 		<ProductForm
 			product={data.product}
 			categories={data.categories}
+			suppliers={data.suppliers}
 			onsubmit={handleSubmit}
 			{loading}
 			{errors}

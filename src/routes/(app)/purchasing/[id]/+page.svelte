@@ -12,7 +12,8 @@
 		Printer,
 		Check,
 		X,
-		PackagePlus
+		PackagePlus,
+		Edit
 	} from '@lucide/svelte';
 	import { Card, Breadcrumb, Badge, Button, DataTable, Modal, Textarea, Input, Select } from '$lib/components/ui';
 	import { toastStore } from '$lib/stores/toast.svelte';
@@ -23,9 +24,11 @@
 	const purchase = $derived(data.purchase);
 	const currentUser = $derived(data.user);
 	const canReceive = $derived(data.canReceive);
+	const canEdit = $derived(data.canEdit);
 	const isAdmin = $derived(data.isAdmin);
 	const users = $derived(data.users);
 	let receipt = $state(data.receipt);
+	let goodsReceipts = $state(data.goodsReceipts ?? []);
 	let receiveQtys = $state<Record<string, number>>({});
 	let receiveNote = $state('');
 	let receiving = $state(false);
@@ -35,6 +38,7 @@
 
 	$effect(() => {
 		receipt = data.receipt;
+		goodsReceipts = data.goodsReceipts ?? [];
 		const next: Record<string, number> = {};
 		for (const line of data.receipt?.lines ?? []) {
 			next[line.productId] = line.remainingQty;
@@ -276,6 +280,7 @@
 			receiving = false;
 		}
 	}
+
 </script>
 
 <div class="space-y-6">
@@ -293,6 +298,12 @@
 				<ArrowLeft class="h-4 w-4" />
 				Back
 			</Button>
+			{#if canEdit}
+				<Button variant="primary" href="/purchasing/{purchase.id}/edit">
+					<Edit class="h-4 w-4" />
+					Edit
+				</Button>
+			{/if}
 			<Button variant="secondary" href="/purchasing/{purchase.id}/print">
 				<Printer class="h-4 w-4" />
 				Print
@@ -412,6 +423,38 @@
 
 			<h3 class="text-main mb-4 text-lg font-semibold">Items</h3>
 			<DataTable columns={itemColumns} rows={purchase.items ?? []} />
+
+			{#if goodsReceipts.length > 0}
+				<div class="border-theme mt-8 border-t pt-6">
+					<h3 class="text-main mb-4 text-lg font-semibold">Goods Receipts (GRN)</h3>
+					<div class="space-y-2">
+						{#each goodsReceipts as grn}
+							<div
+								class="border-theme flex flex-wrap items-center justify-between gap-3 rounded-lg border p-3"
+							>
+								<div>
+									<p class="text-main text-sm font-medium">{grn.grnNumber}</p>
+									<p class="text-muted text-xs">
+										{formatDate(grn.createdAt)}
+										{#if grn.warehouse}
+											· {grn.warehouse.code}
+										{/if}
+										· {(grn.lines ?? []).length} line(s)
+									</p>
+								</div>
+								<Button
+									size="sm"
+									variant="secondary"
+									href="/purchasing/{purchase.id}/grn/{grn.id}/print"
+								>
+									<Printer class="h-3.5 w-3.5" />
+									Print GRN
+								</Button>
+							</div>
+						{/each}
+					</div>
+				</div>
+			{/if}
 
 			<div class="border-theme mt-6 flex justify-end border-t pt-4">
 				<div class="text-right">

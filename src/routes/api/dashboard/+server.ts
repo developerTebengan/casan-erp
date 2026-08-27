@@ -1,6 +1,7 @@
 import { json, error } from '@sveltejs/kit';
 import { db } from '$lib/server/db';
 import { purchaseService } from '$lib/server/services/purchase.service';
+import { notificationService } from '$lib/server/services/notification.service';
 import { hasPermission } from '$lib/permissions';
 import type { RequestHandler } from './$types';
 import type {
@@ -12,6 +13,14 @@ import type {
 export const GET: RequestHandler = async ({ locals }) => {
 	try {
 		const user = locals.user;
+		let unreadNotifications = 0;
+		if (user) {
+			const notif = notificationService();
+			await notif.ensureOverdueDeadlineNotifications(user.id);
+			const counts = await notif.counts(user.id);
+			unreadNotifications = counts.unread;
+		}
+
 		const [totalProducts, totalPurchaseOrders, totalSuppliers, products, purchases, categories] =
 			await Promise.all([
 				db.product.count({ where: { deletedAt: null } }),
@@ -114,7 +123,8 @@ export const GET: RequestHandler = async ({ locals }) => {
 				totalPurchaseOrders,
 				totalSuppliers,
 				lowStockItems,
-				pendingApprovals
+				pendingApprovals,
+				unreadNotifications
 			},
 			monthlyPurchases,
 			recentActivities: recentActivities.slice(0, 10),

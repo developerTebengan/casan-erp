@@ -9,6 +9,7 @@ export { default as EmptyState } from './EmptyState.svelte';
 export { default as Input } from './Input.svelte';
 export { default as Modal } from './Modal.svelte';
 export { default as Pagination } from './Pagination.svelte';
+export { default as SearchableSelect } from './SearchableSelect.svelte';
 export { default as Select } from './Select.svelte';
 export { default as Spinner } from './Spinner.svelte';
 export { default as StatusStatTabs } from './StatusStatTabs.svelte';

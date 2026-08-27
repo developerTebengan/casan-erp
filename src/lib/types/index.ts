@@ -1,4 +1,12 @@
-export type UserRole = 'ADMIN' | 'USER' | 'DEPARTMENT_HEAD' | 'FINANCE' | 'MANAGER' | 'DIRECTOR';
+export type UserRole =
+	| 'ADMIN'
+	| 'USER'
+	| 'BUYER'
+	| 'STOCK_KEEPER'
+	| 'DEPARTMENT_HEAD'
+	| 'FINANCE'
+	| 'MANAGER'
+	| 'DIRECTOR';
 
 export interface User {
 	id: string;
@@ -10,7 +18,11 @@ export interface User {
 export interface Category {
 	id: string;
 	name: string;
+	createdAt?: string;
+	updatedAt?: string;
 }
+
+export type SupplierStatus = 'ACTIVE' | 'INACTIVE';
 
 export interface Supplier {
 	id: string;
@@ -18,6 +30,12 @@ export interface Supplier {
 	type?: string | null;
 	phone?: string | null;
 	address?: string | null;
+	contactPerson?: string | null;
+	email?: string | null;
+	paymentTerms?: string | null;
+	leadTimeDays?: number | null;
+	taxId?: string | null;
+	status?: SupplierStatus;
 }
 
 export type ProductStatus = 'ACTIVE' | 'INACTIVE';
@@ -33,6 +51,8 @@ export interface Product {
 	minimumStock: number;
 	price: number;
 	imageUrl?: string | null;
+	preferredSupplierId?: string | null;
+	preferredSupplier?: Supplier | null;
 	status: ProductStatus;
 	createdAt: string;
 	updatedAt: string;
@@ -40,6 +60,7 @@ export interface Product {
 
 export type PurchasePriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 export type ApprovalStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+export type FulfillmentStatus = 'N/A' | 'OPEN' | 'PARTIAL' | 'COMPLETE';
 
 export interface PurchaseItem {
 	id: string;
@@ -63,6 +84,7 @@ export interface Purchase {
 	requester?: User;
 	dateRequired: string;
 	decisionDeadline: string;
+	expectedDeliveryDate?: string | null;
 	department: string;
 	purpose: string;
 	comments?: string | null;
@@ -80,15 +102,41 @@ export interface Purchase {
 	finalApprovedAt?: string | null;
 	approvalStatus: ApprovalStatus;
 	rejectionReason?: string | null;
+	fulfillmentStatus?: FulfillmentStatus;
+	receivedQty?: number;
+	orderedQty?: number;
 	total: number;
 	items?: PurchaseItem[];
 	createdAt: string;
 	updatedAt: string;
 }
 
-export type StockTransactionType = 'IN' | 'OUT' | 'ADJUSTMENT';
+export interface ReadyToReceiveRow extends Purchase {
+	remainingLines: number;
+	remainingQty: number;
+	orderedQty: number;
+	receivedQty: number;
+	fulfillmentStatus: FulfillmentStatus;
+	canReceive: true;
+}
 
-export type StockTransactionSource = 'MANUAL' | 'PURCHASE' | 'SALES' | 'ADJUSTMENT';
+export type StockTransactionType = 'IN' | 'OUT' | 'ADJUSTMENT' | 'TRANSFER';
+export type StockTransactionSource =
+	| 'MANUAL'
+	| 'PURCHASE'
+	| 'SALES'
+	| 'ADJUSTMENT'
+	| 'CYCLE_COUNT'
+	| 'TRANSFER';
+
+export interface Warehouse {
+	id: string;
+	code: string;
+	name: string;
+	isDefault: boolean;
+	createdAt?: string;
+	updatedAt?: string;
+}
 
 export interface StockTransaction {
 	id: string;
@@ -97,6 +145,9 @@ export interface StockTransaction {
 	type: StockTransactionType;
 	source: StockTransactionSource;
 	referenceId?: string | null;
+	warehouseId?: string | null;
+	warehouse?: Warehouse | null;
+	reversedFromId?: string | null;
 	qty: number;
 	stockBefore: number;
 	stockAfter: number;
@@ -113,12 +164,58 @@ export interface StockTransactionFilters {
 	limit?: number;
 }
 
+export interface GoodsReceipt {
+	id: string;
+	grnNumber: string;
+	purchaseId: string;
+	warehouseId?: string | null;
+	note?: string | null;
+	createdBy?: string | null;
+	createdAt: string;
+	lines?: { productId: string; qty: number; product?: Product }[];
+	purchase?: Purchase;
+	warehouse?: Warehouse | null;
+}
+
+export interface CycleCount {
+	id: string;
+	code: string;
+	warehouseId: string;
+	warehouse?: Warehouse;
+	status: 'DRAFT' | 'POSTED' | 'CANCELLED';
+	note?: string | null;
+	createdById?: string | null;
+	postedAt?: string | null;
+	createdAt: string;
+	lines?: {
+		id: string;
+		productId: string;
+		product?: Product;
+		systemQty: number;
+		countedQty: number;
+		variance: number;
+	}[];
+}
+
+export interface AppNotification {
+	id: string;
+	userId: string;
+	type: string;
+	title: string;
+	body: string;
+	href?: string | null;
+	readAt?: string | null;
+	createdAt: string;
+}
+
 export interface DashboardStats {
 	totalProducts: number;
 	totalPurchaseOrders: number;
 	totalSuppliers: number;
 	lowStockItems: number;
 	pendingApprovals: number;
+	readyToReceive?: number;
+	unreadNotifications?: number;
 }
 
 export interface CategoryStockStat {

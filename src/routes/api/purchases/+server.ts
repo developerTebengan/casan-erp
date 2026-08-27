@@ -2,6 +2,7 @@ import { json, error } from '@sveltejs/kit';
 import { purchaseService } from '$lib/server/services/purchase.service';
 import { hasPermission } from '$lib/permissions';
 import type { RequestHandler } from './$types';
+import type { FulfillmentStatus } from '$lib/types';
 
 export const GET: RequestHandler = async ({ url, locals }) => {
 	try {
@@ -16,6 +17,8 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		const approvalStatus =
 			(url.searchParams.get('approvalStatus') as 'PENDING' | 'APPROVED' | 'REJECTED') ||
 			undefined;
+		const fulfillmentStatus =
+			(url.searchParams.get('fulfillmentStatus') as FulfillmentStatus) || undefined;
 		const awaitingMe = url.searchParams.get('awaitingMe') === '1';
 		const myDecision = url.searchParams.get('myDecision') as
 			| 'PENDING'
@@ -27,12 +30,13 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 		const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit') ?? 10)));
 
 		const service = purchaseService();
-		const [result, statusCounts] = await Promise.all([
+		const [result, statusCounts, fulfillmentCounts] = await Promise.all([
 			service.list({
 				search,
 				supplierId,
 				priority,
 				approvalStatus,
+				fulfillmentStatus,
 				awaitingApproverId: awaitingMe ? locals.user.id : undefined,
 				myApproverId: myDecision ? locals.user.id : undefined,
 				myDecision: myDecision || undefined,
@@ -40,9 +44,10 @@ export const GET: RequestHandler = async ({ url, locals }) => {
 				page,
 				limit
 			}),
-			service.statusCounts()
+			service.statusCounts(),
+			approvalStatus === 'APPROVED' ? service.fulfillmentCounts() : Promise.resolve(null)
 		]);
-		return json({ ...result, statusCounts });
+		return json({ ...result, statusCounts, fulfillmentCounts });
 	} catch (e) {
 		console.error(e);
 		throw error(500, { message: 'Failed to load purchases' });

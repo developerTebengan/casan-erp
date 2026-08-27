@@ -8,7 +8,12 @@
 		Users,
 		LogOut,
 		ArrowLeftRight,
-		ClipboardCheck
+		ClipboardCheck,
+		Inbox,
+		Tags,
+		Warehouse,
+		ClipboardList,
+		BarChart3
 	} from '@lucide/svelte';
 	import { page } from '$app/stores';
 	import { classNames } from '$lib/utils/format';
@@ -27,10 +32,15 @@
 	const iconMap: Record<string, Component> = {
 		'/dashboard': LayoutDashboard,
 		'/inventory': Package,
+		'/categories': Tags,
 		'/stock': ArrowLeftRight,
+		'/receiving': Inbox,
+		'/cycle-counts': ClipboardList,
+		'/warehouses': Warehouse,
 		'/approvals': ClipboardCheck,
 		'/purchasing': ShoppingCart,
 		'/suppliers': Truck,
+		'/reports': BarChart3,
 		'/users': Users,
 		'/settings': Settings
 	};

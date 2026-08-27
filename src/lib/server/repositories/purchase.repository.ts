@@ -1,11 +1,18 @@
 import { db } from '$lib/server/db';
-import type { Purchase, PurchasePriority, ApprovalStatus, UserRole } from '$lib/types';
+import type {
+	Purchase,
+	PurchasePriority,
+	ApprovalStatus,
+	UserRole,
+	FulfillmentStatus
+} from '$lib/types';
 
 export interface PurchaseFilters {
 	search?: string;
 	supplierId?: string;
 	priority?: PurchasePriority;
 	approvalStatus?: ApprovalStatus;
+	fulfillmentStatus?: FulfillmentStatus;
 	awaitingApproverId?: string;
 	/** History for a specific approver: waiting / approved / rejected by them */
 	myApproverId?: string;
@@ -33,6 +40,7 @@ export interface PurchaseCreateInput {
 	requesterId: string;
 	dateRequired: Date;
 	decisionDeadline: Date;
+	expectedDeliveryDate?: Date | null;
 	department: string;
 	purpose: string;
 	comments?: string | null;
@@ -41,6 +49,10 @@ export interface PurchaseCreateInput {
 	finalApproverId?: string | null;
 	items: PurchaseItemInput[];
 }
+
+export type PurchaseReplaceInput = PurchaseCreateInput & {
+	resetApproval?: boolean;
+};
 
 export function purchaseRepository() {
 	async function findAll(filters: PurchaseFilters = {}) {
@@ -157,7 +169,8 @@ export function purchaseRepository() {
 					requester: { select: { id: true, name: true, email: true, role: true } },
 					departmentHead: { select: { id: true, name: true, email: true, role: true } },
 					financeApprover: { select: { id: true, name: true, email: true, role: true } },
-					finalApprover: { select: { id: true, name: true, email: true, role: true } }
+					finalApprover: { select: { id: true, name: true, email: true, role: true } },
+					items: { select: { productId: true, qty: true } }
 				}
 			}),
 			db.purchase.count({ where })
@@ -186,8 +199,14 @@ export function purchaseRepository() {
 		return purchase ? mapPurchase(purchase) : null;
 	}
 
-	async function findByPrNumber(prNumber: string) {
-		return db.purchase.findFirst({ where: { prNumber, deletedAt: null } });
+	async function findByPrNumber(prNumber: string, excludeId?: string) {
+		return db.purchase.findFirst({
+			where: {
+				prNumber,
+				deletedAt: null,
+				...(excludeId ? { NOT: { id: excludeId } } : {})
+			}
+		});
 	}
 
 	async function create(input: PurchaseCreateInput) {
@@ -202,6 +221,7 @@ export function purchaseRepository() {
 				requesterId: input.requesterId,
 				dateRequired: input.dateRequired,
 				decisionDeadline: input.decisionDeadline,
+				expectedDeliveryDate: input.expectedDeliveryDate ?? null,
 				department: input.department,
 				purpose: input.purpose,
 				comments: input.comments,
@@ -229,6 +249,67 @@ export function purchaseRepository() {
 					include: { product: { include: { category: { select: { name: true } } } } }
 				}
 			}
+		});
+
+		return mapPurchase(purchase);
+	}
+
+	async function replaceContents(id: string, input: PurchaseReplaceInput) {
+		const total = input.items.reduce((sum, item) => sum + item.qty * item.price, 0);
+
+		const purchase = await db.$transaction(async (tx) => {
+			await tx.purchaseItem.deleteMany({ where: { purchaseId: id } });
+
+			return tx.purchase.update({
+				where: { id },
+				data: {
+					prNumber: input.prNumber,
+					supplierId: input.supplierId,
+					dateOfRequest: input.dateOfRequest,
+					priority: input.priority,
+					dateRequired: input.dateRequired,
+					decisionDeadline: input.decisionDeadline,
+					expectedDeliveryDate: input.expectedDeliveryDate ?? null,
+					department: input.department,
+					purpose: input.purpose,
+					comments: input.comments,
+					departmentHeadId: input.departmentHeadId,
+					financeApproverId: input.financeApproverId,
+					finalApproverId: input.finalApproverId,
+					total,
+					...(input.resetApproval
+						? {
+								departmentHeadStatus: 'PENDING' as const,
+								departmentHeadApprovedAt: null,
+								financeStatus: 'PENDING' as const,
+								financeApprovedAt: null,
+								finalStatus: 'PENDING' as const,
+								finalApprovedAt: null,
+								approvalStatus: 'PENDING' as const,
+								rejectionReason: null
+							}
+						: {}),
+					items: {
+						create: input.items.map((item) => ({
+							productId: item.productId,
+							qty: item.qty,
+							price: item.price,
+							subtotal: item.qty * item.price,
+							notes: item.notes
+						}))
+					}
+				},
+				include: {
+					supplier: { select: { id: true, name: true, phone: true, address: true } },
+					requester: { select: { id: true, name: true, email: true, role: true } },
+					departmentHead: { select: { id: true, name: true, email: true, role: true } },
+					financeApprover: { select: { id: true, name: true, email: true, role: true } },
+					finalApprover: { select: { id: true, name: true, email: true, role: true } },
+					items: {
+						include: { product: { include: { category: { select: { name: true } } } } }
+					}
+				}
+			});
 		});
 
 		return mapPurchase(purchase);
@@ -286,7 +367,16 @@ export function purchaseRepository() {
 		return mapPurchase(purchase);
 	}
 
-	return { findAll, findById, findByPrNumber, create, remove, update, countByApprovalStatus };
+	return {
+		findAll,
+		findById,
+		findByPrNumber,
+		create,
+		replaceContents,
+		remove,
+		update,
+		countByApprovalStatus
+	};
 }
 
 function mapUser(
@@ -312,6 +402,7 @@ function mapPurchase(p: {
 	requester?: { id: string; name: string; email: string; role: string | UserRole } | null;
 	dateRequired: Date;
 	decisionDeadline: Date;
+	expectedDeliveryDate?: Date | null;
 	department: string;
 	purpose: string;
 	comments: string | null;
@@ -333,13 +424,13 @@ function mapPurchase(p: {
 	createdAt: Date;
 	updatedAt: Date;
 	items?: Array<{
-		id: string;
-		purchaseId: string;
+		id?: string;
+		purchaseId?: string;
 		productId: string;
 		qty: number;
-		price: unknown;
-		subtotal: unknown;
-		notes: string | null;
+		price?: unknown;
+		subtotal?: unknown;
+		notes?: string | null;
 		product?: {
 			id: string;
 			code: string;
@@ -360,6 +451,7 @@ function mapPurchase(p: {
 		requester: mapUser(p.requester),
 		dateRequired: p.dateRequired.toISOString(),
 		decisionDeadline: p.decisionDeadline.toISOString(),
+		expectedDeliveryDate: p.expectedDeliveryDate?.toISOString() ?? null,
 		department: p.department,
 		purpose: p.purpose,
 		comments: p.comments,
@@ -381,8 +473,8 @@ function mapPurchase(p: {
 		createdAt: p.createdAt.toISOString(),
 		updatedAt: p.updatedAt.toISOString(),
 		items: p.items?.map((item) => ({
-			id: item.id,
-			purchaseId: item.purchaseId,
+			id: item.id ?? '',
+			purchaseId: item.purchaseId ?? p.id,
 			productId: item.productId,
 			product: item.product
 				? {
@@ -397,15 +489,15 @@ function mapPurchase(p: {
 						stock: 0,
 						minimumStock: 0,
 						price: 0,
-						status: 'ACTIVE',
+						status: 'ACTIVE' as const,
 						createdAt: '',
 						updatedAt: ''
 					}
 				: undefined,
 			qty: item.qty,
-			price: Number(item.price),
-			subtotal: Number(item.subtotal),
-			notes: item.notes
+			price: Number(item.price ?? 0),
+			subtotal: Number(item.subtotal ?? 0),
+			notes: item.notes ?? null
 		}))
 	};
 }
